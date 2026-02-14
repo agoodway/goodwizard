@@ -1,0 +1,54 @@
+defmodule Goodwizard.Actions.Filesystem.ListDir do
+  @moduledoc """
+  Lists directory entries with [DIR] and [FILE] prefixes.
+  """
+
+  use Jido.Action,
+    name: "list_dir",
+    description: "List files and directories in a directory",
+    schema: [
+      path: [type: :string, required: true, doc: "Path to the directory to list"],
+      allowed_dir: [type: :string, doc: "Optional directory constraint"]
+    ]
+
+  alias Goodwizard.Actions.Filesystem
+
+  @impl true
+  def run(params, _context) do
+    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)) do
+      cond do
+        not File.exists?(resolved) ->
+          {:error, "Directory not found: #{resolved}"}
+
+        not File.dir?(resolved) ->
+          {:error, "Not a directory: #{resolved}"}
+
+        true ->
+          case File.ls(resolved) do
+            {:ok, entries} ->
+              format_entries(resolved, Enum.sort(entries))
+
+            {:error, reason} ->
+              {:error, "Failed to list directory: #{:file.format_error(reason)}"}
+          end
+      end
+    end
+  end
+
+  defp format_entries(path, []) do
+    {:ok, %{entries: "Directory #{path} is empty"}}
+  end
+
+  defp format_entries(path, entries) do
+    listing =
+      entries
+      |> Enum.map(fn entry ->
+        full_path = Path.join(path, entry)
+        prefix = if File.dir?(full_path), do: "[DIR]", else: "[FILE]"
+        "#{prefix} #{entry}"
+      end)
+      |> Enum.join("\n")
+
+    {:ok, %{entries: listing}}
+  end
+end
