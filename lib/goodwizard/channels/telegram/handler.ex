@@ -31,7 +31,9 @@ defmodule Goodwizard.Channels.Telegram.Handler do
 
   @ask_timeout 120_000
   @max_message_length 4096
+  @max_input_length 10_000
   @assistant_sender_id "assistant"
+  @user_sender_id "user"
 
   @doc """
   Callback invoked by the Handler macro for each incoming Telegram message.
@@ -72,42 +74,62 @@ defmodule Goodwizard.Channels.Telegram.Handler do
     chat_id = context.external_room_id
     room_id = context.room.id
 
-    if text == "" do
-      :noreply
-    else
-      case get_or_create_agent(chat_id) do
-        {:ok, agent_pid} ->
-          case GoodwizardAgent.ask_sync(agent_pid, text, timeout: @ask_timeout) do
-            {:ok, answer} ->
-              save_message(room_id, @assistant_sender_id, :assistant, answer)
+    cond do
+      text == "" ->
+        :noreply
 
-              case split_message(answer) do
-                [single] ->
-                  {:reply, single}
+      byte_size(text) > @max_input_length ->
+        {:reply, "Sorry, your message is too long. Please keep it under #{@max_input_length} bytes."}
 
-                [first | rest] ->
-                  # Return first chunk as reply; deliver remaining chunks directly
-                  for chunk <- rest do
-                    Telegex.send_message(chat_id, chunk)
-                  end
+      not valid_chat_id?(chat_id) ->
+        Logger.error("Invalid chat_id format: #{inspect(chat_id)}")
+        {:reply, "Sorry, I'm unable to start a session right now."}
 
-                  {:reply, first}
-              end
+      true ->
+        case get_or_create_agent(chat_id) do
+          {:ok, agent_pid} ->
+            save_message(room_id, @user_sender_id, :user, text)
 
-            {:error, reason} ->
-              Logger.error("Agent error for chat #{chat_id}: #{inspect(reason)}")
-              {:reply, "Sorry, I encountered an error. Please try again."}
-          end
+            case GoodwizardAgent.ask_sync(agent_pid, text, timeout: @ask_timeout) do
+              {:ok, answer} ->
+                save_message(room_id, @assistant_sender_id, :assistant, answer)
 
-        {:error, reason} ->
-          Logger.error("Failed to create agent for chat #{chat_id}: #{inspect(reason)}")
-          {:reply, "Sorry, I'm unable to start a session right now."}
-      end
+                case split_message(answer) do
+                  [single] ->
+                    {:reply, single}
+
+                  [first | rest] ->
+                    Enum.each(rest, fn chunk ->
+                      case Telegex.send_message(chat_id, chunk) do
+                        {:error, reason} ->
+                          Logger.error("Failed to send chunk to chat #{chat_id}: #{error_label(reason)}")
+
+                        _ ->
+                          :ok
+                      end
+                    end)
+
+                    {:reply, first}
+                end
+
+              {:error, reason} ->
+                Logger.error("Agent error for chat #{chat_id}: #{error_label(reason)}")
+                {:reply, "Sorry, I encountered an error. Please try again."}
+            end
+
+          {:error, reason} ->
+            Logger.error("Failed to create agent for chat #{chat_id}: #{error_label(reason)}")
+            {:reply, "Sorry, I'm unable to start a session right now."}
+        end
     end
   end
 
   defp get_or_create_agent(chat_id) do
     workspace = Goodwizard.Config.workspace()
+
+    overrides =
+      Goodwizard.Config.get(["channels", "telegram", "character_overrides"]) ||
+        %{"tone" => "friendly", "style" => "brief and mobile-friendly"}
 
     case Goodwizard.Jido.start_agent(GoodwizardAgent,
            id: "telegram:#{chat_id}",
@@ -115,10 +137,7 @@ defmodule Goodwizard.Channels.Telegram.Handler do
              workspace: workspace,
              channel: "telegram",
              chat_id: "#{chat_id}",
-             character_overrides: %{
-               "tone" => "friendly",
-               "style" => "brief and mobile-friendly"
-             }
+             character_overrides: overrides
            }
          ) do
       {:ok, agent_pid} ->
@@ -132,6 +151,8 @@ defmodule Goodwizard.Channels.Telegram.Handler do
     end
   end
 
+  defp allowed?(nil), do: false
+
   defp allowed?(from_id) do
     allow_from = Goodwizard.Config.get(["channels", "telegram", "allow_from"]) || []
 
@@ -140,6 +161,10 @@ defmodule Goodwizard.Channels.Telegram.Handler do
       list -> from_id in list || "#{from_id}" in Enum.map(list, &to_string/1)
     end
   end
+
+  defp valid_chat_id?(chat_id) when is_integer(chat_id), do: true
+  defp valid_chat_id?(chat_id) when is_binary(chat_id), do: String.match?(chat_id, ~r/\A[\w\-.:]+\z/)
+  defp valid_chat_id?(_), do: false
 
   defp extract_text([%{text: text} | _]) when is_binary(text), do: text
   defp extract_text([%JidoMessaging.Content.Text{text: text} | _]) when is_binary(text), do: text
@@ -184,13 +209,19 @@ defmodule Goodwizard.Channels.Telegram.Handler do
   end
 
   defp last_newline_index(string) do
-    string
-    |> String.graphemes()
-    |> Enum.with_index()
-    |> Enum.reverse()
-    |> Enum.find_value(fn
-      {"\n", idx} -> idx
-      _ -> nil
-    end)
+    case :binary.matches(string, "\n") do
+      [] ->
+        nil
+
+      matches ->
+        {byte_pos, _} = List.last(matches)
+        # Convert byte position to character position for String.slice compatibility
+        string |> binary_part(0, byte_pos) |> String.length()
+    end
   end
+
+  defp error_label(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp error_label(reason) when is_binary(reason), do: reason
+  defp error_label({kind, _details}) when is_atom(kind), do: Atom.to_string(kind)
+  defp error_label(_reason), do: "internal_error"
 end
