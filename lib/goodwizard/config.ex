@@ -26,6 +26,10 @@ defmodule Goodwizard.Config do
       "exec" => %{"timeout" => 60},
       "restrict_to_workspace" => true
     },
+    "heartbeat" => %{
+      "enabled" => false,
+      "interval_minutes" => 5
+    },
     "browser" => %{
       "headless" => true,
       "adapter" => "vibium",
@@ -81,6 +85,23 @@ defmodule Goodwizard.Config do
     get(["agent", "model"])
   end
 
+  @doc """
+  Validates configuration and emits warnings for missing or invalid values.
+
+  Warns but does not crash — the app starts in a degraded state.
+  """
+  @spec validate!() :: :ok
+  def validate! do
+    config = get()
+
+    validate_model(config)
+    validate_telegram(config)
+    validate_workspace(config)
+
+    Logger.info("Configuration validated successfully")
+    :ok
+  end
+
   # Server Callbacks
 
   @impl true
@@ -98,6 +119,8 @@ defmodule Goodwizard.Config do
 
     wire_browser_config(config)
     ensure_workspace(config)
+
+    Logger.info("Config loaded from #{expanded_path}, model=#{get_in(config, ["agent", "model"])}")
 
     {:ok, config}
   end
@@ -245,6 +268,49 @@ defmodule Goodwizard.Config do
 
       {:error, reason} ->
         Logger.warning("Could not create workspace directory #{workspace}: #{inspect(reason)}")
+    end
+  end
+
+  @known_model_prefixes ~w(anthropic: openai: google: ollama: mistral:)
+
+  defp validate_model(config) do
+    model = get_in(config, ["agent", "model"])
+
+    if model && not Enum.any?(@known_model_prefixes, &String.starts_with?(model, &1)) do
+      Logger.warning(
+        "Model \"#{model}\" does not match known provider patterns " <>
+          "(#{Enum.join(@known_model_prefixes, ", ")}). " <>
+          "Verify the model string is correct."
+      )
+    end
+  end
+
+  defp validate_telegram(config) do
+    telegram_enabled = get_in(config, ["channels", "telegram", "enabled"])
+
+    if telegram_enabled do
+      token = Application.get_env(:telegex, :token)
+
+      if is_nil(token) || token == "" do
+        Logger.warning(
+          "Telegram channel enabled but TELEGRAM_BOT_TOKEN is not set — Telegram will not start. " <>
+            "Set the TELEGRAM_BOT_TOKEN environment variable."
+        )
+      end
+    end
+  end
+
+  defp validate_workspace(config) do
+    workspace = get_in(config, ["agent", "workspace"])
+
+    if workspace do
+      expanded = Path.expand(workspace)
+
+      unless File.dir?(expanded) do
+        Logger.warning(
+          "Workspace directory #{expanded} does not exist — it will be auto-created."
+        )
+      end
     end
   end
 end

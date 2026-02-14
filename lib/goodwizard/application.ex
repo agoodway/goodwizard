@@ -10,10 +10,13 @@ defmodule Goodwizard.Application do
 
   @impl true
   def start(_type, _args) do
+    Logger.info("Starting Goodwizard application")
+
     children = [
       Goodwizard.Config,
       Goodwizard.Jido,
       Goodwizard.Messaging,
+      Goodwizard.ShutdownHandler,
       {Task, &start_optional_channels/0}
     ]
 
@@ -22,15 +25,43 @@ defmodule Goodwizard.Application do
   end
 
   defp start_optional_channels do
+    Goodwizard.Config.validate!()
+
     if Goodwizard.Config.get(["channels", "telegram", "enabled"]) do
+      Logger.info("Starting Telegram channel")
+
       case Supervisor.start_child(Goodwizard.Supervisor, %{
              id: Goodwizard.Channels.Telegram.Handler,
              start: {Goodwizard.Channels.Telegram.Handler, :start_link, [[]]},
              restart: :permanent
            }) do
-        {:ok, _pid} -> :ok
-        {:error, {:already_started, _pid}} -> :ok
-        {:error, reason} -> Logger.error("Failed to start Telegram handler: #{inspect(reason)}")
+        {:ok, _pid} ->
+          Logger.info("Telegram channel started")
+
+        {:error, {:already_started, _pid}} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.error("Failed to start Telegram handler: #{inspect(reason)}")
+      end
+    end
+
+    if Goodwizard.Config.get(["heartbeat", "enabled"]) do
+      Logger.info("Starting Heartbeat")
+
+      case Supervisor.start_child(Goodwizard.Supervisor, %{
+             id: Goodwizard.Heartbeat,
+             start: {Goodwizard.Heartbeat, :start_link, [[]]},
+             restart: :permanent
+           }) do
+        {:ok, _pid} ->
+          Logger.info("Heartbeat started")
+
+        {:error, {:already_started, _pid}} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.error("Failed to start Heartbeat: #{inspect(reason)}")
       end
     end
   end

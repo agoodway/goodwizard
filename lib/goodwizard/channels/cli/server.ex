@@ -39,6 +39,7 @@ defmodule Goodwizard.Channels.CLI.Server do
 
   @impl true
   def init(opts) do
+    Logger.info("CLI channel starting", channel: :cli)
     workspace = Keyword.get(opts, :workspace, Goodwizard.Config.workspace())
 
     # Create or retrieve the CLI messaging room
@@ -54,6 +55,8 @@ defmodule Goodwizard.Channels.CLI.Server do
            initial_state: %{workspace: workspace, channel: "cli", chat_id: "direct"}
          ) do
       {:ok, agent_pid} ->
+        Logger.info("CLI channel started, room=#{room.id}", channel: :cli)
+
         state = %{
           room_id: room.id,
           agent_pid: agent_pid,
@@ -68,7 +71,7 @@ defmodule Goodwizard.Channels.CLI.Server do
         {:ok, state}
 
       {:error, reason} ->
-        Logger.error("Failed to start agent: #{inspect(reason)}")
+        Logger.error("Failed to start agent: #{inspect(reason)}", channel: :cli)
         {:stop, reason}
     end
   end

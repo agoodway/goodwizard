@@ -17,6 +17,8 @@ defmodule Goodwizard.Plugins.Memory do
         long_term_content: Zoi.string() |> Zoi.default("")
       })
 
+  require Logger
+
   @impl Jido.Plugin
   def mount(agent, config) do
     memory_dir =
@@ -25,6 +27,7 @@ defmodule Goodwizard.Plugins.Memory do
 
     resolved_dir = resolve_memory_dir(memory_dir)
     content = load_memory_md(resolved_dir)
+    Logger.debug("Memory plugin mounted, dir=#{resolved_dir}, content_size=#{byte_size(content)}")
     {:ok, %{memory_dir: resolved_dir, long_term_content: content}}
   end
 
