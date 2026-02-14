@@ -15,6 +15,7 @@ defmodule Goodwizard.Heartbeat do
   alias Goodwizard.Messaging
 
   @default_interval_ms :timer.minutes(5)
+  @default_timeout_ms 120_000
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -113,7 +114,7 @@ defmodule Goodwizard.Heartbeat do
       content: [%{type: "text", text: content}]
     })
 
-    case GoodwizardAgent.ask_sync(state.agent_pid, content, timeout: 120_000) do
+    case GoodwizardAgent.ask_sync(state.agent_pid, content, timeout: resolve_timeout()) do
       {:ok, response} ->
         Messaging.save_message(%{
           room_id: state.room_id,
@@ -141,16 +142,38 @@ defmodule Goodwizard.Heartbeat do
     end
   end
 
+  defp resolve_timeout do
+    case Goodwizard.Config.get(["heartbeat", "timeout_seconds"]) do
+      nil -> @default_timeout_ms
+      seconds when is_number(seconds) -> trunc(seconds * 1_000)
+      _ -> @default_timeout_ms
+    end
+  end
+
+  @known_channels ~w(cli telegram)a
+
   defp resolve_room_binding do
     channel = Goodwizard.Config.get(["heartbeat", "channel"])
     chat_id = Goodwizard.Config.get(["heartbeat", "chat_id"])
 
     case {channel, chat_id} do
       {ch, id} when is_binary(ch) and is_binary(id) ->
-        {String.to_atom(ch), "goodwizard", id}
+        channel_atom =
+          case String.to_existing_atom(ch) do
+            atom when atom in @known_channels -> atom
+            _ ->
+              Logger.warning("Unknown heartbeat channel #{inspect(ch)}, falling back to :cli")
+              :cli
+          end
+
+        {channel_atom, "goodwizard", id}
 
       _ ->
         {:cli, "goodwizard", "heartbeat"}
     end
+  rescue
+    ArgumentError ->
+      Logger.warning("Unknown heartbeat channel atom, falling back to :cli")
+      {:cli, "goodwizard", "heartbeat"}
   end
 end
