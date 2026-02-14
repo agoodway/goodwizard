@@ -41,35 +41,54 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   """
 
   @impl Mix.Task
-  def run(_args) do
-    base = Path.expand(@base_dir)
+  def run(args) do
+    base = base_dir(args)
 
-    for subdir <- @subdirs do
-      path = Path.join(base, subdir)
+    # Ensure base directory exists with restricted permissions
+    File.mkdir_p(base)
+    File.chmod(base, 0o700)
 
-      case File.mkdir_p(path) do
-        :ok ->
-          Mix.shell().info("Created #{path}")
+    errors =
+      for subdir <- @subdirs, reduce: [] do
+        acc ->
+          path = Path.join(base, subdir)
 
-        {:error, reason} ->
-          Mix.shell().error("Failed to create #{path}: #{:file.format_error(reason)}")
+          case File.mkdir_p(path) do
+            :ok ->
+              File.chmod(path, 0o700)
+              Mix.shell().info("Created #{path}")
+              acc
+
+            {:error, reason} ->
+              msg = "Failed to create #{path}: #{:file.format_error(reason)}"
+              Mix.shell().error(msg)
+              [msg | acc]
+          end
       end
+
+    if errors != [] do
+      Mix.raise("Setup failed: could not create required directories")
     end
 
     config_path = Path.join(base, "config.toml")
 
-    if File.exists?(config_path) do
-      Mix.shell().info("Config already exists: #{config_path}")
-    else
-      case File.write(config_path, @default_config) do
-        :ok ->
-          Mix.shell().info("Created #{config_path}")
+    case File.open(config_path, [:write, :exclusive]) do
+      {:ok, file} ->
+        IO.write(file, @default_config)
+        File.close(file)
+        File.chmod(config_path, 0o600)
+        Mix.shell().info("Created #{config_path}")
 
-        {:error, reason} ->
-          Mix.shell().error(
-            "Failed to create #{config_path}: #{:file.format_error(reason)}"
-          )
-      end
+      {:error, :eexist} ->
+        Mix.shell().info("Config already exists: #{config_path}")
+
+      {:error, reason} ->
+        Mix.shell().error(
+          "Failed to create #{config_path}: #{:file.format_error(reason)}"
+        )
     end
   end
+
+  defp base_dir(["--base-dir", dir | _rest]), do: Path.expand(dir)
+  defp base_dir(_args), do: Path.expand(@base_dir)
 end
