@@ -84,15 +84,31 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
     end
 
     test "blocks message from user not in allow_from list", %{workspace: workspace} do
-      # Set up a config with a specific allow list that doesn't include our user
-      # We need to test the allowed?/1 function indirectly
-      {message, context} = build_message_and_context("hello", 99999, workspace)
+      # Temporarily set allow_from to a list that excludes our test user
+      original_config = :sys.get_state(Goodwizard.Config)
 
-      # The default config has allow_from = [], which means allow all
-      # To test blocking, we'd need to mock Config — instead test the public behavior
+      updated_config =
+        put_in(original_config, ["channels", "telegram", "allow_from"], [111_111])
+
+      :sys.replace_state(Goodwizard.Config, fn _ -> updated_config end)
+
+      try do
+        {message, context} = build_message_and_context("hello", 99999, workspace)
+        result = Handler.handle_message(message, context)
+        assert result == :noreply
+      after
+        :sys.replace_state(Goodwizard.Config, fn _ -> original_config end)
+      end
+    end
+
+    test "blocks message when from_id is nil", %{workspace: workspace} do
+      {message, context} = build_message_and_context("hello", 12345, workspace)
+
+      # Override context to have no telegram external_id
+      context = %{context | participant: %{context.participant | external_ids: %{}}}
+
       result = Handler.handle_message(message, context)
-      # With default empty allow_from, all users pass — so result won't be :noreply
-      refute result == :noreply
+      assert result == :noreply
     end
   end
 
@@ -128,6 +144,35 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
       }
 
       assert Handler.handle_message(message, context) == :noreply
+    end
+  end
+
+  describe "handle_message/2 input validation" do
+    test "rejects messages exceeding max input length", %{workspace: workspace} do
+      long_text = String.duplicate("a", 10_001)
+      {message, context} = build_message_and_context(long_text, 12345, workspace)
+
+      result = Handler.handle_message(message, context)
+      assert {:reply, reply} = result
+      assert reply =~ "too long"
+    end
+  end
+
+  describe "message persistence" do
+    test "saves user message to Messaging store", %{workspace: workspace} do
+      {message, context} = build_message_and_context("hello persistence", 12345, workspace)
+
+      # The handler will try to process and save the user message
+      # Even if agent fails, the user message should be saved first
+      Handler.handle_message(message, context)
+
+      {:ok, messages} = Messaging.list_messages(context.room.id)
+      user_messages = Enum.filter(messages, fn msg -> msg.role == :user end)
+      assert length(user_messages) >= 1
+
+      last_user = List.last(user_messages)
+      assert last_user.sender_id == "user"
+      assert [%{type: "text", text: "hello persistence"}] = last_user.content
     end
   end
 

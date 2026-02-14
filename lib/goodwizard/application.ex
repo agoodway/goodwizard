@@ -6,6 +6,7 @@ defmodule Goodwizard.Application do
   Telegram is started post-init via a startup task that queries Config after it's alive.
   """
   use Application
+  require Logger
 
   @impl true
   def start(_type, _args) do
@@ -22,7 +23,15 @@ defmodule Goodwizard.Application do
 
   defp start_optional_channels do
     if Goodwizard.Config.get(["channels", "telegram", "enabled"]) do
-      Supervisor.start_child(Goodwizard.Supervisor, {Goodwizard.Channels.Telegram.Handler, []})
+      case Supervisor.start_child(Goodwizard.Supervisor, %{
+             id: Goodwizard.Channels.Telegram.Handler,
+             start: {Goodwizard.Channels.Telegram.Handler, :start_link, [[]]},
+             restart: :permanent
+           }) do
+        {:ok, _pid} -> :ok
+        {:error, {:already_started, _pid}} -> :ok
+        {:error, reason} -> Logger.error("Failed to start Telegram handler: #{inspect(reason)}")
+      end
     end
   end
 end
