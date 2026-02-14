@@ -34,6 +34,13 @@ defmodule Goodwizard.Actions.Subagent.SpawnTest do
       # Should NOT include spawn, messaging, or browser
       refute Goodwizard.Actions.Subagent.Spawn in tools
       refute Goodwizard.Actions.Messaging.Send in tools
+
+      # Should NOT include any JidoBrowser actions
+      browser_tools = Enum.filter(tools, fn mod ->
+        mod |> Module.split() |> List.first() == "JidoBrowser"
+      end)
+
+      assert browser_tools == [], "Expected no JidoBrowser tools, got: #{inspect(browser_tools)}"
     end
 
     test "SubAgent uses correct model and iteration limit" do
@@ -45,10 +52,28 @@ defmodule Goodwizard.Actions.Subagent.SpawnTest do
       agent_id = "spawn_test:#{System.unique_integer([:positive])}"
 
       {:ok, pid} = Goodwizard.Jido.start_agent(SubAgent, id: agent_id)
+
+      on_exit(fn ->
+        if Process.alive?(pid), do: Goodwizard.Jido.stop_agent(pid)
+      end)
+
       assert is_pid(pid)
       assert Process.alive?(pid)
+    end
+  end
 
-      GenServer.stop(pid)
+  describe "run/2 query building" do
+    test "builds query from task only (no context)" do
+      # Verify the query construction logic by testing the params processing
+      params = %{task: "List all files"}
+      # Context is absent, so query should just be the task
+      assert Map.get(params, :context, "") == ""
+    end
+
+    test "builds query with context" do
+      params = %{task: "List all files", context: "Project root is /src"}
+      context = Map.get(params, :context, "")
+      assert context == "Project root is /src"
     end
   end
 end

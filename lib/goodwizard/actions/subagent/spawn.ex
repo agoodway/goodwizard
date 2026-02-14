@@ -2,9 +2,9 @@ defmodule Goodwizard.Actions.Subagent.Spawn do
   @moduledoc """
   Spawns a SubAgent to execute a background task.
 
-  Starts a SubAgent instance, sends the task query, and returns
-  the result. The subagent runs as a linked Task — if the parent
-  agent dies, the subagent dies too.
+  Starts a SubAgent instance under the Jido Task.Supervisor, sends
+  the task query, and returns the result. The subagent process is
+  cleaned up after completion regardless of success or failure.
   """
 
   use Jido.Action,
@@ -20,6 +20,7 @@ defmodule Goodwizard.Actions.Subagent.Spawn do
   alias Goodwizard.SubAgent
 
   @ask_timeout 120_000
+  @max_concurrent_subagents 3
 
   @impl true
   def run(params, _context) do
@@ -33,22 +34,35 @@ defmodule Goodwizard.Actions.Subagent.Spawn do
         task_description
       end
 
+    active_count = Goodwizard.Jido.agent_count()
+
+    if active_count >= @max_concurrent_subagents do
+      {:error, "Concurrent subagent limit reached (max #{@max_concurrent_subagents}). Wait for existing subagents to complete."}
+    else
+      spawn_and_run(query)
+    end
+  end
+
+  defp spawn_and_run(query) do
     agent_id = "subagent:#{System.unique_integer([:positive])}"
 
     case Goodwizard.Jido.start_agent(SubAgent, id: agent_id) do
       {:ok, pid} ->
-        # Run as a linked Task so it dies with the parent
         task =
-          Task.async(fn ->
+          Task.Supervisor.async(Goodwizard.Jido.task_supervisor_name(), fn ->
             SubAgent.ask_sync(pid, query, timeout: @ask_timeout)
           end)
 
-        case Task.await(task, @ask_timeout + 5_000) do
-          {:ok, result} ->
-            {:ok, %{result: result}}
+        try do
+          case Task.await(task, @ask_timeout + 5_000) do
+            {:ok, result} ->
+              {:ok, %{result: result}}
 
-          {:error, reason} ->
-            {:error, "Subagent failed: #{inspect(reason)}"}
+            {:error, reason} ->
+              {:error, "Subagent failed: #{inspect(reason)}"}
+          end
+        after
+          Goodwizard.Jido.stop_agent(pid)
         end
 
       {:error, reason} ->

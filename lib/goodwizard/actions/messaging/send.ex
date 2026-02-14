@@ -18,9 +18,13 @@ defmodule Goodwizard.Actions.Messaging.Send do
 
   alias Goodwizard.Messaging
 
-  @channel_modules %{
+  @default_channel_modules %{
     telegram: JidoMessaging.Channels.Telegram
   }
+
+  defp channel_modules do
+    Application.get_env(:goodwizard, :channel_modules, @default_channel_modules)
+  end
 
   @impl true
   def run(params, _context) do
@@ -38,9 +42,17 @@ defmodule Goodwizard.Actions.Messaging.Send do
 
     case Messaging.save_message(message_attrs) do
       {:ok, message} ->
-        # Attempt external delivery to bound channels
-        deliver_to_bindings(room_id, content)
-        {:ok, %{message_id: message.id, room_id: room_id, delivered: true}}
+        delivery_results = deliver_to_bindings(room_id, content)
+        failures = Enum.filter(delivery_results, &match?({:error, _, _}, &1))
+
+        {:ok,
+         %{
+           message_id: message.id,
+           room_id: room_id,
+           persisted: true,
+           delivered: failures == [],
+           delivery_results: delivery_results
+         }}
 
       {:error, reason} ->
         {:error, "Failed to save message: #{inspect(reason)}"}
@@ -52,12 +64,13 @@ defmodule Goodwizard.Actions.Messaging.Send do
       {:ok, bindings} ->
         bindings
         |> Enum.filter(&outbound_enabled?/1)
-        |> Enum.each(fn binding ->
+        |> Enum.map(fn binding ->
           deliver_to_binding(binding, room_id, content)
         end)
 
       {:error, reason} ->
         Logger.debug("No bindings found for room #{room_id}: #{inspect(reason)}")
+        []
     end
   end
 
@@ -66,9 +79,10 @@ defmodule Goodwizard.Actions.Messaging.Send do
   end
 
   defp deliver_to_binding(binding, room_id, content) do
-    case Map.get(@channel_modules, binding.channel) do
+    case Map.get(channel_modules(), binding.channel) do
       nil ->
         Logger.debug("No channel module for #{binding.channel}, skipping delivery")
+        {:error, binding.channel, :no_channel_module}
 
       channel_module ->
         channel_context = %{
@@ -83,12 +97,14 @@ defmodule Goodwizard.Actions.Messaging.Send do
                channel_context
              ) do
           {:ok, _message} ->
-            :ok
+            {:ok, binding.channel}
 
           {:error, reason} ->
             Logger.warning(
               "Failed to deliver to #{binding.channel}:#{binding.external_room_id}: #{inspect(reason)}"
             )
+
+            {:error, binding.channel, reason}
         end
     end
   end
