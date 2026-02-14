@@ -2,8 +2,8 @@
 
 ## Backend
 
-- [ ] 1.1 Create Goodwizard.Actions.Scheduling.Cron action (cron expression + task + channel/chat_id, emit Directive.Schedule)
-- [ ] 1.2 Create heartbeat GenServer/Sensor — read HEARTBEAT.md on schedule, process as agent message
+- [ ] 1.1 Create Goodwizard.Actions.Scheduling.Cron action (cron expression + task + room_id, emit Directive.Schedule)
+- [ ] 1.2 Create Goodwizard.Heartbeat GenServer under Application supervisor — read HEARTBEAT.md on schedule, target configurable Messaging room
 - [ ] 1.3 Create Mix.Tasks.Goodwizard.Start — start full application with all enabled channels
 - [ ] 1.4 Create Mix.Tasks.Goodwizard.Status — show config, active channels, conversations, memory stats
 - [ ] 1.5 Add structured Logger calls throughout all modules

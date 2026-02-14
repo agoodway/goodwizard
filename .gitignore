@@ -10,5 +10,13 @@ erl_crash.dump
 .sidecar/
 .todos/
 
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+
 # Generated on host
 *.ez
+*.log
