@@ -29,7 +29,7 @@ defmodule Goodwizard.Agent do
     plugins: [
       Goodwizard.Plugins.Session,
       Goodwizard.Plugins.Memory,
-      Goodwizard.Skills.PromptSkills
+      Goodwizard.Plugins.PromptSkills
     ]
 
   require Logger
@@ -180,6 +180,6 @@ defmodule Goodwizard.Agent do
   defp build_skills_state(agent) do
     prompt_skills = Map.get(agent.state, :prompt_skills, %{})
     summary = Map.get(prompt_skills, :skills_summary, "")
-    %{summary: summary, active: []}
+    %{summary: summary}
   end
 end

@@ -1,4 +1,4 @@
-defmodule Goodwizard.Skills.PromptSkills do
+defmodule Goodwizard.Plugins.PromptSkills do
   @moduledoc """
   Plugin that scans workspace skill directories for SKILL.md files,
   parses Claude Code-compatible frontmatter, indexes resource files,
@@ -6,6 +6,11 @@ defmodule Goodwizard.Skills.PromptSkills do
 
   Scans both `workspace/skills/` and `.claude/skills/` directories.
   Workspace takes precedence on name collision.
+
+  Resource indexing is non-recursive: only files directly inside a skill's
+  directory are indexed (subdirectories are ignored). This matches the
+  Claude Code SKILL.md convention where resources are flat files alongside
+  SKILL.md.
   """
 
   use Jido.Plugin,
@@ -21,12 +26,27 @@ defmodule Goodwizard.Skills.PromptSkills do
 
   require Logger
 
-  alias Goodwizard.Skills.PromptSkills.Parser
+  @typedoc "A discovered skill with parsed metadata and indexed resources."
+  @type skill :: %{
+          name: String.t(),
+          description: String.t(),
+          path: String.t(),
+          dir: String.t(),
+          content: String.t(),
+          resources: [String.t()],
+          meta: map()
+        }
+
+  # 256 KB max for SKILL.md files
+  @max_skill_file_bytes 256 * 1024
+
+  alias Goodwizard.Plugins.PromptSkills.Parser
 
   @impl Jido.Plugin
-  def mount(agent, _config) do
+  def mount(agent, config) do
     workspace =
-      get_in(agent, [Access.key(:state, %{}), :workspace]) || "."
+      Map.get(config, :workspace) ||
+        get_in(agent, [Access.key(:state, %{}), :workspace]) || "."
 
     skills = scan_skills(workspace)
     summary = build_skills_summary(skills)
@@ -41,7 +61,7 @@ defmodule Goodwizard.Skills.PromptSkills do
   `:dir`, `:content` (body), `:resources`, `:meta`.
   Workspace skills take precedence on name collision.
   """
-  @spec scan_skills(String.t()) :: [map()]
+  @spec scan_skills(String.t()) :: [skill()]
   def scan_skills(workspace) do
     workspace_dir = Path.join(workspace, "skills")
     claude_dir = Path.join([workspace, ".claude", "skills"])
@@ -119,7 +139,9 @@ defmodule Goodwizard.Skills.PromptSkills do
   end
 
   defp parse_skill(skill_md_path, skill_dir) do
-    with {:ok, content} <- File.read(skill_md_path),
+    with {:ok, stat} <- File.stat(skill_md_path),
+         :ok <- check_file_size(stat.size, skill_md_path),
+         {:ok, content} <- File.read(skill_md_path),
          {:ok, metadata, body} <- Parser.parse_frontmatter(content),
          {:ok, metadata} <- Parser.validate_metadata(metadata) do
       resources = list_resources(skill_dir)
@@ -136,6 +158,13 @@ defmodule Goodwizard.Skills.PromptSkills do
        }}
     end
   end
+
+  defp check_file_size(size, path) when size > @max_skill_file_bytes do
+    Logger.warning("Skipping #{path}: file size #{size} exceeds limit #{@max_skill_file_bytes}")
+    {:error, "file too large"}
+  end
+
+  defp check_file_size(_size, _path), do: :ok
 
   defp list_resources(skill_dir) do
     case File.ls(skill_dir) do

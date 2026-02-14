@@ -1,4 +1,4 @@
-defmodule Goodwizard.Skills.PromptSkills.Parser do
+defmodule Goodwizard.Plugins.PromptSkills.Parser do
   @moduledoc """
   Parses Claude Code-compatible SKILL.md frontmatter.
 
@@ -9,6 +9,7 @@ defmodule Goodwizard.Skills.PromptSkills.Parser do
   @name_pattern ~r/^[a-z0-9-]+$/
   @max_name_length 64
   @max_description_length 1024
+  @yaml_parse_timeout_ms 5_000
 
   @doc """
   Parse YAML frontmatter from SKILL.md content.
@@ -20,12 +21,15 @@ defmodule Goodwizard.Skills.PromptSkills.Parser do
   def parse_frontmatter(content) when is_binary(content) do
     case split_frontmatter(content) do
       {:ok, yaml_str, body} ->
-        case YamlElixir.read_from_string(yaml_str) do
+        case parse_yaml_with_timeout(yaml_str) do
           {:ok, parsed} when is_map(parsed) ->
             extract_fields(parsed, body)
 
           {:ok, _} ->
             {:error, "frontmatter must be a YAML mapping"}
+
+          {:error, :timeout} ->
+            {:error, "YAML parsing timed out"}
 
           {:error, _reason} ->
             {:error, "invalid YAML in frontmatter"}
@@ -59,17 +63,31 @@ defmodule Goodwizard.Skills.PromptSkills.Parser do
     end
   end
 
+  defp parse_yaml_with_timeout(yaml_str) do
+    task = Task.async(fn -> YamlElixir.read_from_string(yaml_str) end)
+
+    case Task.yield(task, @yaml_parse_timeout_ms) || Task.shutdown(task) do
+      {:ok, result} -> result
+      nil -> {:error, :timeout}
+    end
+  end
+
   # Split content into frontmatter YAML and body.
-  # Frontmatter is delimited by --- at the start of the file.
+  # Frontmatter is delimited by --- on its own line at the start of the file.
   defp split_frontmatter(content) do
-    case String.split(content, "\n", parts: 2) do
-      [first_line | _] ->
+    # Normalize CRLF to LF for consistent line splitting
+    normalized = String.replace(content, "\r\n", "\n")
+
+    case String.split(normalized, "\n", parts: 2) do
+      [first_line, rest] ->
         if String.trim(first_line) == "---" do
-          rest = String.slice(content, String.length(first_line) + 1, String.length(content))
           find_closing_delimiter(rest)
         else
           {:error, "no frontmatter found"}
         end
+
+      [_single_line] ->
+        {:error, "no frontmatter found"}
 
       [] ->
         {:error, "no frontmatter found"}
@@ -77,23 +95,16 @@ defmodule Goodwizard.Skills.PromptSkills.Parser do
   end
 
   defp find_closing_delimiter(rest) do
-    case :binary.match(rest, "\n---") do
-      {pos, _len} ->
-        yaml_str = binary_part(rest, 0, pos)
-        # Skip past the \n---\n (or \n--- + EOF)
-        after_delimiter = binary_part(rest, pos + 4, byte_size(rest) - pos - 4)
+    lines = String.split(rest, "\n")
 
-        # Strip optional newline right after closing ---
-        body =
-          case after_delimiter do
-            "\n" <> rest_body -> rest_body
-            other -> other
-          end
-
-        {:ok, yaml_str, String.trim_leading(body)}
-
-      :nomatch ->
+    case Enum.find_index(lines, &(String.trim(&1) == "---")) do
+      nil ->
         {:error, "no frontmatter found"}
+
+      idx ->
+        yaml_str = lines |> Enum.take(idx) |> Enum.join("\n")
+        body = lines |> Enum.drop(idx + 1) |> Enum.join("\n") |> String.trim_leading()
+        {:ok, yaml_str, body}
     end
   end
 

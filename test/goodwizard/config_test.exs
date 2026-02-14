@@ -372,4 +372,53 @@ defmodule Goodwizard.ConfigTest do
       assert File.dir?(workspace_path)
     end
   end
+
+  describe "validate_numeric_ranges" do
+    test "clamps out-of-range values to defaults", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      File.write!(config_path, """
+      [agent]
+      max_tokens = 999999
+      temperature = 5.0
+      memory_window = -1
+      """)
+
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          {:ok, _pid} = Config.start_link(config_path: config_path)
+        end)
+
+      assert log =~ "outside range"
+
+      # Should fall back to defaults
+      assert Config.get(["agent", "max_tokens"]) == 8192
+      assert Config.get(["agent", "temperature"]) == 0.7
+      assert Config.get(["agent", "memory_window"]) == 50
+    end
+  end
+
+  describe "oversized config file" do
+    test "rejects config file exceeding size limit", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      # Write a file larger than @max_toml_size (1MB)
+      File.write!(config_path, String.duplicate("# comment\n", 200_000))
+
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          {:ok, _pid} = Config.start_link(config_path: config_path)
+        end)
+
+      assert log =~ "bytes (max"
+
+      # Should fall back to defaults
+      config = Config.get()
+      assert get_in(config, ["agent", "model"]) == "anthropic:claude-sonnet-4-5"
+    end
+  end
 end
