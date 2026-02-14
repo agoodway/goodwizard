@@ -46,7 +46,7 @@ Update Session skill to persist to JSONL files. Port of `nanobot/session/manager
 - Add Memory skill to Agent (as additional skill alongside ReActAgent's built-in skills)
 - Register memory actions as additional tools via dynamic tool registration (`react.register_tool` signal)
 - Hook consolidation into `on_before_cmd/2`: check message count, trigger if over memory_window
-- Include memory content in system prompt via ContextBuilder
+- Memory content flows through `Hydrator.inject_memory/2` using `Jido.Character.add_knowledge/3` (category: "long-term-memory") instead of being passed to ContextBuilder as a string. File-based persistence remains the source of truth; the character's memory knowledge is a read-only view reconstructed each turn
 
 ## Dependencies
 

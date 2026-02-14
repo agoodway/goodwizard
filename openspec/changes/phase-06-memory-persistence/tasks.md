@@ -11,7 +11,7 @@
 - [ ] 1.7 Add JSONL session persistence to Session skill (load_session/2, save_session/3 with metadata + messages)
 - [ ] 1.8 Register memory actions as additional tools on the agent (dynamic tool registration)
 - [ ] 1.9 Hook consolidation into on_before_cmd/2 — check message count, trigger if over memory_window
-- [ ] 1.10 Include memory content in ContextBuilder system prompt
+- [ ] 1.10 Include memory content via Hydrator.inject_memory/2 — pass memory_content in opts to hydrate/2, which adds it as knowledge (category: "long-term-memory")
 
 ## Test
 

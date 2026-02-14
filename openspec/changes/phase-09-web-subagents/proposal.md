@@ -1,25 +1,26 @@
-# Phase 9: Web Tools and Subagents
+# Phase 9: Browser Capabilities and Subagents
 
 ## Why
 
-Web search and HTTP fetch give the agent access to live information beyond its training data. Subagents enable parallel background work — the main agent can delegate research or file processing tasks without blocking the conversation. jido_ai provides orchestration actions (`SpawnChildAgent`, `DelegateTask`) that make subagent management straightforward.
+Browser capabilities give the agent access to live information beyond its training data — web search, page reading, and full browser automation. Subagents enable parallel background work — the main agent can delegate research or file processing tasks without blocking the conversation. The `jido_browser` library (`~> 0.8`) from the agentjido ecosystem provides all browser capabilities through a Plugin pattern, registering 31 browser automation actions automatically. jido_ai provides orchestration actions (`SpawnChildAgent`, `DelegateTask`) that make subagent management straightforward.
 
 ## What
 
-### Web.Search Action
+### JidoBrowser.Plugin Integration
 
-Brave Search API. Port from `nanobot/agent/tools/web.py:WebSearchTool`.
+The agent includes `JidoBrowser.Plugin` in its plugins configuration, which automatically registers 31 browser actions covering:
 
-- Schema: query (required string), count (integer, default 5)
-- Uses Req to call `https://api.search.brave.com/res/v1/web/search`
-- Returns formatted search results
+- **Session lifecycle**: StartSession, EndSession, ResetSession
+- **Navigation**: Navigate, NavigateBack, NavigateForward, Reload
+- **Interaction**: Click, Type, Hover, SelectOption, DragAndDrop, PressKey
+- **Synchronization**: WaitForElement, WaitForNavigation, WaitForTimeout
+- **Content extraction**: ExtractContent, ExtractStructuredData, EvaluateJavascript
+- **Advanced**: Screenshot, SnapshotUrl, FillForm, FileUpload, HandleDialog
 
-### Web.Fetch Action
-
-HTTP fetch + content extraction. Port from `WebFetchTool`.
-
-- Schema: url (required string), max_length (integer, default 10000)
-- Fetches via Req, strips HTML tags (basic HTML-to-text), truncates
+Key self-contained actions (manage their own session, no StartSession needed):
+- **ReadPage** — fetch a URL and extract content as markdown. Self-contained: starts session, fetches, extracts, closes session.
+- **SearchWeb** — query Brave Search API. Returns ranked results with title, URL, and snippet. Requires `BRAVE_API_KEY` configured.
+- **SnapshotUrl** — capture an LLM-optimized page snapshot. Self-contained session management.
 
 ### Goodwizard.SubAgent
 
@@ -41,6 +42,35 @@ defmodule Goodwizard.SubAgent do
 end
 ```
 
+### Goodwizard.SubAgent.Character
+
+The subagent gets its own character module with a focused identity and constrained instructions:
+
+```elixir
+defmodule Goodwizard.SubAgent.Character do
+  use Jido.Character,
+    name: "Goodwizard SubAgent",
+    role: "background research and file processing agent",
+    personality: %{
+      traits: [:focused, :efficient, :thorough],
+      values: ["accuracy", "completeness"]
+    },
+    voice: %{
+      tone: :professional,
+      style: "concise and factual"
+    },
+    instructions: [
+      "Complete the assigned task and report results",
+      "Do not communicate directly with the user",
+      "Do not spawn additional subagents",
+      "Stay within the scope of the delegated task",
+      "Read files before modifying them"
+    ]
+end
+```
+
+The SubAgent's `on_before_cmd/2` uses this character with the delegated task context injected as knowledge (category: "task-context") via the Hydrator.
+
 ### Subagent.Spawn Action
 
 Uses jido_ai's orchestration pattern:
@@ -50,20 +80,21 @@ Uses jido_ai's orchestration pattern:
 
 ### Messaging.Send Action
 
-Cross-channel messaging:
-- Schema: channel (required), chat_id (required), content (required)
-- Emits directive to send message to specific channel/chat
+Cross-channel messaging via Goodwizard.Messaging:
+- Schema: room_id (required), content (required)
+- Saves the message via `Goodwizard.Messaging.save_message/1` for persistence
+- Uses `JidoMessaging.Deliver` for external delivery to bound channels (e.g., Telegram rooms)
 
 ### Tool Registration
 
-Register new tools dynamically on the agent via `react.register_tool` signals or by adding to the agent's tools list.
+Browser actions are auto-registered by JidoBrowser.Plugin — no individual `Goodwizard.Actions.Web.*` modules needed. Subagent and messaging actions are registered on the agent's tools list. Note the Messaging.Send schema uses `room_id + content` (not `channel + chat_id`).
 
 ## Dependencies
 
 - Phase 4 (Agent Definition) — ReActAgent pattern for subagents
+- Phase 1 (Scaffold & Config) — browser config and jido_browser dependency
 
 ## Reference
 
-- `nanobot/agent/tools/web.py` (~150 lines)
-- `nanobot/agent/subagent.py` (~100 lines)
+- jido_browser docs: https://hexdocs.pm/jido_browser/readme.html
 - jido_ai orchestration actions: SpawnChildAgent, DelegateTask

@@ -2,16 +2,22 @@
 
 ## Backend
 
-- [ ] 1.1 Create Goodwizard.ContextBuilder.build_system_prompt/2 — identity section, bootstrap files from workspace, memory, skills summary
-- [ ] 1.2 Create Goodwizard.ContextBuilder.build_messages/1 — complete message list [system, ...history, user]
-- [ ] 1.3 Create Goodwizard.ContextBuilder.add_tool_result/4 and add_assistant_message/3
-- [ ] 1.4 Verify all Phase 2 actions convert correctly via Jido.AI.ToolAdapter.from_actions/1 (name, description, parameter_schema)
-- [ ] 1.5 Verify Jido.AI.Executor dispatches tool calls to actions with correct argument normalization
+- [ ] 1.1 Create `Goodwizard.Character` module — `use Jido.Character` with name, role, personality (traits + values), voice (tone + style), instructions
+- [ ] 1.2 Create `Goodwizard.Character.Hydrator` — `hydrate/2` creates base character, applies config overrides, injects bootstrap files as knowledge (category: "workspace"), renders via `to_context/2`
+- [ ] 1.3 Implement `Hydrator.inject_memory/2` and `Hydrator.inject_skills/2` as composable enrichment functions (used by later phases)
+- [ ] 1.4 Slim `Goodwizard.ContextBuilder` to message ops only — `build_messages/1`, `add_tool_result/4`, `add_assistant_message/3` (remove `build_system_prompt/2`)
+- [ ] 1.5 Verify all Phase 2 actions convert correctly via Jido.AI.ToolAdapter.from_actions/1 (name, description, parameter_schema)
+- [ ] 1.6 Verify Jido.AI.Executor dispatches tool calls to actions with correct argument normalization
 
 ## Test
 
-- [ ] 2.1 Test ContextBuilder includes identity section with name, time, workspace
-- [ ] 2.2 Test ContextBuilder loads bootstrap files from workspace
-- [ ] 2.3 Test ContextBuilder builds complete message list and adds tool results
-- [ ] 2.4 Test ToolAdapter produces correct ReqLLM tool definitions from action modules
-- [ ] 2.5 Test Executor executes tools by name with string-to-atom key normalization
+- [ ] 2.1 Test Character module produces valid struct with expected name, role, personality, voice, instructions
+- [ ] 2.2 Test Hydrator.hydrate/2 loads bootstrap files from workspace as knowledge items with category "workspace"
+- [ ] 2.3 Test Hydrator applies config overrides (name, tone, style, traits) when Config.get(:character) returns non-nil
+- [ ] 2.4 Test Hydrator.inject_memory/2 adds knowledge with category "long-term-memory"
+- [ ] 2.5 Test Hydrator.inject_skills/2 adds instruction for skills summary and knowledge for active skills
+- [ ] 2.6 Test Hydrator.hydrate/2 renders to system prompt string via to_context/2
+- [ ] 2.7 Test ContextBuilder.build_messages/1 builds [system, ...history, user] message list
+- [ ] 2.8 Test ContextBuilder.add_tool_result/4 and add_assistant_message/3
+- [ ] 2.9 Test ToolAdapter produces correct ReqLLM tool definitions from action modules
+- [ ] 2.10 Test Executor executes tools by name with string-to-atom key normalization

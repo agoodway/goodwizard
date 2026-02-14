@@ -21,6 +21,19 @@ jido_ai (from the same agentjido team) replaces req_llm as the LLM integration l
 
 req_llm is still used under the hood — jido_ai pulls it in transitively.
 
+## Architecture Decision: jido_character for prompt assembly
+
+jido_character (v1.0, same agentjido ecosystem) replaces hand-rolled system prompt construction with structured, validated, renderable character definitions:
+
+| jido_character Component | Replaces | Impact |
+|--------------------------|----------|--------|
+| `Jido.Character` (use macro) | Identity string concatenation in ContextBuilder | Schema-validated character definitions |
+| `add_knowledge/3` | Manual string appending for bootstrap files, memory | Categorized knowledge injection |
+| `add_instruction/2` | Manual instruction string building | Typed instruction management |
+| `to_context/2` | `"\n\n---\n\n"` separator joining | Structured prompt rendering |
+
+ContextBuilder splits into three concerns: `Goodwizard.Character` (base definition), `Goodwizard.Character.Hydrator` (runtime enrichment), and a slimmed `Goodwizard.ContextBuilder` (message list ops only). Characters are reconstructed fresh each turn from file-based state — a read-only view, not a long-lived entity.
+
 ---
 
 ## Dependency Graph
@@ -28,7 +41,7 @@ req_llm is still used under the hood — jido_ai pulls it in transitively.
 ```
 Phase 1: Scaffold + Config           (standalone)
 Phase 2: Actions                     (standalone)
-Phase 3: ReAct Integration           (needs Phase 2)
+Phase 3: ReAct Integration           (needs Phase 1, 2)
 Phase 4: Agent Definition            (needs Phase 3)
 Phase 5: CLI Channel                 (needs Phase 4)
 Phase 6: Memory + Persistence        (needs Phase 4, 5)
@@ -48,17 +61,17 @@ Phases 1-2 can run in parallel. Phases 8-9 can run in parallel after Phase 5.
 |-------|-----------|---------|
 | 1. Scaffold + Config | ~200 | 3 |
 | 2. Actions | ~350 | 5 |
-| 3. ReAct Integration | ~150 | 1 |
+| 3. ReAct Integration | ~250 | 3 |
 | 4. Agent Definition | ~200 | 2 |
 | 5. CLI Channel | ~250 | 4 |
 | 6. Memory + Persistence | ~400 | 6 |
 | 7. Prompt Skills | ~200 | 1 |
 | 8. Telegram Channel | ~350 | 3 |
-| 9. Web + Subagents | ~300 | 5 |
+| 9. Web + Subagents | ~330 | 6 |
 | 10. Cron + Polish | ~200 | 4 |
-| **Total** | **~2,600** | **34** |
+| **Total** | **~2,730** | **37** |
 
-~400 fewer lines than the original plan thanks to jido_ai eliminating custom ToolBuilder and ToolLoop code.
+~400 fewer lines than the original plan thanks to jido_ai eliminating custom ToolBuilder and ToolLoop code. +3 modules from jido_character integration (Character, Hydrator, SubAgent.Character).
 
 ---
 

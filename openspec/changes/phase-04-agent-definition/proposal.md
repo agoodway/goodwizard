@@ -22,7 +22,7 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Filesystem.ListDir,
       Goodwizard.Actions.Shell.Exec
     ],
-    system_prompt: nil,  # Built dynamically by ContextBuilder
+    system_prompt: nil,  # Built dynamically by Character + Hydrator
     model: "anthropic:claude-sonnet-4-5",
     max_iterations: 20
 end
@@ -47,11 +47,12 @@ In-memory message history per conversation. Port of `nanobot/session/manager.py:
 
 ### System Prompt Integration
 
-The ReAct strategy accepts a `system_prompt` option, but Goodwizard's system prompt is dynamic (built from workspace files, memory, skills). We need to hook into the agent lifecycle to build the system prompt via ContextBuilder before each ReAct cycle:
+The ReAct strategy accepts a `system_prompt` option, but Goodwizard's system prompt is dynamic (built from workspace files, memory, skills). We need to hook into the agent lifecycle to build the system prompt via Character + Hydrator before each ReAct cycle:
 
-- Override `on_before_cmd/2` to build system prompt from workspace state
-- Pass workspace, memory content, and skills to ContextBuilder
-- Set the built prompt into the ReAct strategy's conversation
+- Override `on_before_cmd/2` to call `Goodwizard.Character.Hydrator.hydrate/2` with workspace state
+- Hydrator creates a fresh character, applies config overrides, injects bootstrap files/memory/skills as knowledge
+- Character overrides from agent `initial_state` (if any) are applied via the Hydrator
+- Set the rendered prompt into the ReAct strategy's conversation
 
 ### Agent Creation Pattern
 
@@ -72,7 +73,7 @@ The ReAct strategy accepts a `system_prompt` option, but Goodwizard's system pro
 
 ## Dependencies
 
-- Phase 3 (ReAct Integration) — ContextBuilder and tool registration
+- Phase 3 (ReAct Integration) — Character, Hydrator, ContextBuilder, and tool registration
 
 ## Reference
 

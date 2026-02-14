@@ -5,7 +5,7 @@
 - [ ] 1.1 Create Goodwizard.Agent module using `use Jido.AI.ReActAgent` with tools, model, and max_iterations
 - [ ] 1.2 Create Goodwizard.Skills.Session skill (state_key :session, schema with messages/created_at/metadata, mount/2)
 - [ ] 1.3 Implement Session helper functions: add_message/4, get_history/2, clear/1
-- [ ] 1.4 Override on_before_cmd/2 to build dynamic system prompt via ContextBuilder from workspace state
+- [ ] 1.4 Override on_before_cmd/2 to build dynamic system prompt via Hydrator.hydrate/2 from workspace state (apply character_overrides from agent initial_state if present)
 - [ ] 1.5 Override on_after_cmd/3 to update session with query and response
 
 ## Test

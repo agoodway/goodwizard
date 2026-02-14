@@ -2,16 +2,16 @@
 
 ## Backend
 
-- [ ] 1.1 Create Goodwizard.Channels.Telegram.Markdown — convert markdown to Telegram HTML (code blocks, inline code, bold, italic, headers, blockquotes, HTML escaping)
-- [ ] 1.2 Create Goodwizard.Channels.Telegram.Sender — send_message/4 with HTML conversion, message splitting at 4096 chars, API error handling
-- [ ] 1.3 Create Goodwizard.Channels.Telegram.Poller GenServer — init reads config/token, schedules first poll
-- [ ] 1.4 Implement poll loop — call getUpdates via Req, process messages, update offset
-- [ ] 1.5 Implement per-message handling — allow_from filtering, get-or-create AgentServer via Jido instance, ask_sync, send response
-- [ ] 1.6 Wire Telegram auto-start in Application if channels.telegram.enabled is true
+- [ ] 1.1 Create Goodwizard.TelegramHandler using `JidoMessaging.Channels.Telegram.Handler` macro
+- [ ] 1.2 Implement `handle_message/2` callback — get/create AgentServer, call `ask_sync/3`, return `{:reply, text}` / `:noreply` / `{:error, reason}`
+- [ ] 1.3 Implement allow-list filtering in `handle_message/2` — check `allow_from` config, empty list allows all
+- [ ] 1.4 Add message splitting helper for responses exceeding 4096 characters — split at newline boundaries
+- [ ] 1.5 Wire TelegramHandler startup in Application when `channels.telegram.enabled` is true — add as static child
+- [ ] 1.6 Pass `character_overrides: %{voice: %{tone: :conversational, style: "brief and mobile-friendly"}}` in agent initial_state for Telegram agents
 
 ## Test
 
-- [ ] 2.1 Test Markdown: conversion of all markdown elements to Telegram HTML
-- [ ] 2.2 Test Sender: message splitting for long responses
-- [ ] 2.3 Test Poller: mock HTTP calls, verify message processing flow
-- [ ] 2.4 Test allow-list filtering (allowed user passes, blocked user rejected, empty list allows all)
+- [ ] 2.1 Test TelegramHandler processes updates and routes to agent (with mocked Telegex)
+- [ ] 2.2 Test allow-list filtering (allowed user passes, blocked user gets :noreply, empty list allows all)
+- [ ] 2.3 Test message splitting for long responses (split at newlines, force split when no newlines)
+- [ ] 2.4 Test Telegram agent voice — character_overrides applied by Hydrator produce conversational tone in rendered prompt

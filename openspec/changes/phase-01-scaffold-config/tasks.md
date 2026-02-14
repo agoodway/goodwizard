@@ -9,6 +9,8 @@
 - [ ] 1.5 Create Goodwizard.Jido instance module (use Jido, otp_app: :goodwizard)
 - [ ] 1.6 Create Goodwizard.Config GenServer — TOML loading, env var overrides, deep merge, workspace creation
 - [ ] 1.7 Implement Config API: get/0, get/1, workspace/0, model/0
+- [ ] 1.8 Add `jido_character ~> 1.0` to mix.exs deps
+- [ ] 1.9 Parse optional `[character]` TOML config section (name, tone, style, traits) — Config.get(:character) returns map or nil
 
 ## Test
 
@@ -17,3 +19,4 @@
 - [ ] 2.3 Test env vars override TOML values
 - [ ] 2.4 Test missing TOML file uses defaults
 - [ ] 2.5 Test workspace/0 expands ~ to full path
+- [ ] 2.6 Test Config.get(:character) returns parsed map when present, nil when absent
