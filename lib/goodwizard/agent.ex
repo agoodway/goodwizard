@@ -22,14 +22,17 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Memory.SearchHistory,
       Goodwizard.Actions.Memory.Consolidate,
       Goodwizard.Actions.Skills.ActivateSkill,
-      Goodwizard.Actions.Skills.LoadSkillResource
+      Goodwizard.Actions.Skills.LoadSkillResource,
+      Goodwizard.Actions.Subagent.Spawn,
+      Goodwizard.Actions.Messaging.Send
     ],
     model: "anthropic:claude-sonnet-4-5",
     max_iterations: 20,
     plugins: [
       Goodwizard.Plugins.Session,
       Goodwizard.Plugins.Memory,
-      Goodwizard.Plugins.PromptSkills
+      Goodwizard.Plugins.PromptSkills,
+      {JidoBrowser.Plugin, [headless: true]}
     ]
 
   require Logger
