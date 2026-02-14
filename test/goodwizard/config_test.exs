@@ -19,7 +19,9 @@ defmodule Goodwizard.ConfigTest do
     # Wait for everything to wind down
     Process.sleep(50)
 
-    tmp_dir = Path.join(System.tmp_dir!(), "goodwizard_test_#{:erlang.unique_integer([:positive])}")
+    tmp_dir =
+      Path.join(System.tmp_dir!(), "goodwizard_test_#{:erlang.unique_integer([:positive])}")
+
     File.mkdir_p!(tmp_dir)
 
     on_exit(fn ->
@@ -161,7 +163,7 @@ defmodule Goodwizard.ConfigTest do
       assert get_in(config, ["channels", "telegram", "enabled"]) == false
       assert get_in(config, ["channels", "telegram", "allow_from"]) == []
       assert get_in(config, ["tools", "exec", "timeout"]) == 60
-      assert get_in(config, ["tools", "restrict_to_workspace"]) == false
+      assert get_in(config, ["tools", "restrict_to_workspace"]) == true
       assert get_in(config, ["browser", "headless"]) == true
       assert get_in(config, ["browser", "adapter"]) == "vibium"
       assert get_in(config, ["browser", "timeout"]) == 30000
@@ -235,6 +237,94 @@ defmodule Goodwizard.ConfigTest do
     end
   end
 
+  describe "wire_browser_config/1 sets :jido_browser app env" do
+    test "sets brave_search_api_key when configured", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      File.write!(config_path, """
+      [browser.search]
+      brave_api_key = "test-brave-key"
+      """)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      assert Application.get_env(:jido_browser, :brave_search_api_key) == "test-brave-key"
+    end
+
+    test "does not set brave_search_api_key when empty string", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "nonexistent.toml")
+
+      Application.delete_env(:jido_browser, :brave_search_api_key)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      assert Application.get_env(:jido_browser, :brave_search_api_key) == nil
+    end
+
+    test "sets adapter to Vibium module for 'vibium' string", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      File.write!(config_path, """
+      [browser]
+      adapter = "vibium"
+      """)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      assert Application.get_env(:jido_browser, :adapter) == JidoBrowser.Adapters.Vibium
+    end
+
+    test "sets adapter to Playwright module for 'playwright' string", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      File.write!(config_path, """
+      [browser]
+      adapter = "playwright"
+      """)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      assert Application.get_env(:jido_browser, :adapter) == JidoBrowser.Adapters.Playwright
+    end
+
+    test "falls back to Vibium for unknown adapter", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      File.write!(config_path, """
+      [browser]
+      adapter = "unknown_adapter"
+      """)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      assert Application.get_env(:jido_browser, :adapter) == JidoBrowser.Adapters.Vibium
+    end
+  end
+
+  describe "invalid TOML handling" do
+    test "falls back to defaults and logs error for malformed TOML", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      File.write!(config_path, """
+      [agent
+      this is not valid toml!!!
+      """)
+
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          {:ok, _pid} = Config.start_link(config_path: config_path)
+        end)
+
+      assert log =~ "Failed to parse config file"
+
+      config = Config.get()
+      assert get_in(config, ["agent", "model"]) == "anthropic:claude-sonnet-4-5"
+      assert get_in(config, ["agent", "max_tokens"]) == 8192
+    end
+  end
+
   describe "model/0" do
     test "returns the configured model string", %{tmp_dir: tmp_dir} do
       config_path = Path.join(tmp_dir, "nonexistent.toml")
@@ -261,6 +351,25 @@ defmodule Goodwizard.ConfigTest do
       {:ok, _pid} = Config.start_link(config_path: config_path)
 
       assert Config.get(["nonexistent", "key"]) == nil
+    end
+  end
+
+  describe "workspace directory creation" do
+    test "creates workspace directory on startup when it does not exist", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+      workspace_path = Path.join(tmp_dir, "new_workspace")
+
+      refute File.exists?(workspace_path)
+
+      File.write!(config_path, """
+      [agent]
+      workspace = "#{workspace_path}"
+      """)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      assert File.exists?(workspace_path)
+      assert File.dir?(workspace_path)
     end
   end
 end

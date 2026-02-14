@@ -24,7 +24,7 @@ defmodule Goodwizard.Config do
     },
     "tools" => %{
       "exec" => %{"timeout" => 60},
-      "restrict_to_workspace" => false
+      "restrict_to_workspace" => true
     },
     "browser" => %{
       "headless" => true,
@@ -40,32 +40,43 @@ defmodule Goodwizard.Config do
     {"GOODWIZARD_MODEL", ["agent", "model"]}
   ]
 
+  @max_toml_size 1_048_576
+
   # Client API
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @doc "Returns the entire config map."
+  @spec get() :: map()
   def get do
     GenServer.call(__MODULE__, :get)
   end
 
   @doc "Returns the value at the given key path, or nil if not found."
+  @spec get([String.t()]) :: term()
   def get(key_path) when is_list(key_path) do
     GenServer.call(__MODULE__, {:get, key_path})
   end
 
+  @spec get(atom()) :: term()
   def get(key) when is_atom(key) do
     get([Atom.to_string(key)])
   end
 
   @doc "Returns the expanded workspace path."
+  @spec workspace() :: String.t()
   def workspace do
-    get(["agent", "workspace"]) |> Path.expand()
+    case get(["agent", "workspace"]) do
+      nil -> Path.expand("~/.goodwizard/workspace")
+      path -> Path.expand(path)
+    end
   end
 
   @doc "Returns the current model string."
+  @spec model() :: String.t() | nil
   def model do
     get(["agent", "model"])
   end
@@ -83,6 +94,7 @@ defmodule Goodwizard.Config do
     toml_config = load_toml(expanded_path)
     config = deep_merge(@defaults, toml_config)
     config = apply_env_overrides(config)
+    config = validate_numeric_ranges(config)
 
     wire_browser_config(config)
     ensure_workspace(config)
@@ -103,19 +115,23 @@ defmodule Goodwizard.Config do
   # Private
 
   defp load_toml(path) do
-    case File.read(path) do
-      {:ok, content} ->
-        case Toml.decode(content) do
-          {:ok, parsed} ->
-            parsed
+    with {:ok, %{size: size}} <- File.stat(path),
+         :ok <- check_file_size(size, path),
+         {:ok, content} <- File.read(path) do
+      case Toml.decode(content) do
+        {:ok, parsed} ->
+          parsed
 
-          {:error, reason} ->
-            Logger.error("Failed to parse config file #{path}: #{inspect(reason)}")
-            %{}
-        end
-
+        {:error, reason} ->
+          Logger.error("Failed to parse config file #{path}: #{inspect(reason)}")
+          %{}
+      end
+    else
       {:error, :enoent} ->
         Logger.warning("Config file not found: #{path} — using defaults")
+        %{}
+
+      {:error, :too_large} ->
         %{}
 
       {:error, reason} ->
@@ -123,6 +139,16 @@ defmodule Goodwizard.Config do
         %{}
     end
   end
+
+  defp check_file_size(size, path) when size > @max_toml_size do
+    Logger.warning(
+      "Config file #{path} is #{size} bytes (max #{@max_toml_size}) — using defaults"
+    )
+
+    {:error, :too_large}
+  end
+
+  defp check_file_size(_size, _path), do: :ok
 
   defp apply_env_overrides(config) do
     Enum.reduce(@env_overrides, config, fn {env_var, key_path}, acc ->
@@ -163,15 +189,62 @@ defmodule Goodwizard.Config do
 
     adapter_module =
       case adapter_name do
-        "vibium" -> JidoBrowser.Adapters.Vibium
-        other -> other
+        "vibium" ->
+          JidoBrowser.Adapters.Vibium
+
+        "playwright" ->
+          JidoBrowser.Adapters.Playwright
+
+        other ->
+          Logger.warning("Unknown browser adapter #{inspect(other)}, falling back to Vibium")
+          JidoBrowser.Adapters.Vibium
       end
 
     Application.put_env(:jido_browser, :adapter, adapter_module)
   end
 
+  @numeric_ranges [
+    {["agent", "max_tokens"], 1, 200_000},
+    {["agent", "temperature"], 0.0, 2.0},
+    {["agent", "max_tool_iterations"], 1, 1000},
+    {["agent", "memory_window"], 1, 10_000},
+    {["tools", "exec", "timeout"], 1, 3600},
+    {["browser", "timeout"], 1000, 300_000}
+  ]
+
+  defp validate_numeric_ranges(config) do
+    Enum.reduce(@numeric_ranges, config, fn {path, min, max}, acc ->
+      value = get_in(acc, path)
+
+      cond do
+        is_nil(value) ->
+          acc
+
+        value < min or value > max ->
+          default = get_in(@defaults, path)
+
+          Logger.warning(
+            "Config #{Enum.join(path, ".")} = #{inspect(value)} is outside range " <>
+              "[#{min}, #{max}], using default #{inspect(default)}"
+          )
+
+          put_nested(acc, path, default)
+
+        true ->
+          acc
+      end
+    end)
+  end
+
   defp ensure_workspace(config) do
     workspace = get_in(config, ["agent", "workspace"]) |> Path.expand()
-    File.mkdir_p!(workspace)
+
+    case File.mkdir_p(workspace) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Could not create workspace directory #{workspace}: #{inspect(reason)}")
+    end
   end
 end

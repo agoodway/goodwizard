@@ -14,7 +14,7 @@ defmodule Goodwizard.Application do
       Goodwizard.Messaging
     ]
 
-    opts = [strategy: :one_for_one, name: Goodwizard.Supervisor]
+    opts = [strategy: :rest_for_one, name: Goodwizard.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end
