@@ -1,0 +1,14 @@
+# Build and dependencies
+/_build/
+/deps/
+
+# Erlang
+erl_crash.dump
+
+# IDE and tools
+.autopilot-logs/
+.sidecar/
+.todos/
+
+# Generated on host
+*.ez
