@@ -11,23 +11,30 @@ defmodule Goodwizard.Actions.Memory.SearchHistory do
       pattern: [type: :string, required: true, doc: "Search pattern (case-insensitive)"]
     ]
 
+  alias Goodwizard.Memory.Paths
+
   @impl true
+  @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(params, _context) do
-    path = Path.join(params.memory_dir, "HISTORY.md")
-    downcased_pattern = String.downcase(params.pattern)
+    with {:ok, _} <- Paths.validate_memory_dir(params.memory_dir) do
+      path = Paths.history_path(params.memory_dir)
+      downcased_pattern = String.downcase(params.pattern)
 
-    matches =
-      if File.exists?(path) do
-        path
-        |> File.stream!()
-        |> Stream.map(&String.trim_trailing/1)
-        |> Enum.filter(fn line ->
-          String.contains?(String.downcase(line), downcased_pattern)
-        end)
-      else
-        []
-      end
+      matches =
+        case File.read(path) do
+          {:ok, content} ->
+            content
+            |> String.split("\n", trim: true)
+            |> Enum.map(&String.trim_trailing/1)
+            |> Enum.filter(fn line ->
+              String.contains?(String.downcase(line), downcased_pattern)
+            end)
 
-    {:ok, %{matches: matches}}
+          {:error, _} ->
+            []
+        end
+
+      {:ok, %{matches: matches}}
+    end
   end
 end

@@ -11,22 +11,35 @@ defmodule Goodwizard.Actions.Memory.WriteLongTerm do
       content: [type: :string, required: true, doc: "Content to write to MEMORY.md"]
     ]
 
-  @impl true
-  def run(params, _context) do
-    path = Path.join(params.memory_dir, "MEMORY.md")
+  alias Goodwizard.Memory.Paths
 
-    case File.mkdir_p(params.memory_dir) do
-      :ok ->
+  # 100 KB max memory content size
+  @max_content_size 100 * 1024
+
+  @impl true
+  @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
+  def run(params, _context) do
+    content_size = byte_size(params.content)
+
+    if content_size > @max_content_size do
+      {:error, "Content exceeds maximum size of #{@max_content_size} bytes (got #{content_size})"}
+    else
+      with {:ok, _} <- Paths.validate_memory_dir(params.memory_dir),
+           :ok <- Paths.ensure_dir(params.memory_dir) do
+        path = Paths.memory_path(params.memory_dir)
+
         case File.write(path, params.content) do
           :ok ->
-            {:ok, %{message: "Successfully wrote #{byte_size(params.content)} bytes to MEMORY.md"}}
+            File.chmod(path, 0o600)
+            {:ok, %{message: "Successfully wrote #{content_size} bytes to MEMORY.md"}}
 
           {:error, reason} ->
             {:error, "Failed to write MEMORY.md: #{:file.format_error(reason)}"}
         end
-
-      {:error, reason} ->
-        {:error, "Failed to create memory directory: #{:file.format_error(reason)}"}
+      else
+        {:error, reason} when is_binary(reason) -> {:error, reason}
+        {:error, reason} -> {:error, "Failed to create memory directory: #{:file.format_error(reason)}"}
+      end
     end
   end
 end

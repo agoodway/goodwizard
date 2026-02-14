@@ -29,6 +29,8 @@ defmodule Goodwizard.Plugins.Session do
         metadata: Zoi.map() |> Zoi.default(%{})
       })
 
+  require Logger
+
   @impl Jido.Plugin
   def mount(_agent, _config) do
     {:ok, %{created_at: DateTime.utc_now() |> DateTime.to_iso8601()}}
@@ -88,13 +90,14 @@ defmodule Goodwizard.Plugins.Session do
   Save session state to a JSONL file.
 
   First line is metadata (key, created_at, version), subsequent lines are messages.
-  Session key colons are replaced with underscores in the filename.
+  Session key is sanitized to alphanumeric plus dash/underscore for the filename.
   Creates the sessions directory if it doesn't exist.
+  Sets file permissions to 0600 (owner read/write only).
   """
   @spec save_session(String.t(), String.t(), map()) :: :ok | {:error, term()}
   def save_session(sessions_dir, session_key, session_state) do
-    with :ok <- File.mkdir_p(sessions_dir) do
-      filename = sanitize_key(session_key) <> ".jsonl"
+    with {:ok, filename} <- safe_filename(sessions_dir, session_key),
+         :ok <- File.mkdir_p(sessions_dir) do
       path = Path.join(sessions_dir, filename)
 
       session = Map.get(session_state, :session, %{})
@@ -120,7 +123,15 @@ defmodule Goodwizard.Plugins.Session do
         end)
 
       content = Enum.join([metadata_line | message_lines], "\n") <> "\n"
-      File.write(path, content)
+
+      case File.write(path, content) do
+        :ok ->
+          File.chmod(path, 0o600)
+          :ok
+
+        error ->
+          error
+      end
     end
   end
 
@@ -128,35 +139,49 @@ defmodule Goodwizard.Plugins.Session do
   Load session state from a JSONL file.
 
   Returns `{:ok, session_state}` with messages, created_at, and metadata,
-  or `{:error, :not_found}` if the file doesn't exist.
+  or `{:error, :not_found}` if the file doesn't exist or is unreadable.
+  Handles corrupted/malformed JSON gracefully.
   """
   @spec load_session(String.t(), String.t()) ::
           {:ok, %{messages: [map()], created_at: String.t(), metadata: map()}}
-          | {:error, :not_found}
+          | {:error, :not_found | :corrupted}
   def load_session(sessions_dir, session_key) do
-    filename = sanitize_key(session_key) <> ".jsonl"
-    path = Path.join(sessions_dir, filename)
+    with {:ok, filename} <- safe_filename(sessions_dir, session_key) do
+      path = Path.join(sessions_dir, filename)
 
-    if File.exists?(path) do
-      lines =
-        path
-        |> File.read!()
-        |> String.split("\n", trim: true)
+      case File.read(path) do
+        {:ok, content} ->
+          parse_session_file(content)
 
-      case lines do
-        [metadata_line | message_lines] ->
-          metadata_json = Jason.decode!(metadata_line)
+        {:error, _reason} ->
+          {:error, :not_found}
+      end
+    end
+  end
 
+  defp parse_session_file(content) do
+    lines = String.split(content, "\n", trim: true)
+
+    case lines do
+      [metadata_line | message_lines] ->
+        with {:ok, metadata_json} <- Jason.decode(metadata_line) do
           messages =
-            Enum.map(message_lines, fn line ->
-              decoded = Jason.decode!(line)
+            message_lines
+            |> Enum.reduce([], fn line, acc ->
+              case Jason.decode(line) do
+                {:ok, decoded} ->
+                  [%{
+                    role: Map.get(decoded, "role"),
+                    content: Map.get(decoded, "content"),
+                    timestamp: Map.get(decoded, "timestamp")
+                  } | acc]
 
-              %{
-                role: Map.get(decoded, "role"),
-                content: Map.get(decoded, "content"),
-                timestamp: Map.get(decoded, "timestamp")
-              }
+                {:error, _} ->
+                  Logger.warning("Skipping corrupted message line in session file")
+                  acc
+              end
             end)
+            |> Enum.reverse()
 
           {:ok,
            %{
@@ -164,16 +189,36 @@ defmodule Goodwizard.Plugins.Session do
              created_at: Map.get(metadata_json, "created_at", ""),
              metadata: Map.get(metadata_json, "metadata", %{})
            }}
+        else
+          {:error, _} -> {:error, :corrupted}
+        end
 
-        [] ->
-          {:error, :not_found}
-      end
-    else
-      {:error, :not_found}
+      [] ->
+        {:error, :not_found}
     end
   end
 
   defp sanitize_key(key) do
-    String.replace(key, ":", "_")
+    key
+    |> String.replace(~r/[^a-zA-Z0-9_\-]/, "_")
+    |> String.trim_leading(".")
+  end
+
+  defp safe_filename(sessions_dir, session_key) do
+    sanitized = sanitize_key(session_key)
+
+    if sanitized == "" do
+      {:error, "Invalid session key"}
+    else
+      filename = sanitized <> ".jsonl"
+      full_path = Path.expand(Path.join(sessions_dir, filename))
+      expanded_dir = Path.expand(sessions_dir)
+
+      if String.starts_with?(full_path, expanded_dir <> "/") do
+        {:ok, filename}
+      else
+        {:error, "Session key resolves outside sessions directory"}
+      end
+    end
   end
 end

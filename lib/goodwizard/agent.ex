@@ -144,11 +144,14 @@ defmodule Goodwizard.Agent do
   defp persist_session(agent) do
     sessions_dir = Path.expand("~/.goodwizard/sessions")
     session_key = Map.get(agent.state, :session_key, "default")
+    state = agent.state
 
-    case Session.save_session(sessions_dir, session_key, agent.state) do
-      :ok -> :ok
-      {:error, reason} -> Logger.warning("Failed to persist session: #{inspect(reason)}")
-    end
+    Task.start(fn ->
+      case Session.save_session(sessions_dir, session_key, state) do
+        :ok -> :ok
+        {:error, reason} -> Logger.warning("Failed to persist session: #{inspect(reason)}")
+      end
+    end)
   end
 
   defp get_memory_window do
