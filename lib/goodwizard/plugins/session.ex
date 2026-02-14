@@ -127,9 +127,11 @@ defmodule Goodwizard.Plugins.Session do
       case File.write(path, content) do
         :ok ->
           File.chmod(path, 0o600)
+          Logger.debug("Session saved: #{session_key} (#{length(messages)} messages)")
           :ok
 
         error ->
+          Logger.error("Failed to write session file #{path}: #{inspect(error)}")
           error
       end
     end

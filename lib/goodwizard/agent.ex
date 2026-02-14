@@ -24,7 +24,8 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Skills.ActivateSkill,
       Goodwizard.Actions.Skills.LoadSkillResource,
       Goodwizard.Actions.Subagent.Spawn,
-      Goodwizard.Actions.Messaging.Send
+      Goodwizard.Actions.Messaging.Send,
+      Goodwizard.Actions.Scheduling.Cron
     ],
     model: "anthropic:claude-sonnet-4-5",
     max_iterations: 20,
@@ -46,42 +47,55 @@ defmodule Goodwizard.Agent do
     # First let the parent macro handle request tracking
     {:ok, agent, action} = super(agent, action)
 
-    # Check if consolidation is needed before building the prompt
-    agent = maybe_consolidate(agent)
+    try do
+      # Check if consolidation is needed before building the prompt
+      agent = maybe_consolidate(agent)
 
-    # Build dynamic system prompt from workspace state
-    workspace = Map.get(agent.state, :workspace, ".")
-    character_overrides = Map.get(agent.state, :character_overrides)
-    memory_content = get_in(agent.state, [:memory, :long_term_content]) || ""
+      # Build dynamic system prompt from workspace state
+      workspace = Map.get(agent.state, :workspace, ".")
+      character_overrides = Map.get(agent.state, :character_overrides)
+      memory_content = get_in(agent.state, [:memory, :long_term_content]) || ""
 
-    skills_state = build_skills_state(agent)
+      skills_state = build_skills_state(agent)
 
-    hydrate_opts =
-      [memory: memory_content, skills: skills_state] ++
-        if(character_overrides, do: [config_overrides: character_overrides], else: [])
+      hydrate_opts =
+        [memory: memory_content, skills: skills_state] ++
+          if(character_overrides, do: [config_overrides: character_overrides], else: [])
 
-    system_prompt =
-      try do
-        {:ok, prompt} = Hydrator.hydrate(workspace, hydrate_opts)
-        prompt
-      rescue
-        e ->
-          Logger.warning("Hydration failed: #{inspect(e)}, using default system prompt")
-          "You are a helpful AI assistant."
-      end
+      system_prompt =
+        try do
+          {:ok, prompt} = Hydrator.hydrate(workspace, hydrate_opts)
+          prompt
+        rescue
+          e ->
+            Logger.warning("Hydration failed: #{inspect(e)}, using default system prompt")
+            "You are a helpful AI assistant."
+        end
 
-    # Capture user message timestamp for session recording in on_after_cmd
-    agent = %{
-      agent
-      | state:
-          Map.put(agent.state, :query_received_at, DateTime.utc_now() |> DateTime.to_iso8601())
-    }
+      # Capture user message timestamp for session recording in on_after_cmd
+      agent = %{
+        agent
+        | state:
+            Map.put(
+              agent.state,
+              :query_received_at,
+              DateTime.utc_now() |> DateTime.to_iso8601()
+            )
+      }
 
-    # Inject system prompt into the strategy options
-    {:react_start, params} = action
-    action = {:react_start, Map.put(params, :system_prompt, system_prompt)}
+      # Inject system prompt into the strategy options
+      {:react_start, params} = action
+      action = {:react_start, Map.put(params, :system_prompt, system_prompt)}
 
-    {:ok, agent, action}
+      {:ok, agent, action}
+    rescue
+      e ->
+        Logger.error(
+          "on_before_cmd error: #{Exception.message(e)}\n#{Exception.format_stacktrace(__STACKTRACE__)}"
+        )
+
+        {:ok, agent, action}
+    end
   end
 
   @impl true
@@ -92,35 +106,48 @@ defmodule Goodwizard.Agent do
     # Let parent macro handle request completion tracking
     {:ok, agent, directives} = super(agent, action, directives)
 
-    # Update session with the conversation turn
-    snap = strategy_snapshot(agent)
+    try do
+      # Update session with the conversation turn
+      snap = strategy_snapshot(agent)
 
-    agent =
-      if snap.done? do
-        query = Map.get(params, :query) || ""
-        answer = snap.result || ""
+      agent =
+        if snap.done? do
+          query = Map.get(params, :query) || ""
+          answer = snap.result || ""
 
-        user_timestamp =
-          Map.get(agent.state, :query_received_at, DateTime.utc_now() |> DateTime.to_iso8601())
+          user_timestamp =
+            Map.get(
+              agent.state,
+              :query_received_at,
+              DateTime.utc_now() |> DateTime.to_iso8601()
+            )
 
-        assistant_timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
+          assistant_timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
 
-        state =
-          agent.state
-          |> Session.add_message("user", query, user_timestamp)
-          |> Session.add_message("assistant", answer, assistant_timestamp)
+          state =
+            agent.state
+            |> Session.add_message("user", query, user_timestamp)
+            |> Session.add_message("assistant", answer, assistant_timestamp)
 
-        agent = %{agent | state: state}
+          agent = %{agent | state: state}
 
-        # Persist session to JSONL
-        persist_session(agent)
+          # Persist session to JSONL
+          persist_session(agent)
 
-        agent
-      else
-        agent
-      end
+          agent
+        else
+          agent
+        end
 
-    {:ok, agent, directives}
+      {:ok, agent, directives}
+    rescue
+      e ->
+        Logger.error(
+          "on_after_cmd error: #{Exception.message(e)}\n#{Exception.format_stacktrace(__STACKTRACE__)}"
+        )
+
+        {:ok, agent, directives}
+    end
   end
 
   @impl true
