@@ -49,21 +49,23 @@ defmodule Mix.Tasks.Goodwizard.Status do
         Mix.shell().info("  No active rooms")
 
       {:ok, rooms} ->
-        for room <- rooms do
-          message_count =
-            case Messaging.list_messages(room.id) do
-              {:ok, messages} -> length(messages)
-              _ -> 0
-            end
-
-          Mix.shell().info("  #{room.id} (#{room.name || "unnamed"}) — #{message_count} messages")
-        end
+        Enum.each(rooms, &print_room/1)
 
       {:error, reason} ->
         Mix.shell().info("  Error listing rooms: #{inspect(reason)}")
     end
 
     Mix.shell().info("")
+  end
+
+  defp print_room(room) do
+    message_count =
+      case Messaging.list_messages(room.id) do
+        {:ok, messages} -> length(messages)
+        _ -> 0
+      end
+
+    Mix.shell().info("  #{room.id} (#{room.name || "unnamed"}) — #{message_count} messages")
   end
 
   defp print_instances do
@@ -73,15 +75,12 @@ defmodule Mix.Tasks.Goodwizard.Status do
       [] ->
         Mix.shell().info("  No running instances")
 
-      instances when is_list(instances) ->
+      instances ->
         for instance <- instances do
           Mix.shell().info(
             "  #{instance.id} (#{instance.channel_type}) — #{instance.name || "unnamed"}"
           )
         end
-
-      _ ->
-        Mix.shell().info("  No running instances")
     end
 
     Mix.shell().info("")

@@ -167,26 +167,7 @@ defmodule Goodwizard.Plugins.Session do
     case lines do
       [metadata_line | message_lines] ->
         with {:ok, metadata_json} <- Jason.decode(metadata_line) do
-          messages =
-            message_lines
-            |> Enum.reduce([], fn line, acc ->
-              case Jason.decode(line) do
-                {:ok, decoded} ->
-                  [
-                    %{
-                      role: Map.get(decoded, "role"),
-                      content: Map.get(decoded, "content"),
-                      timestamp: Map.get(decoded, "timestamp")
-                    }
-                    | acc
-                  ]
-
-                {:error, _} ->
-                  Logger.warning("Skipping corrupted message line in session file")
-                  acc
-              end
-            end)
-            |> Enum.reverse()
+          messages = decode_message_lines(message_lines)
 
           {:ok,
            %{
@@ -201,6 +182,28 @@ defmodule Goodwizard.Plugins.Session do
       [] ->
         {:error, :not_found}
     end
+  end
+
+  defp decode_message_lines(lines) do
+    lines
+    |> Enum.reduce([], fn line, acc ->
+      case Jason.decode(line) do
+        {:ok, decoded} ->
+          [
+            %{
+              role: Map.get(decoded, "role"),
+              content: Map.get(decoded, "content"),
+              timestamp: Map.get(decoded, "timestamp")
+            }
+            | acc
+          ]
+
+        {:error, _} ->
+          Logger.warning("Skipping corrupted message line in session file")
+          acc
+      end
+    end)
+    |> Enum.reverse()
   end
 
   defp sanitize_key(key) do

@@ -32,7 +32,9 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
   @impl true
   def run(%{schedule: schedule, task: task, room_id: room_id}, _context) do
     if schedule in @high_frequency_patterns do
-      Logger.warning("Cron schedule #{inspect(schedule)} runs every minute — consider a less frequent interval")
+      Logger.warning(
+        "Cron schedule #{inspect(schedule)} runs every minute — consider a less frequent interval"
+      )
     end
 
     case validate_cron(schedule) do
@@ -55,8 +57,10 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
     end
   end
 
+  alias Crontab.CronExpression
+
   defp validate_cron(expr) do
-    case Crontab.CronExpression.Parser.parse(expr) do
+    case CronExpression.Parser.parse(expr) do
       {:ok, _} -> :ok
       {:error, reason} -> {:error, inspect(reason)}
     end

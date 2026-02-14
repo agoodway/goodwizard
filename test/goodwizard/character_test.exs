@@ -30,7 +30,7 @@ defmodule Goodwizard.CharacterTest do
       {:ok, character} = Character.new()
 
       assert is_list(character.instructions)
-      assert length(character.instructions) > 0
+      assert character.instructions != []
       assert "Read files before editing them" in character.instructions
     end
 

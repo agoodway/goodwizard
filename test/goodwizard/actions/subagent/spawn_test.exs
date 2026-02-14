@@ -1,8 +1,14 @@
 defmodule Goodwizard.Actions.Subagent.SpawnTest do
   use ExUnit.Case, async: true
 
+  alias Goodwizard.Actions.Filesystem.ListDir
+  alias Goodwizard.Actions.Filesystem.ReadFile
+  alias Goodwizard.Actions.Filesystem.WriteFile
+  alias Goodwizard.Actions.Messaging.Send
+  alias Goodwizard.Actions.Shell.Exec
   alias Goodwizard.Actions.Subagent.Spawn
   alias Goodwizard.SubAgent
+  alias Jido.AI.Strategies.ReAct
 
   describe "module structure" do
     test "has correct action name and description" do
@@ -24,21 +30,22 @@ defmodule Goodwizard.Actions.Subagent.SpawnTest do
   describe "SubAgent module structure" do
     test "SubAgent is a ReActAgent with limited tools" do
       agent = SubAgent.new()
-      tools = Jido.AI.Strategies.ReAct.list_tools(agent)
+      tools = ReAct.list_tools(agent)
 
-      assert Goodwizard.Actions.Filesystem.ReadFile in tools
-      assert Goodwizard.Actions.Filesystem.WriteFile in tools
-      assert Goodwizard.Actions.Filesystem.ListDir in tools
-      assert Goodwizard.Actions.Shell.Exec in tools
+      assert ReadFile in tools
+      assert WriteFile in tools
+      assert ListDir in tools
+      assert Exec in tools
 
       # Should NOT include spawn, messaging, or browser
-      refute Goodwizard.Actions.Subagent.Spawn in tools
-      refute Goodwizard.Actions.Messaging.Send in tools
+      refute Spawn in tools
+      refute Send in tools
 
       # Should NOT include any JidoBrowser actions
-      browser_tools = Enum.filter(tools, fn mod ->
-        mod |> Module.split() |> List.first() == "JidoBrowser"
-      end)
+      browser_tools =
+        Enum.filter(tools, fn mod ->
+          mod |> Module.split() |> List.first() == "JidoBrowser"
+        end)
 
       assert browser_tools == [], "Expected no JidoBrowser tools, got: #{inspect(browser_tools)}"
     end

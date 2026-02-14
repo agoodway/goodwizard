@@ -120,14 +120,12 @@ defmodule Goodwizard.Actions.Memory.Consolidate do
   end
 
   defp format_messages(messages) do
-    messages
-    |> Enum.map(fn msg ->
+    Enum.map_join(messages, "\n", fn msg ->
       timestamp = Map.get(msg, :timestamp, "unknown")
       role = Map.get(msg, :role, "unknown")
       content = Map.get(msg, :content, "")
       "[#{timestamp}] #{role}: #{content}"
     end)
-    |> Enum.join("\n")
   end
 
   defp call_llm(prompt) do
@@ -170,8 +168,7 @@ defmodule Goodwizard.Actions.Memory.Consolidate do
       |> Enum.filter(fn block ->
         Map.get(block, :type) == "text" || Map.get(block, "type") == "text"
       end)
-      |> Enum.map(fn block -> Map.get(block, :text) || Map.get(block, "text") || "" end)
-      |> Enum.join("")
+      |> Enum.map_join("", fn block -> Map.get(block, :text) || Map.get(block, "text") || "" end)
 
     parse_json_response(text)
   end

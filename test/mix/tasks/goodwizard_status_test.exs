@@ -1,6 +1,8 @@
 defmodule Mix.Tasks.Goodwizard.StatusTest do
   use ExUnit.Case, async: false
 
+  alias Mix.Tasks.Goodwizard.Status
+
   import ExUnit.CaptureIO
 
   @moduletag :mix_task
@@ -11,7 +13,7 @@ defmodule Mix.Tasks.Goodwizard.StatusTest do
 
       output =
         capture_io(fn ->
-          Mix.Tasks.Goodwizard.Status.run([])
+          Status.run([])
         end)
 
       assert output =~ "=== Configuration ==="
@@ -25,7 +27,7 @@ defmodule Mix.Tasks.Goodwizard.StatusTest do
 
       output =
         capture_io(fn ->
-          Mix.Tasks.Goodwizard.Status.run([])
+          Status.run([])
         end)
 
       assert output =~ "=== Messaging Rooms ==="
@@ -36,7 +38,7 @@ defmodule Mix.Tasks.Goodwizard.StatusTest do
 
       output =
         capture_io(fn ->
-          Mix.Tasks.Goodwizard.Status.run([])
+          Status.run([])
         end)
 
       assert output =~ "=== Channel Instances ==="
@@ -47,7 +49,7 @@ defmodule Mix.Tasks.Goodwizard.StatusTest do
 
       output =
         capture_io(fn ->
-          Mix.Tasks.Goodwizard.Status.run([])
+          Status.run([])
         end)
 
       assert output =~ "=== Memory Stats ==="

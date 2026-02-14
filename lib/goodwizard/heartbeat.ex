@@ -17,6 +17,8 @@ defmodule Goodwizard.Heartbeat do
   @default_interval_ms :timer.minutes(5)
   @default_timeout_ms 120_000
 
+  @doc "Starts the heartbeat GenServer."
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -71,28 +73,12 @@ defmodule Goodwizard.Heartbeat do
 
   defp process_heartbeat(state) do
     case File.stat(state.heartbeat_path) do
+      {:ok, %{mtime: mtime}} when mtime == state.last_mtime ->
+        Logger.debug("Heartbeat: HEARTBEAT.md unchanged, skipping")
+        state
+
       {:ok, %{mtime: mtime}} ->
-        if mtime == state.last_mtime do
-          Logger.debug("Heartbeat: HEARTBEAT.md unchanged, skipping")
-          state
-        else
-          case File.read(state.heartbeat_path) do
-            {:ok, content} ->
-              content = String.trim(content)
-
-              if content == "" do
-                Logger.debug("Heartbeat: HEARTBEAT.md is empty, skipping")
-                %{state | last_mtime: mtime}
-              else
-                dispatch_heartbeat(content, state)
-                %{state | last_mtime: mtime}
-              end
-
-            {:error, reason} ->
-              Logger.warning("Heartbeat: failed to read HEARTBEAT.md: #{inspect(reason)}")
-              state
-          end
-        end
+        process_changed_file(state, mtime)
 
       {:error, :enoent} ->
         Logger.debug("Heartbeat: HEARTBEAT.md not found, skipping")
@@ -100,6 +86,25 @@ defmodule Goodwizard.Heartbeat do
 
       {:error, reason} ->
         Logger.warning("Heartbeat: failed to stat HEARTBEAT.md: #{inspect(reason)}")
+        state
+    end
+  end
+
+  defp process_changed_file(state, mtime) do
+    case File.read(state.heartbeat_path) do
+      {:ok, content} ->
+        content = String.trim(content)
+
+        if content == "" do
+          Logger.debug("Heartbeat: HEARTBEAT.md is empty, skipping")
+        else
+          dispatch_heartbeat(content, state)
+        end
+
+        %{state | last_mtime: mtime}
+
+      {:error, reason} ->
+        Logger.warning("Heartbeat: failed to read HEARTBEAT.md: #{inspect(reason)}")
         state
     end
   end
@@ -160,7 +165,9 @@ defmodule Goodwizard.Heartbeat do
       {ch, id} when is_binary(ch) and is_binary(id) ->
         channel_atom =
           case String.to_existing_atom(ch) do
-            atom when atom in @known_channels -> atom
+            atom when atom in @known_channels ->
+              atom
+
             _ ->
               Logger.warning("Unknown heartbeat channel #{inspect(ch)}, falling back to :cli")
               :cli

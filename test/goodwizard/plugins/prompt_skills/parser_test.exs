@@ -141,7 +141,8 @@ defmodule Goodwizard.Plugins.PromptSkills.ParserTest do
     end
 
     test "handles multi-byte UTF-8 characters in frontmatter" do
-      content = "---\nname: test\ndescription: Déploiement à la production 日本語\n---\nBody with émojis 🚀"
+      content =
+        "---\nname: test\ndescription: Déploiement à la production 日本語\n---\nBody with émojis 🚀"
 
       {:ok, metadata, body} = Parser.parse_frontmatter(content)
       assert metadata.name == "test"

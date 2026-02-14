@@ -9,13 +9,15 @@ defmodule Mix.Tasks.Goodwizard.Cli do
   """
   use Mix.Task
 
+  alias Goodwizard.Channels.CLI
+
   @shortdoc "Start Goodwizard CLI REPL"
 
   @impl Mix.Task
   def run(_args) do
     Mix.Task.run("app.start")
 
-    {:ok, pid} = Goodwizard.Channels.CLI.Server.start_link()
+    {:ok, pid} = CLI.Server.start_link()
     ref = Process.monitor(pid)
 
     receive do

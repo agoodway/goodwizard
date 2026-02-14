@@ -23,36 +23,55 @@ defmodule Goodwizard.Actions.Skills.LoadSkillResource do
   def run(%{skill_name: skill_name, resource: resource} = _params, context) do
     skills = get_in(context, [:state, :prompt_skills, :skills]) || []
 
+    with {:ok, skill} <- find_skill(skills, skill_name),
+         :ok <- check_resource_listed(skill, resource),
+         {:ok, path} <- validate_resource_path(skill, resource),
+         :ok <- check_resource_size(path) do
+      read_resource(path, resource)
+    end
+  end
+
+  defp find_skill(skills, skill_name) do
     case Enum.find(skills, &(&1.name == skill_name)) do
-      nil ->
-        {:error, "skill not found: #{skill_name}"}
+      nil -> {:error, "skill not found: #{skill_name}"}
+      skill -> {:ok, skill}
+    end
+  end
 
-      skill ->
-        if resource in skill.resources do
-          path = Path.join(skill.dir, resource)
-          resolved = path |> Path.expand() |> resolve_symlinks()
-          skill_root = Path.expand(skill.dir)
+  defp check_resource_listed(skill, resource) do
+    if resource in skill.resources, do: :ok, else: {:error, "resource not found: #{resource}"}
+  end
 
-          if String.starts_with?(resolved, skill_root <> "/") do
-            case File.stat(path) do
-              {:ok, %{size: size}} when size > @max_resource_file_bytes ->
-                {:error, "resource file too large: #{size} bytes exceeds #{@max_resource_file_bytes} limit"}
+  defp validate_resource_path(skill, resource) do
+    path = Path.join(skill.dir, resource)
+    resolved = path |> Path.expand() |> resolve_symlinks()
+    skill_root = Path.expand(skill.dir)
 
-              {:ok, _stat} ->
-                case File.read(path) do
-                  {:ok, content} -> {:ok, %{content: content, filename: resource}}
-                  {:error, reason} -> {:error, "failed to read resource: #{inspect(reason)}"}
-                end
+    if String.starts_with?(resolved, skill_root <> "/") do
+      {:ok, path}
+    else
+      {:error, "resource path escapes skill directory"}
+    end
+  end
 
-              {:error, reason} ->
-                {:error, "failed to read resource: #{inspect(reason)}"}
-            end
-          else
-            {:error, "resource path escapes skill directory"}
-          end
-        else
-          {:error, "resource not found: #{resource}"}
-        end
+  defp check_resource_size(path) do
+    case File.stat(path) do
+      {:ok, %{size: size}} when size > @max_resource_file_bytes ->
+        {:error,
+         "resource file too large: #{size} bytes exceeds #{@max_resource_file_bytes} limit"}
+
+      {:ok, _stat} ->
+        :ok
+
+      {:error, reason} ->
+        {:error, "failed to read resource: #{inspect(reason)}"}
+    end
+  end
+
+  defp read_resource(path, resource) do
+    case File.read(path) do
+      {:ok, content} -> {:ok, %{content: content, filename: resource}}
+      {:error, reason} -> {:error, "failed to read resource: #{inspect(reason)}"}
     end
   end
 
@@ -62,7 +81,11 @@ defmodule Goodwizard.Actions.Skills.LoadSkillResource do
         absolute_target |> resolve_symlinks()
 
       {:ok, relative_target} ->
-        path |> Path.dirname() |> Path.join(relative_target) |> Path.expand() |> resolve_symlinks()
+        path
+        |> Path.dirname()
+        |> Path.join(relative_target)
+        |> Path.expand()
+        |> resolve_symlinks()
 
       {:error, _} ->
         path

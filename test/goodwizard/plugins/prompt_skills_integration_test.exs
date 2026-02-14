@@ -1,10 +1,10 @@
 defmodule Goodwizard.Plugins.PromptSkillsIntegrationTest do
   use ExUnit.Case, async: true
 
-  alias Goodwizard.Plugins.PromptSkills
   alias Goodwizard.Actions.Skills.ActivateSkill
   alias Goodwizard.Actions.Skills.LoadSkillResource
   alias Goodwizard.Character.Hydrator
+  alias Goodwizard.Plugins.PromptSkills
 
   defp tmp_workspace do
     dir =
@@ -38,8 +38,10 @@ defmodule Goodwizard.Plugins.PromptSkillsIntegrationTest do
       File.mkdir_p!(skills_dir)
 
       create_skill(skills_dir, "deploy", "# Deploy\n\nRun deployment commands.")
-      create_skill(skills_dir, "search", "# Search\n\nSearch documentation.",
-        [{"config.yaml", "timeout: 30"}])
+
+      create_skill(skills_dir, "search", "# Search\n\nSearch documentation.", [
+        {"config.yaml", "timeout: 30"}
+      ])
 
       # Step 1: Mount plugin (scan + build summary)
       agent = %{state: %{workspace: workspace}}

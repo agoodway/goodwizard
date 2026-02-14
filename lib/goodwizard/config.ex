@@ -33,7 +33,7 @@ defmodule Goodwizard.Config do
     "browser" => %{
       "headless" => true,
       "adapter" => "vibium",
-      "timeout" => 30000,
+      "timeout" => 30_000,
       "search" => %{"brave_api_key" => ""}
     }
   }
@@ -120,7 +120,9 @@ defmodule Goodwizard.Config do
     wire_browser_config(config)
     ensure_workspace(config)
 
-    Logger.info("Config loaded from #{expanded_path}, model=#{get_in(config, ["agent", "model"])}")
+    Logger.info(
+      "Config loaded from #{expanded_path}, model=#{get_in(config, ["agent", "model"])}"
+    )
 
     {:ok, config}
   end

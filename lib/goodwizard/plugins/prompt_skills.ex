@@ -115,26 +115,28 @@ defmodule Goodwizard.Plugins.PromptSkills do
       {:ok, entries} ->
         entries
         |> Enum.sort()
-        |> Enum.flat_map(fn entry ->
-          skill_dir = Path.join(dir, entry)
-          skill_md = Path.join(skill_dir, "SKILL.md")
-
-          if File.dir?(skill_dir) and File.regular?(skill_md) do
-            case parse_skill(skill_md, skill_dir) do
-              {:ok, skill} ->
-                [skill]
-
-              {:error, reason} ->
-                Logger.warning("Skipping skill at #{skill_dir}: #{reason}")
-                []
-            end
-          else
-            []
-          end
-        end)
+        |> Enum.flat_map(&try_parse_skill_entry(dir, &1))
 
       {:error, _} ->
         []
+    end
+  end
+
+  defp try_parse_skill_entry(dir, entry) do
+    skill_dir = Path.join(dir, entry)
+    skill_md = Path.join(skill_dir, "SKILL.md")
+
+    if File.dir?(skill_dir) and File.regular?(skill_md) do
+      case parse_skill(skill_md, skill_dir) do
+        {:ok, skill} ->
+          [skill]
+
+        {:error, reason} ->
+          Logger.warning("Skipping skill at #{skill_dir}: #{reason}")
+          []
+      end
+    else
+      []
     end
   end
 

@@ -17,18 +17,21 @@ defmodule Goodwizard.Actions.Filesystem.EditFile do
 
   @impl true
   def run(params, _context) do
-    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)) do
-      if not File.exists?(resolved) do
-        {:error, "File not found: #{resolved}"}
-      else
-        case File.read(resolved) do
-          {:ok, content} ->
-            do_replace(resolved, content, params.old_text, params.new_text)
+    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)),
+         :ok <- ensure_file_exists(resolved),
+         {:ok, content} <- read_file(resolved) do
+      do_replace(resolved, content, params.old_text, params.new_text)
+    end
+  end
 
-          {:error, reason} ->
-            {:error, "Failed to read file: #{:file.format_error(reason)}"}
-        end
-      end
+  defp ensure_file_exists(path) do
+    if File.exists?(path), do: :ok, else: {:error, "File not found: #{path}"}
+  end
+
+  defp read_file(path) do
+    case File.read(path) do
+      {:ok, content} -> {:ok, content}
+      {:error, reason} -> {:error, "Failed to read file: #{:file.format_error(reason)}"}
     end
   end
 

@@ -12,8 +12,7 @@ defmodule Goodwizard.Plugins.PromptSkillsTest do
     resources = Keyword.get(opts, :resources, [])
 
     yaml_lines =
-      Enum.map(frontmatter, fn {k, v} -> "#{k}: #{v}" end)
-      |> Enum.join("\n")
+      Enum.map_join(frontmatter, "\n", fn {k, v} -> "#{k}: #{v}" end)
 
     content = "---\n#{yaml_lines}\n---\n#{body}"
     File.write!(Path.join(dir, "SKILL.md"), content)
@@ -180,7 +179,10 @@ defmodule Goodwizard.Plugins.PromptSkillsTest do
       # Oversized skill (> 256KB)
       big_dir = Path.join(skills_dir, "big")
       File.mkdir_p!(big_dir)
-      big_content = "---\nname: big\ndescription: big skill\n---\n" <> String.duplicate("x", 300_000)
+
+      big_content =
+        "---\nname: big\ndescription: big skill\n---\n" <> String.duplicate("x", 300_000)
+
       File.write!(Path.join(big_dir, "SKILL.md"), big_content)
 
       skills = PromptSkills.scan_skills(workspace)

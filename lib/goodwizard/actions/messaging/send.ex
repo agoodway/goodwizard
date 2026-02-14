@@ -8,7 +8,8 @@ defmodule Goodwizard.Actions.Messaging.Send do
 
   use Jido.Action,
     name: "send_message",
-    description: "Send a message to a room by room_id. The message is persisted and delivered to any bound external channels (e.g., Telegram).",
+    description:
+      "Send a message to a room by room_id. The message is persisted and delivered to any bound external channels (e.g., Telegram).",
     schema: [
       room_id: [type: :string, required: true, doc: "The room to send the message to"],
       content: [type: :string, required: true, doc: "The message content to send"]

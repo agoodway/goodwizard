@@ -96,7 +96,10 @@ defmodule Goodwizard.Agent do
 
         # Inject a safe default system prompt so the agent doesn't proceed with stale action
         {:react_start, params} = action
-        safe_action = {:react_start, Map.put(params, :system_prompt, "You are a helpful AI assistant.")}
+
+        safe_action =
+          {:react_start, Map.put(params, :system_prompt, "You are a helpful AI assistant.")}
+
         {:ok, agent, safe_action}
     end
   end
@@ -203,11 +206,9 @@ defmodule Goodwizard.Agent do
   end
 
   defp get_memory_window do
-    try do
-      Goodwizard.Config.get(["agent", "memory_window"]) || 50
-    catch
-      :exit, _ -> 50
-    end
+    Goodwizard.Config.get(["agent", "memory_window"]) || 50
+  catch
+    :exit, _ -> 50
   end
 
   defp build_skills_state(agent) do

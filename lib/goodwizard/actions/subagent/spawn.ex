@@ -9,7 +9,8 @@ defmodule Goodwizard.Actions.Subagent.Spawn do
 
   use Jido.Action,
     name: "spawn_subagent",
-    description: "Spawn a background subagent to complete a task. The subagent has filesystem and shell tools but no browser, messaging, or spawn capabilities.",
+    description:
+      "Spawn a background subagent to complete a task. The subagent has filesystem and shell tools but no browser, messaging, or spawn capabilities.",
     schema: [
       task: [type: :string, required: true, doc: "The task for the subagent to complete"],
       context: [type: :string, doc: "Optional context to provide to the subagent"]
@@ -37,7 +38,8 @@ defmodule Goodwizard.Actions.Subagent.Spawn do
     active_count = Goodwizard.Jido.agent_count()
 
     if active_count >= @max_concurrent_subagents do
-      {:error, "Concurrent subagent limit reached (max #{@max_concurrent_subagents}). Wait for existing subagents to complete."}
+      {:error,
+       "Concurrent subagent limit reached (max #{@max_concurrent_subagents}). Wait for existing subagents to complete."}
     else
       spawn_and_run(query)
     end

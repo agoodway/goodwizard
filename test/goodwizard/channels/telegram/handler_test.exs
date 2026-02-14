@@ -1,9 +1,14 @@
 defmodule Goodwizard.Channels.Telegram.HandlerTest do
   use ExUnit.Case, async: true
 
-  alias Goodwizard.Channels.Telegram.Handler
   alias Goodwizard.Agent, as: GoodwizardAgent
+  alias Goodwizard.Channels.Telegram.Handler
+  alias Goodwizard.Character.Hydrator
   alias Goodwizard.Messaging
+  alias Jido.Signal.ID, as: SignalID
+  alias JidoMessaging.Channels.Telegram, as: TelegramChannel
+  alias JidoMessaging.Content.Text, as: ContentText
+  alias JidoMessaging.Message
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "gw_tg_test_#{System.unique_integer([:positive])}")
@@ -74,7 +79,7 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
 
   describe "handle_message/2 with allow-list" do
     test "allows message when allow_from is empty (open mode)", %{workspace: workspace} do
-      {message, context} = build_message_and_context("hello", 12345, workspace)
+      {message, context} = build_message_and_context("hello", 12_345, workspace)
 
       # With empty allow_from (default config), message should be processed
       # It will error on agent creation but that's fine — we're testing the allow check
@@ -93,7 +98,7 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
       :sys.replace_state(Goodwizard.Config, fn _ -> updated_config end)
 
       try do
-        {message, context} = build_message_and_context("hello", 99999, workspace)
+        {message, context} = build_message_and_context("hello", 99_999, workspace)
         result = Handler.handle_message(message, context)
         assert result == :noreply
       after
@@ -102,7 +107,7 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
     end
 
     test "blocks message when from_id is nil", %{workspace: workspace} do
-      {message, context} = build_message_and_context("hello", 12345, workspace)
+      {message, context} = build_message_and_context("hello", 12_345, workspace)
 
       # Override context to have no telegram external_id
       context = %{context | participant: %{context.participant | external_ids: %{}}}
@@ -114,7 +119,7 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
 
   describe "handle_message/2 with agent routing" do
     test "processes text message and routes to agent", %{workspace: workspace} do
-      {message, context} = build_message_and_context("hello world", 12345, workspace)
+      {message, context} = build_message_and_context("hello world", 12_345, workspace)
 
       # The handler will try to start an agent and call ask_sync
       # Without a real API key, the agent will return an error
@@ -127,15 +132,15 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
     end
 
     test "returns :noreply for empty text message", %{workspace: workspace} do
-      {message, context} = build_message_and_context("", 12345, workspace)
+      {message, context} = build_message_and_context("", 12_345, workspace)
       assert Handler.handle_message(message, context) == :noreply
     end
 
     test "returns :noreply for message with no text content", %{workspace: workspace} do
-      context = build_context(12345, workspace)
+      context = build_context(12_345, workspace)
 
-      message = %JidoMessaging.Message{
-        id: Jido.Signal.ID.generate!(),
+      message = %Message{
+        id: SignalID.generate!(),
         room_id: context.room.id,
         sender_id: context.participant.id,
         role: :user,
@@ -150,7 +155,7 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
   describe "handle_message/2 input validation" do
     test "rejects messages exceeding max input length", %{workspace: workspace} do
       long_text = String.duplicate("a", 10_001)
-      {message, context} = build_message_and_context(long_text, 12345, workspace)
+      {message, context} = build_message_and_context(long_text, 12_345, workspace)
 
       result = Handler.handle_message(message, context)
       assert {:reply, reply} = result
@@ -160,7 +165,7 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
 
   describe "message persistence" do
     test "saves user message to Messaging store", %{workspace: workspace} do
-      {message, context} = build_message_and_context("hello persistence", 12345, workspace)
+      {message, context} = build_message_and_context("hello persistence", 12_345, workspace)
 
       # The handler will try to process and save the user message
       # Even if agent fails, the user message should be saved first
@@ -168,7 +173,7 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
 
       {:ok, messages} = Messaging.list_messages(context.room.id)
       user_messages = Enum.filter(messages, fn msg -> msg.role == :user end)
-      assert length(user_messages) >= 1
+      assert user_messages != []
 
       last_user = List.last(user_messages)
       assert last_user.sender_id == "user"
@@ -183,7 +188,8 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
         "style" => "brief and mobile-friendly"
       }
 
-      {:ok, prompt} = Goodwizard.Character.Hydrator.hydrate(workspace, config_overrides: overrides)
+      {:ok, prompt} =
+        Hydrator.hydrate(workspace, config_overrides: overrides)
 
       assert is_binary(prompt)
       assert String.length(prompt) > 0
@@ -232,11 +238,11 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
       if text == "" do
         []
       else
-        [%JidoMessaging.Content.Text{text: text}]
+        [%ContentText{text: text}]
       end
 
-    message = %JidoMessaging.Message{
-      id: Jido.Signal.ID.generate!(),
+    message = %Message{
+      id: SignalID.generate!(),
       room_id: context.room.id,
       sender_id: context.participant.id,
       role: :user,
@@ -266,7 +272,7 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
     %{
       room: room,
       participant: participant,
-      channel: JidoMessaging.Channels.Telegram,
+      channel: TelegramChannel,
       instance_id: "test",
       external_room_id: "chat_#{user_id}",
       instance_module: Goodwizard.Messaging

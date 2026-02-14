@@ -24,6 +24,7 @@ defmodule Goodwizard.Channels.CLI.Server do
   @user_sender_id "user"
   @assistant_sender_id "assistant"
 
+  @doc "Starts the CLI server and links to the calling process."
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts)
@@ -50,23 +51,12 @@ defmodule Goodwizard.Channels.CLI.Server do
       })
 
     # Start the agent
-    case Goodwizard.Jido.start_agent(GoodwizardAgent,
-           id: "cli:direct:#{System.unique_integer([:positive])}",
-           initial_state: %{workspace: workspace, channel: "cli", chat_id: "direct"}
-         ) do
+    case start_cli_agent(workspace) do
       {:ok, agent_pid} ->
         Logger.info("CLI channel started, room=#{room.id}", channel: :cli)
 
-        state = %{
-          room_id: room.id,
-          agent_pid: agent_pid,
-          workspace: workspace
-        }
-
-        # Spawn the blocking REPL loop unless suppressed (for tests)
-        if Keyword.get(opts, :start_repl, true) do
-          Task.start_link(fn -> repl_loop(state) end)
-        end
+        state = %{room_id: room.id, agent_pid: agent_pid, workspace: workspace}
+        maybe_start_repl(opts, state)
 
         {:ok, state}
 
@@ -87,6 +77,19 @@ defmodule Goodwizard.Channels.CLI.Server do
   def handle_call({:input, input}, _from, state) do
     result = handle_input(input, state)
     {:reply, result, state}
+  end
+
+  defp start_cli_agent(workspace) do
+    Goodwizard.Jido.start_agent(GoodwizardAgent,
+      id: "cli:direct:#{System.unique_integer([:positive])}",
+      initial_state: %{workspace: workspace, channel: "cli", chat_id: "direct"}
+    )
+  end
+
+  defp maybe_start_repl(opts, state) do
+    if Keyword.get(opts, :start_repl, true) do
+      Task.start_link(fn -> repl_loop(state) end)
+    end
   end
 
   # -- REPL loop (runs in linked Task) ----------------------------------------

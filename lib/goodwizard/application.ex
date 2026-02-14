@@ -32,42 +32,41 @@ defmodule Goodwizard.Application do
         Logger.warning("Config validation failed: #{Exception.message(e)} — continuing startup")
     end
 
+    maybe_start_telegram()
+    maybe_start_heartbeat()
+  end
+
+  defp maybe_start_telegram do
     if Goodwizard.Config.get(["channels", "telegram", "enabled"]) do
-      Logger.info("Starting Telegram channel")
-
-      case Supervisor.start_child(Goodwizard.Supervisor, %{
-             id: Goodwizard.Channels.Telegram.Handler,
-             start: {Goodwizard.Channels.Telegram.Handler, :start_link, [[]]},
-             restart: :permanent
-           }) do
-        {:ok, _pid} ->
-          Logger.info("Telegram channel started")
-
-        {:error, {:already_started, _pid}} ->
-          :ok
-
-        {:error, reason} ->
-          Logger.error("Failed to start Telegram handler: #{inspect(reason)}")
-      end
+      start_optional_child(
+        Goodwizard.Channels.Telegram.Handler,
+        "Telegram channel"
+      )
     end
+  end
 
+  defp maybe_start_heartbeat do
     if Goodwizard.Config.get(["heartbeat", "enabled"]) do
-      Logger.info("Starting Heartbeat")
+      start_optional_child(Goodwizard.Heartbeat, "Heartbeat")
+    end
+  end
 
-      case Supervisor.start_child(Goodwizard.Supervisor, %{
-             id: Goodwizard.Heartbeat,
-             start: {Goodwizard.Heartbeat, :start_link, [[]]},
-             restart: :permanent
-           }) do
-        {:ok, _pid} ->
-          Logger.info("Heartbeat started")
+  defp start_optional_child(module, label) do
+    Logger.info("Starting #{label}")
 
-        {:error, {:already_started, _pid}} ->
-          :ok
+    case Supervisor.start_child(Goodwizard.Supervisor, %{
+           id: module,
+           start: {module, :start_link, [[]]},
+           restart: :permanent
+         }) do
+      {:ok, _pid} ->
+        Logger.info("#{label} started")
 
-        {:error, reason} ->
-          Logger.error("Failed to start Heartbeat: #{inspect(reason)}")
-      end
+      {:error, {:already_started, _pid}} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Failed to start #{label}: #{inspect(reason)}")
     end
   end
 end

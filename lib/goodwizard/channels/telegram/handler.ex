@@ -74,54 +74,72 @@ defmodule Goodwizard.Channels.Telegram.Handler do
     chat_id = context.external_room_id
     room_id = context.room.id
 
-    cond do
-      text == "" ->
+    with :ok <- validate_input(text, chat_id),
+         {:ok, agent_pid} <- get_or_create_agent(chat_id) do
+      dispatch_to_agent(agent_pid, text, chat_id, room_id)
+    else
+      :noreply ->
         :noreply
 
-      byte_size(text) > @max_input_length ->
-        {:reply, "Sorry, your message is too long. Please keep it under #{@max_input_length} bytes."}
+      {:reply, _} = reply ->
+        reply
 
-      not valid_chat_id?(chat_id) ->
-        Logger.error("Invalid chat_id format: #{inspect(chat_id)}")
+      {:error, reason} ->
+        Logger.error("Failed to create agent for chat #{chat_id}: #{error_label(reason)}")
         {:reply, "Sorry, I'm unable to start a session right now."}
-
-      true ->
-        case get_or_create_agent(chat_id) do
-          {:ok, agent_pid} ->
-            save_message(room_id, @user_sender_id, :user, text)
-
-            case GoodwizardAgent.ask_sync(agent_pid, text, timeout: @ask_timeout) do
-              {:ok, answer} ->
-                save_message(room_id, @assistant_sender_id, :assistant, answer)
-
-                case split_message(answer) do
-                  [single] ->
-                    {:reply, single}
-
-                  [first | rest] ->
-                    Enum.each(rest, fn chunk ->
-                      case Telegex.send_message(chat_id, chunk) do
-                        {:error, reason} ->
-                          Logger.error("Failed to send chunk to chat #{chat_id}: #{error_label(reason)}")
-
-                        _ ->
-                          :ok
-                      end
-                    end)
-
-                    {:reply, first}
-                end
-
-              {:error, reason} ->
-                Logger.error("Agent error for chat #{chat_id}: #{error_label(reason)}")
-                {:reply, "Sorry, I encountered an error. Please try again."}
-            end
-
-          {:error, reason} ->
-            Logger.error("Failed to create agent for chat #{chat_id}: #{error_label(reason)}")
-            {:reply, "Sorry, I'm unable to start a session right now."}
-        end
     end
+  end
+
+  defp validate_input("", _chat_id), do: :noreply
+
+  defp validate_input(text, _chat_id) when byte_size(text) > @max_input_length do
+    {:reply, "Sorry, your message is too long. Please keep it under #{@max_input_length} bytes."}
+  end
+
+  defp validate_input(_text, chat_id) do
+    if valid_chat_id?(chat_id) do
+      :ok
+    else
+      Logger.error("Invalid chat_id format: #{inspect(chat_id)}")
+      {:reply, "Sorry, I'm unable to start a session right now."}
+    end
+  end
+
+  defp dispatch_to_agent(agent_pid, text, chat_id, room_id) do
+    save_message(room_id, @user_sender_id, :user, text)
+
+    case GoodwizardAgent.ask_sync(agent_pid, text, timeout: @ask_timeout) do
+      {:ok, answer} ->
+        save_message(room_id, @assistant_sender_id, :assistant, answer)
+        send_reply(answer, chat_id)
+
+      {:error, reason} ->
+        Logger.error("Agent error for chat #{chat_id}: #{error_label(reason)}")
+        {:reply, "Sorry, I encountered an error. Please try again."}
+    end
+  end
+
+  defp send_reply(answer, chat_id) do
+    case split_message(answer) do
+      [single] ->
+        {:reply, single}
+
+      [first | rest] ->
+        send_extra_chunks(rest, chat_id)
+        {:reply, first}
+    end
+  end
+
+  defp send_extra_chunks(chunks, chat_id) do
+    Enum.each(chunks, fn chunk ->
+      case Telegex.send_message(chat_id, chunk) do
+        {:error, reason} ->
+          Logger.error("Failed to send chunk to chat #{chat_id}: #{error_label(reason)}")
+
+        _ ->
+          :ok
+      end
+    end)
   end
 
   defp get_or_create_agent(chat_id) do
@@ -163,7 +181,10 @@ defmodule Goodwizard.Channels.Telegram.Handler do
   end
 
   defp valid_chat_id?(chat_id) when is_integer(chat_id), do: true
-  defp valid_chat_id?(chat_id) when is_binary(chat_id), do: String.match?(chat_id, ~r/\A[\w\-.:]+\z/)
+
+  defp valid_chat_id?(chat_id) when is_binary(chat_id),
+    do: String.match?(chat_id, ~r/\A[\w\-.:]+\z/)
+
   defp valid_chat_id?(_), do: false
 
   defp extract_text([%{text: text} | _]) when is_binary(text), do: text

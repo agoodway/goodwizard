@@ -72,7 +72,7 @@ defmodule Goodwizard.ConfigTest do
       assert get_in(config, ["agent", "temperature"]) == 0.5
       assert get_in(config, ["channels", "cli", "enabled"]) == false
       assert get_in(config, ["browser", "headless"]) == false
-      assert get_in(config, ["browser", "timeout"]) == 60000
+      assert get_in(config, ["browser", "timeout"]) == 60_000
     end
 
     test "partial config merges with defaults", %{tmp_dir: tmp_dir} do
@@ -166,7 +166,7 @@ defmodule Goodwizard.ConfigTest do
       assert get_in(config, ["tools", "restrict_to_workspace"]) == true
       assert get_in(config, ["browser", "headless"]) == true
       assert get_in(config, ["browser", "adapter"]) == "vibium"
-      assert get_in(config, ["browser", "timeout"]) == 30000
+      assert get_in(config, ["browser", "timeout"]) == 30_000
       assert get_in(config, ["browser", "search", "brave_api_key"]) == ""
     end
   end
@@ -470,7 +470,9 @@ defmodule Goodwizard.ConfigTest do
 
     test "warns when workspace directory does not exist", %{tmp_dir: tmp_dir} do
       config_path = Path.join(tmp_dir, "config.toml")
-      missing_workspace = Path.join(tmp_dir, "nonexistent_workspace_#{System.unique_integer([:positive])}")
+
+      missing_workspace =
+        Path.join(tmp_dir, "nonexistent_workspace_#{System.unique_integer([:positive])}")
 
       File.write!(config_path, """
       [agent]

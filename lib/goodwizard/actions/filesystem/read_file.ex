@@ -20,26 +20,31 @@ defmodule Goodwizard.Actions.Filesystem.ReadFile do
   def run(params, _context) do
     max_size = Map.get(params, :max_file_size, @default_max_file_size)
 
-    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)) do
-      cond do
-        not File.exists?(resolved) ->
-          {:error, "File not found: #{resolved}"}
-
-        File.dir?(resolved) ->
-          {:error, "Not a file: #{resolved}"}
-
-        true ->
-          case File.stat(resolved) do
-            {:ok, %{size: size}} when size > max_size ->
-              {:error, "File too large: #{size} bytes exceeds limit of #{max_size} bytes"}
-
-            _ ->
-              case File.read(resolved) do
-                {:ok, content} -> {:ok, %{content: content}}
-                {:error, reason} -> {:error, "Failed to read file: #{:file.format_error(reason)}"}
-              end
-          end
+    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)),
+         :ok <- check_file_exists(resolved),
+         :ok <- check_file_size(resolved, max_size) do
+      case File.read(resolved) do
+        {:ok, content} -> {:ok, %{content: content}}
+        {:error, reason} -> {:error, "Failed to read file: #{:file.format_error(reason)}"}
       end
+    end
+  end
+
+  defp check_file_exists(path) do
+    cond do
+      not File.exists?(path) -> {:error, "File not found: #{path}"}
+      File.dir?(path) -> {:error, "Not a file: #{path}"}
+      true -> :ok
+    end
+  end
+
+  defp check_file_size(path, max_size) do
+    case File.stat(path) do
+      {:ok, %{size: size}} when size > max_size ->
+        {:error, "File too large: #{size} bytes exceeds limit of #{max_size} bytes"}
+
+      _ ->
+        :ok
     end
   end
 end

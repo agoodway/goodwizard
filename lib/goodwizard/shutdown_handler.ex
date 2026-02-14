@@ -12,6 +12,8 @@ defmodule Goodwizard.ShutdownHandler do
 
   @shutdown_timeout 30_000
 
+  @doc "Starts the shutdown handler and links to the calling process."
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -29,6 +31,8 @@ defmodule Goodwizard.ShutdownHandler do
     Logger.info("Graceful shutdown complete")
     :ok
   end
+
+  alias Goodwizard.Plugins
 
   defp flush_sessions do
     agents =
@@ -52,7 +56,7 @@ defmodule Goodwizard.ShutdownHandler do
             state = :sys.get_state(pid, @shutdown_timeout)
             session_key = Map.get(state.state, :session_key, "default")
 
-            case Goodwizard.Plugins.Session.save_session(sessions_dir, session_key, state.state) do
+            case Plugins.Session.save_session(sessions_dir, session_key, state.state) do
               :ok ->
                 Logger.debug("Session saved for agent #{agent_id}")
 

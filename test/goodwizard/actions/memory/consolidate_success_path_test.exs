@@ -7,7 +7,13 @@ defmodule Goodwizard.Actions.Memory.ConsolidateSuccessPathTest do
   """
   use ExUnit.Case, async: true
 
-  alias Goodwizard.Actions.Memory.{AppendHistory, ReadLongTerm, WriteLongTerm, SearchHistory}
+  alias Goodwizard.Actions.Memory.{
+    AppendHistory,
+    Consolidate,
+    ReadLongTerm,
+    SearchHistory,
+    WriteLongTerm
+  }
 
   defp tmp_memory_dir do
     dir = Path.join(System.tmp_dir!(), "test_memory_succ_#{:rand.uniform(100_000)}")
@@ -110,7 +116,7 @@ defmodule Goodwizard.Actions.Memory.ConsolidateSuccessPathTest do
       # Should not raise even with dangerous content — will fail at LLM
       # but the prompt construction should succeed
       result =
-        Goodwizard.Actions.Memory.Consolidate.run(
+        Consolidate.run(
           %{
             memory_dir: dir,
             messages: messages,

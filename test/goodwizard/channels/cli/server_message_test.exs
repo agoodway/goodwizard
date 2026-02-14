@@ -22,7 +22,7 @@ defmodule Goodwizard.Channels.CLI.ServerMessageTest do
       {:ok, messages} = Messaging.list_messages(state.room_id)
 
       user_messages = Enum.filter(messages, fn msg -> msg.role == :user end)
-      assert length(user_messages) >= 1
+      assert user_messages != []
 
       last_user = List.last(user_messages)
       assert last_user.sender_id == "user"
@@ -37,7 +37,7 @@ defmodule Goodwizard.Channels.CLI.ServerMessageTest do
       {:ok, messages} = Messaging.list_messages(state.room_id)
 
       assistant_messages = Enum.filter(messages, fn msg -> msg.role == :assistant end)
-      assert length(assistant_messages) >= 1
+      assert assistant_messages != []
 
       last_assistant = List.last(assistant_messages)
       assert last_assistant.sender_id == "assistant"

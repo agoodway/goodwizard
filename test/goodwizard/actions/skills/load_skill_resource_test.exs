@@ -4,7 +4,9 @@ defmodule Goodwizard.Actions.Skills.LoadSkillResourceTest do
   alias Goodwizard.Actions.Skills.LoadSkillResource
 
   defp tmp_skill_dir do
-    dir = Path.join(System.tmp_dir!(), "skill_resource_test_#{System.unique_integer([:positive])}")
+    dir =
+      Path.join(System.tmp_dir!(), "skill_resource_test_#{System.unique_integer([:positive])}")
+
     File.mkdir_p!(dir)
     dir
   end
@@ -80,7 +82,9 @@ defmodule Goodwizard.Actions.Skills.LoadSkillResourceTest do
       on_exit(fn -> File.rm_rf!(dir) end)
 
       # Create an external file and a symlink to it
-      external_dir = Path.join(System.tmp_dir!(), "external_#{System.unique_integer([:positive])}")
+      external_dir =
+        Path.join(System.tmp_dir!(), "external_#{System.unique_integer([:positive])}")
+
       File.mkdir_p!(external_dir)
       external_file = Path.join(external_dir, "secret.txt")
       File.write!(external_file, "secret data")

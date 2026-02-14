@@ -7,6 +7,8 @@ defmodule Goodwizard.SubAgent do
   and keep subagents lightweight.
   """
 
+  @dialyzer {:nowarn_function, plugin_specs: 0}
+
   use Jido.AI.ReActAgent,
     name: "goodwizard_subagent",
     description: "Focused background agent for file processing and research tasks",
@@ -29,9 +31,13 @@ defmodule Goodwizard.SubAgent do
 
     character =
       case Map.get(params, :system_prompt, "") do
-        "" -> character
+        "" ->
+          character
+
         context ->
-          {:ok, updated} = Jido.Character.add_knowledge(character, context, category: "task-context")
+          {:ok, updated} =
+            Jido.Character.add_knowledge(character, context, category: "task-context")
+
           updated
       end
 

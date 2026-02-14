@@ -15,23 +15,23 @@ defmodule Goodwizard.Actions.Filesystem.ListDir do
 
   @impl true
   def run(params, _context) do
-    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)) do
-      cond do
-        not File.exists?(resolved) ->
-          {:error, "Directory not found: #{resolved}"}
+    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)),
+         :ok <- check_directory(resolved) do
+      case File.ls(resolved) do
+        {:ok, entries} ->
+          format_entries(resolved, Enum.sort(entries))
 
-        not File.dir?(resolved) ->
-          {:error, "Not a directory: #{resolved}"}
-
-        true ->
-          case File.ls(resolved) do
-            {:ok, entries} ->
-              format_entries(resolved, Enum.sort(entries))
-
-            {:error, reason} ->
-              {:error, "Failed to list directory: #{:file.format_error(reason)}"}
-          end
+        {:error, reason} ->
+          {:error, "Failed to list directory: #{:file.format_error(reason)}"}
       end
+    end
+  end
+
+  defp check_directory(path) do
+    cond do
+      not File.exists?(path) -> {:error, "Directory not found: #{path}"}
+      not File.dir?(path) -> {:error, "Not a directory: #{path}"}
+      true -> :ok
     end
   end
 
@@ -41,13 +41,11 @@ defmodule Goodwizard.Actions.Filesystem.ListDir do
 
   defp format_entries(path, entries) do
     listing =
-      entries
-      |> Enum.map(fn entry ->
+      Enum.map_join(entries, "\n", fn entry ->
         full_path = Path.join(path, entry)
         prefix = if File.dir?(full_path), do: "[DIR]", else: "[FILE]"
         "#{prefix} #{entry}"
       end)
-      |> Enum.join("\n")
 
     {:ok, %{entries: listing}}
   end

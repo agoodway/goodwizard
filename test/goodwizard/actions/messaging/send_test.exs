@@ -27,7 +27,7 @@ defmodule Goodwizard.Actions.Messaging.SendTest do
       # Verify the message was persisted
       {:ok, messages} = Messaging.list_messages(room.id)
       agent_messages = Enum.filter(messages, fn msg -> msg.role == :assistant end)
-      assert length(agent_messages) >= 1
+      assert agent_messages != []
 
       last = List.last(agent_messages)
       assert last.sender_id == "assistant"
