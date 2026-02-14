@@ -1,7 +1,7 @@
-defmodule Goodwizard.Skills.PromptSkillsTest do
+defmodule Goodwizard.Plugins.PromptSkillsTest do
   use ExUnit.Case, async: true
 
-  alias Goodwizard.Skills.PromptSkills
+  alias Goodwizard.Plugins.PromptSkills
 
   defp create_skill_dir(base, name, opts \\ []) do
     dir = Path.join(base, name)
@@ -26,7 +26,7 @@ defmodule Goodwizard.Skills.PromptSkillsTest do
   end
 
   defp tmp_workspace do
-    dir = Path.join(System.tmp_dir!(), "prompt_skills_test_#{:rand.uniform(100_000)}")
+    dir = Path.join(System.tmp_dir!(), "prompt_skills_test_#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
     dir
   end
@@ -167,6 +167,27 @@ defmodule Goodwizard.Skills.PromptSkillsTest do
       assert hd(skills).name == "search"
     end
 
+    test "skips oversized SKILL.md files" do
+      workspace = tmp_workspace()
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      skills_dir = Path.join(workspace, "skills")
+      File.mkdir_p!(skills_dir)
+
+      # Valid skill
+      create_skill_dir(skills_dir, "small")
+
+      # Oversized skill (> 256KB)
+      big_dir = Path.join(skills_dir, "big")
+      File.mkdir_p!(big_dir)
+      big_content = "---\nname: big\ndescription: big skill\n---\n" <> String.duplicate("x", 300_000)
+      File.write!(Path.join(big_dir, "SKILL.md"), big_content)
+
+      skills = PromptSkills.scan_skills(workspace)
+      assert length(skills) == 1
+      assert hd(skills).name == "small"
+    end
+
     test "skills are sorted alphabetically by name" do
       workspace = tmp_workspace()
       on_exit(fn -> File.rm_rf!(workspace) end)
@@ -272,6 +293,30 @@ defmodule Goodwizard.Skills.PromptSkillsTest do
       {:ok, state} = PromptSkills.mount(agent, %{})
 
       assert length(state.skills) == 2
+    end
+
+    test "accepts workspace from config override" do
+      workspace = tmp_workspace()
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      skills_dir = Path.join(workspace, "skills")
+      File.mkdir_p!(skills_dir)
+      create_skill_dir(skills_dir, "from-config")
+
+      # Agent state has a different workspace, but config overrides it
+      agent = %{state: %{workspace: "/nonexistent"}}
+      {:ok, state} = PromptSkills.mount(agent, %{workspace: workspace})
+
+      assert length(state.skills) == 1
+      assert hd(state.skills).name == "from-config"
+    end
+
+    test "defaults to current directory when no workspace provided" do
+      agent = %{state: %{}}
+      {:ok, state} = PromptSkills.mount(agent, %{})
+
+      # Should not crash, just return empty or whatever skills exist in "."
+      assert is_list(state.skills)
     end
   end
 end

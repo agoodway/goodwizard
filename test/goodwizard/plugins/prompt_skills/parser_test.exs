@@ -1,7 +1,7 @@
-defmodule Goodwizard.Skills.PromptSkills.ParserTest do
+defmodule Goodwizard.Plugins.PromptSkills.ParserTest do
   use ExUnit.Case, async: true
 
-  alias Goodwizard.Skills.PromptSkills.Parser
+  alias Goodwizard.Plugins.PromptSkills.Parser
 
   describe "parse_frontmatter/1" do
     test "extracts name, description, and body" do
@@ -117,6 +117,56 @@ defmodule Goodwizard.Skills.PromptSkills.ParserTest do
       assert body =~ "First section"
       assert body =~ "---"
       assert body =~ "Second section"
+    end
+
+    test "returns error for empty string input" do
+      assert {:error, "no frontmatter found"} = Parser.parse_frontmatter("")
+    end
+
+    test "coerces integer name to string via to_string" do
+      content = "---\nname: 42\ndescription: A numeric name\n---\nBody"
+
+      {:ok, metadata, _body} = Parser.parse_frontmatter(content)
+      assert metadata.name == "42"
+      assert is_binary(metadata.name)
+    end
+
+    test "handles Windows CRLF line endings" do
+      content = "---\r\nname: test\r\ndescription: A test\r\n---\r\nBody content"
+
+      {:ok, metadata, body} = Parser.parse_frontmatter(content)
+      assert metadata.name == "test"
+      assert metadata.description == "A test"
+      assert body == "Body content"
+    end
+
+    test "handles multi-byte UTF-8 characters in frontmatter" do
+      content = "---\nname: test\ndescription: Déploiement à la production 日本語\n---\nBody with émojis 🚀"
+
+      {:ok, metadata, body} = Parser.parse_frontmatter(content)
+      assert metadata.name == "test"
+      assert metadata.description == "Déploiement à la production 日本語"
+      assert body =~ "🚀"
+    end
+
+    test "returns error for frontmatter that is not a YAML mapping" do
+      content = "---\n- item1\n- item2\n---\nBody"
+
+      assert {:error, "frontmatter must be a YAML mapping"} = Parser.parse_frontmatter(content)
+    end
+
+    test "returns error for only opening delimiter" do
+      content = "---\nname: test\ndescription: no closing"
+
+      assert {:error, "no frontmatter found"} = Parser.parse_frontmatter(content)
+    end
+
+    test "handles --- with trailing whitespace as closing delimiter" do
+      content = "---\nname: test\ndescription: A test\n---   \nBody content"
+
+      {:ok, metadata, body} = Parser.parse_frontmatter(content)
+      assert metadata.name == "test"
+      assert body == "Body content"
     end
   end
 

@@ -52,4 +52,15 @@ defmodule Goodwizard.Actions.Filesystem.WriteFileTest do
     assert {:error, msg} = WriteFile.run(%{path: path, content: "x"}, %{})
     assert msg =~ "Failed to write file"
   end
+
+  test "returns error when parent directory cannot be created", %{tmp_dir: tmp_dir} do
+    # Create a file where a directory needs to be
+    blocker = Path.join(tmp_dir, "blocker")
+    File.write!(blocker, "I'm a file, not a dir")
+
+    path = Path.join([blocker, "subdir", "file.txt"])
+
+    assert {:error, msg} = WriteFile.run(%{path: path, content: "x"}, %{})
+    assert msg =~ "Failed to create directory"
+  end
 end
