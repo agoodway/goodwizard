@@ -1,0 +1,6 @@
+.todos/
+.autopilot-logs/
+.sidecar/
+_build/
+deps/
+erl_crash.dump

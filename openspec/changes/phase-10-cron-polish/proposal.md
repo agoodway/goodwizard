@@ -9,25 +9,26 @@ Scheduled tasks and heartbeat give the agent autonomous capabilities — it can 
 ### Cron Action
 
 Schedule recurring tasks via Jido's built-in Scheduler:
-- Schema: schedule (cron expression), task (string), channel (required), chat_id (required)
+- Schema: schedule (cron expression), task (string), room_id (required)
 - Emits a `Directive.Schedule` that Jido's scheduler picks up
+- Uses `room_id` to target a Messaging room (not `channel + chat_id`)
 
 ### Heartbeat
 
-Periodic GenServer (or Jido Sensor) that reads `HEARTBEAT.md` from workspace on a schedule and processes it as a message through the agent.
+Periodic GenServer started as an application child (not under a ChannelSupervisor). Reads `HEARTBEAT.md` from workspace on a schedule and processes it as a message through the agent. Targets a configurable Messaging room.
 
 ### Mix Tasks
 
-**mix goodwizard.start** — Start the full application with all enabled channels (CLI + Telegram if configured).
+**mix goodwizard.start** — Start the full application with all enabled channels (CLI + Telegram if configured). Telegram handler is a static application child when enabled.
 
-**mix goodwizard.status** — Show config, active channels, active conversations, memory stats.
+**mix goodwizard.status** — Show config, active rooms/messages from Messaging, channel instances, memory stats.
 
 ### Production Polish
 
 - Structured logging with `Logger` throughout all modules
 - Error handling in ReAct lifecycle hooks: catch LLM timeouts, tool crashes, malformed responses
 - Graceful shutdown: save sessions on termination (trap exit in Application)
-- Config validation at startup: warn about missing API keys, invalid model strings
+- Config validation at startup: check `Application.get_env(:telegex, :token)` when Telegram enabled, warn about missing API keys, invalid model strings
 
 ## Dependencies
 

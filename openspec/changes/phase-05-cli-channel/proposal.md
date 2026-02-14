@@ -2,43 +2,45 @@
 
 ## Why
 
-The CLI is the primary development and testing interface — the first way to interact with the fully wired agent. This phase connects all prior work into a working REPL and completes the supervision tree, making Goodwizard usable for the first time.
+The CLI is the primary development and testing interface — the first way to interact with the fully wired agent. This phase connects all prior work into a working REPL, making Goodwizard usable for the first time.
 
 ## What
-
-### Goodwizard.ChannelSupervisor
-
-DynamicSupervisor for channel processes. Provides `start_channel/2` to launch channel GenServers on demand.
 
 ### Goodwizard.Channels.CLI.Server
 
 GenServer that reads stdin and dispatches to an AgentServer via the Jido instance.
 
-- On init: read workspace from Config, start AgentServer via `Goodwizard.Jido.start_agent/2` with id `"cli:direct"`
-- REPL loop in a linked Task: `IO.gets("you> ")` → call `ask_sync/3` → print response
+- On init: read workspace from Config, create a Messaging room via `Goodwizard.Messaging.get_or_create_room_by_external_binding(:cli, "goodwizard", "direct")`, start AgentServer via `Goodwizard.Jido.start_agent/2` with id `"cli:direct"`
+- REPL loop in a linked Task: `IO.gets("you> ")` → save user message to room → call `ask_sync/3` → save assistant message to room → print response
 - Uses jido_ai's `ask_sync/3` pattern with 120s timeout
 
 ```elixir
 # In the REPL loop:
+Goodwizard.Messaging.save_message(%{room_id: room_id, sender_id: "user", content: input})
 {:ok, answer} = Goodwizard.Agent.ask_sync(pid, input, timeout: 120_000)
+Goodwizard.Messaging.save_message(%{room_id: room_id, sender_id: "assistant", content: answer})
 IO.puts("\ngoodwizard> #{answer}\n")
 ```
 
-### Updated Application Supervision Tree
+### Application Supervision Tree
+
+The supervision tree from Phase 1 already includes everything needed:
 
 ```elixir
 children = [
   {Goodwizard.Config, []},
   {Goodwizard.Jido, []},
-  {Goodwizard.ChannelSupervisor, []}
+  {Goodwizard.Messaging, []}
 ]
 ```
+
+No `ChannelSupervisor` is needed — `Goodwizard.Messaging` (via jido_messaging) provides room supervision, signal bus, and channel management.
 
 ### Mix Tasks
 
 **mix goodwizard.setup** — Create workspace dirs (`~/.goodwizard/workspace/`, `memory/`, `skills/`, `sessions/`) and write default `config.toml` if missing.
 
-**mix goodwizard.cli** — Start application, launch CLI channel via ChannelSupervisor, keep alive.
+**mix goodwizard.cli** — Start application, launch CLI Server directly, keep alive.
 
 ## Dependencies
 
