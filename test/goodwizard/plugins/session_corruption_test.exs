@@ -32,7 +32,14 @@ defmodule Goodwizard.Plugins.SessionCorruptionTest do
       dir = tmp_sessions_dir()
       on_exit(fn -> File.rm_rf!(dir) end)
 
-      metadata = Jason.encode!(%{key: "partial", created_at: "2026-01-01T00:00:00Z", version: 1, metadata: %{}})
+      metadata =
+        Jason.encode!(%{
+          key: "partial",
+          created_at: "2026-01-01T00:00:00Z",
+          version: 1,
+          metadata: %{}
+        })
+
       good_msg = Jason.encode!(%{role: "user", content: "Hello", timestamp: "t1"})
       bad_msg = "not valid json at all"
       good_msg2 = Jason.encode!(%{role: "assistant", content: "Hi!", timestamp: "t2"})
@@ -50,7 +57,14 @@ defmodule Goodwizard.Plugins.SessionCorruptionTest do
       dir = tmp_sessions_dir()
       on_exit(fn -> File.rm_rf!(dir) end)
 
-      metadata = Jason.encode!(%{key: "meta_only", created_at: "2026-01-01T00:00:00Z", version: 1, metadata: %{}})
+      metadata =
+        Jason.encode!(%{
+          key: "meta_only",
+          created_at: "2026-01-01T00:00:00Z",
+          version: 1,
+          metadata: %{}
+        })
+
       File.write!(Path.join(dir, "meta_only.jsonl"), metadata <> "\n")
 
       assert {:ok, loaded} = Session.load_session(dir, "meta_only")
@@ -62,7 +76,14 @@ defmodule Goodwizard.Plugins.SessionCorruptionTest do
       dir = tmp_sessions_dir()
       on_exit(fn -> File.rm_rf!(dir) end)
 
-      metadata = Jason.encode!(%{key: "truncated", created_at: "2026-01-01T00:00:00Z", version: 1, metadata: %{}})
+      metadata =
+        Jason.encode!(%{
+          key: "truncated",
+          created_at: "2026-01-01T00:00:00Z",
+          version: 1,
+          metadata: %{}
+        })
+
       good_msg = Jason.encode!(%{role: "user", content: "Before crash", timestamp: "t1"})
       truncated = ~s({"role":"assistant","content":"Cut off mid-)
 

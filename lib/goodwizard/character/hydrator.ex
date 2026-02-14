@@ -66,8 +66,12 @@ defmodule Goodwizard.Character.Hydrator do
   def inject_skills(character, %{} = skills_state) do
     character =
       case Map.get(skills_state, :summary) do
-        nil -> character
-        "" -> character
+        nil ->
+          character
+
+        "" ->
+          character
+
         summary ->
           {:ok, character} = Jido.Character.add_instruction(character, summary)
           character
@@ -161,7 +165,10 @@ defmodule Goodwizard.Character.Hydrator do
         acc
       else
         false ->
-          Logger.warning("Bootstrap file #{filename} exceeds #{@max_bootstrap_file_bytes} byte limit, skipping")
+          Logger.warning(
+            "Bootstrap file #{filename} exceeds #{@max_bootstrap_file_bytes} byte limit, skipping"
+          )
+
           acc
 
         {:error, _} ->
@@ -175,5 +182,10 @@ defmodule Goodwizard.Character.Hydrator do
   defp maybe_inject_memory(character, memory), do: inject_memory(character, memory)
 
   defp maybe_inject_skills(character, nil), do: character
+
+  defp maybe_inject_skills(_character, skills) when is_binary(skills) do
+    raise ArgumentError, ":skills must be a map, got a string"
+  end
+
   defp maybe_inject_skills(character, skills), do: inject_skills(character, skills)
 end

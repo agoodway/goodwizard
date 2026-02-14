@@ -20,11 +20,17 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Memory.WriteLongTerm,
       Goodwizard.Actions.Memory.AppendHistory,
       Goodwizard.Actions.Memory.SearchHistory,
-      Goodwizard.Actions.Memory.Consolidate
+      Goodwizard.Actions.Memory.Consolidate,
+      Goodwizard.Actions.Skills.ActivateSkill,
+      Goodwizard.Actions.Skills.LoadSkillResource
     ],
     model: "anthropic:claude-sonnet-4-5",
     max_iterations: 20,
-    plugins: [Goodwizard.Plugins.Session, Goodwizard.Plugins.Memory]
+    plugins: [
+      Goodwizard.Plugins.Session,
+      Goodwizard.Plugins.Memory,
+      Goodwizard.Skills.PromptSkills
+    ]
 
   require Logger
 
@@ -45,8 +51,10 @@ defmodule Goodwizard.Agent do
     character_overrides = Map.get(agent.state, :character_overrides)
     memory_content = get_in(agent.state, [:memory, :long_term_content]) || ""
 
+    skills_state = build_skills_state(agent)
+
     hydrate_opts =
-      [memory: memory_content] ++
+      [memory: memory_content, skills: skills_state] ++
         if(character_overrides, do: [config_overrides: character_overrides], else: [])
 
     system_prompt =
@@ -60,7 +68,11 @@ defmodule Goodwizard.Agent do
       end
 
     # Capture user message timestamp for session recording in on_after_cmd
-    agent = %{agent | state: Map.put(agent.state, :query_received_at, DateTime.utc_now() |> DateTime.to_iso8601())}
+    agent = %{
+      agent
+      | state:
+          Map.put(agent.state, :query_received_at, DateTime.utc_now() |> DateTime.to_iso8601())
+    }
 
     # Inject system prompt into the strategy options
     {:react_start, params} = action
@@ -84,7 +96,10 @@ defmodule Goodwizard.Agent do
       if snap.done? do
         query = Map.get(params, :query) || ""
         answer = snap.result || ""
-        user_timestamp = Map.get(agent.state, :query_received_at, DateTime.utc_now() |> DateTime.to_iso8601())
+
+        user_timestamp =
+          Map.get(agent.state, :query_received_at, DateTime.utc_now() |> DateTime.to_iso8601())
+
         assistant_timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
 
         state =
@@ -160,5 +175,11 @@ defmodule Goodwizard.Agent do
     catch
       :exit, _ -> 50
     end
+  end
+
+  defp build_skills_state(agent) do
+    prompt_skills = Map.get(agent.state, :prompt_skills, %{})
+    summary = Map.get(prompt_skills, :skills_summary, "")
+    %{summary: summary, active: []}
   end
 end

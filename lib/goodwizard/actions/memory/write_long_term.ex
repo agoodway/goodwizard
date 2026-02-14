@@ -37,8 +37,11 @@ defmodule Goodwizard.Actions.Memory.WriteLongTerm do
             {:error, "Failed to write MEMORY.md: #{:file.format_error(reason)}"}
         end
       else
-        {:error, reason} when is_binary(reason) -> {:error, reason}
-        {:error, reason} -> {:error, "Failed to create memory directory: #{:file.format_error(reason)}"}
+        {:error, reason} when is_binary(reason) ->
+          {:error, reason}
+
+        {:error, reason} ->
+          {:error, "Failed to create memory directory: #{:file.format_error(reason)}"}
       end
     end
   end

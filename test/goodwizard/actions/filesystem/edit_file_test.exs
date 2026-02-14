@@ -16,7 +16,11 @@ defmodule Goodwizard.Actions.Filesystem.EditFileTest do
 
     assert {:ok, %{message: msg}} =
              EditFile.run(
-               %{path: path, old_text: "def hello, do: :world", new_text: "def hello, do: :earth"},
+               %{
+                 path: path,
+                 old_text: "def hello, do: :world",
+                 new_text: "def hello, do: :earth"
+               },
                %{}
              )
 

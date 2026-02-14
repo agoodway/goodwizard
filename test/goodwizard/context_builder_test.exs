@@ -83,9 +83,7 @@ defmodule Goodwizard.ContextBuilderTest do
       tool_call = %{id: "call_1", name: "read_file", arguments: %{"path" => "/tmp/test.txt"}}
 
       result =
-        ContextBuilder.add_assistant_message(messages, "Reading file...",
-          tool_calls: [tool_call]
-        )
+        ContextBuilder.add_assistant_message(messages, "Reading file...", tool_calls: [tool_call])
 
       assistant_msg = List.last(result)
       assert assistant_msg.role == :assistant

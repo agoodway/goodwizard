@@ -30,7 +30,8 @@ defmodule Goodwizard.MixProject do
       {:plug, "~> 1.15"},
       {:plug_cowboy, "~> 2.7"},
       {:toml, "~> 0.7"},
-      {:jason, "~> 1.4"}
+      {:jason, "~> 1.4"},
+      {:yaml_elixir, "~> 2.9"}
     ]
   end
 end
