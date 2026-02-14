@@ -15,14 +15,20 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Filesystem.WriteFile,
       Goodwizard.Actions.Filesystem.EditFile,
       Goodwizard.Actions.Filesystem.ListDir,
-      Goodwizard.Actions.Shell.Exec
+      Goodwizard.Actions.Shell.Exec,
+      Goodwizard.Actions.Memory.ReadLongTerm,
+      Goodwizard.Actions.Memory.WriteLongTerm,
+      Goodwizard.Actions.Memory.AppendHistory,
+      Goodwizard.Actions.Memory.SearchHistory,
+      Goodwizard.Actions.Memory.Consolidate
     ],
     model: "anthropic:claude-sonnet-4-5",
     max_iterations: 20,
-    plugins: [Goodwizard.Plugins.Session]
+    plugins: [Goodwizard.Plugins.Session, Goodwizard.Plugins.Memory]
 
   require Logger
 
+  alias Goodwizard.Actions.Memory.Consolidate
   alias Goodwizard.Character.Hydrator
   alias Goodwizard.Plugins.Session
 
@@ -31,14 +37,17 @@ defmodule Goodwizard.Agent do
     # First let the parent macro handle request tracking
     {:ok, agent, action} = super(agent, action)
 
+    # Check if consolidation is needed before building the prompt
+    agent = maybe_consolidate(agent)
+
     # Build dynamic system prompt from workspace state
     workspace = Map.get(agent.state, :workspace, ".")
     character_overrides = Map.get(agent.state, :character_overrides)
+    memory_content = get_in(agent.state, [:memory, :long_term_content]) || ""
 
     hydrate_opts =
-      if character_overrides,
-        do: [config_overrides: character_overrides],
-        else: []
+      [memory: memory_content] ++
+        if(character_overrides, do: [config_overrides: character_overrides], else: [])
 
     system_prompt =
       try do
@@ -49,11 +58,6 @@ defmodule Goodwizard.Agent do
           Logger.warning("Hydration failed: #{inspect(e)}, using default system prompt")
           "You are a helpful AI assistant."
       end
-
-    # NOTE: Session history is recorded in on_after_cmd but not yet injected
-    # into the LLM context here. Multi-turn conversational memory injection
-    # is deferred to Phase 6 (Memory & Context Management). This phase only
-    # scaffolds the session storage infrastructure.
 
     # Capture user message timestamp for session recording in on_after_cmd
     agent = %{agent | state: Map.put(agent.state, :query_received_at, DateTime.utc_now() |> DateTime.to_iso8601())}
@@ -88,7 +92,12 @@ defmodule Goodwizard.Agent do
           |> Session.add_message("user", query, user_timestamp)
           |> Session.add_message("assistant", answer, assistant_timestamp)
 
-        %{agent | state: state}
+        agent = %{agent | state: state}
+
+        # Persist session to JSONL
+        persist_session(agent)
+
+        agent
       else
         agent
       end
@@ -98,4 +107,55 @@ defmodule Goodwizard.Agent do
 
   @impl true
   def on_after_cmd(agent, action, directives), do: super(agent, action, directives)
+
+  defp maybe_consolidate(agent) do
+    messages = get_in(agent.state, [:session, :messages]) || []
+    memory_window = get_memory_window()
+
+    if length(messages) > memory_window do
+      memory_dir = get_in(agent.state, [:memory, :memory_dir])
+      current_memory = get_in(agent.state, [:memory, :long_term_content]) || ""
+
+      case Consolidate.run(
+             %{
+               memory_dir: memory_dir,
+               messages: messages,
+               memory_window: memory_window,
+               current_memory: current_memory
+             },
+             %{}
+           ) do
+        {:ok, %{consolidated: true, messages: trimmed, memory_content: new_memory}} ->
+          state =
+            agent.state
+            |> put_in([:session, :messages], trimmed)
+            |> put_in([:memory, :long_term_content], new_memory)
+
+          %{agent | state: state}
+
+        _ ->
+          agent
+      end
+    else
+      agent
+    end
+  end
+
+  defp persist_session(agent) do
+    sessions_dir = Path.expand("~/.goodwizard/sessions")
+    session_key = Map.get(agent.state, :session_key, "default")
+
+    case Session.save_session(sessions_dir, session_key, agent.state) do
+      :ok -> :ok
+      {:error, reason} -> Logger.warning("Failed to persist session: #{inspect(reason)}")
+    end
+  end
+
+  defp get_memory_window do
+    try do
+      Goodwizard.Config.get(["agent", "memory_window"]) || 50
+    catch
+      :exit, _ -> 50
+    end
+  end
 end

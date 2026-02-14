@@ -1,0 +1,43 @@
+defmodule Goodwizard.Plugins.Memory do
+  @moduledoc """
+  Plugin that manages long-term memory state for the agent.
+
+  Loads MEMORY.md from the workspace on mount and tracks the memory
+  directory path. Memory actions read/write through this plugin's state.
+  """
+
+  use Jido.Plugin,
+    name: "memory",
+    description: "Manages long-term memory state",
+    state_key: :memory,
+    actions: [],
+    schema:
+      Zoi.object(%{
+        memory_dir: Zoi.string(),
+        long_term_content: Zoi.string() |> Zoi.default("")
+      })
+
+  @impl Jido.Plugin
+  def mount(agent, config) do
+    memory_dir =
+      Map.get(config, :memory_dir) ||
+        get_in(agent, [Access.key(:state, %{}), :workspace])
+
+    resolved_dir = resolve_memory_dir(memory_dir)
+    content = load_memory_md(resolved_dir)
+    {:ok, %{memory_dir: resolved_dir, long_term_content: content}}
+  end
+
+  defp resolve_memory_dir(nil), do: Path.expand("~/.goodwizard/workspace")
+  defp resolve_memory_dir(""), do: Path.expand("~/.goodwizard/workspace")
+  defp resolve_memory_dir(dir) when is_binary(dir), do: Path.expand(dir)
+
+  defp load_memory_md(memory_dir) do
+    path = Path.join(memory_dir, "MEMORY.md")
+
+    case File.read(path) do
+      {:ok, content} -> content
+      {:error, _} -> ""
+    end
+  end
+end

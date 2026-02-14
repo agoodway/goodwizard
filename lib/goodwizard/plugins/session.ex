@@ -83,4 +83,97 @@ defmodule Goodwizard.Plugins.Session do
     updated_session = Map.put(session, :messages, [])
     Map.put(state, :session, updated_session)
   end
+
+  @doc """
+  Save session state to a JSONL file.
+
+  First line is metadata (key, created_at, version), subsequent lines are messages.
+  Session key colons are replaced with underscores in the filename.
+  Creates the sessions directory if it doesn't exist.
+  """
+  @spec save_session(String.t(), String.t(), map()) :: :ok | {:error, term()}
+  def save_session(sessions_dir, session_key, session_state) do
+    with :ok <- File.mkdir_p(sessions_dir) do
+      filename = sanitize_key(session_key) <> ".jsonl"
+      path = Path.join(sessions_dir, filename)
+
+      session = Map.get(session_state, :session, %{})
+      messages = Map.get(session, :messages, [])
+      created_at = Map.get(session, :created_at, "")
+      metadata = Map.get(session, :metadata, %{})
+
+      metadata_line =
+        Jason.encode!(%{
+          key: session_key,
+          created_at: created_at,
+          version: 1,
+          metadata: metadata
+        })
+
+      message_lines =
+        Enum.map(messages, fn msg ->
+          Jason.encode!(%{
+            role: Map.get(msg, :role),
+            content: Map.get(msg, :content),
+            timestamp: Map.get(msg, :timestamp)
+          })
+        end)
+
+      content = Enum.join([metadata_line | message_lines], "\n") <> "\n"
+      File.write(path, content)
+    end
+  end
+
+  @doc """
+  Load session state from a JSONL file.
+
+  Returns `{:ok, session_state}` with messages, created_at, and metadata,
+  or `{:error, :not_found}` if the file doesn't exist.
+  """
+  @spec load_session(String.t(), String.t()) ::
+          {:ok, %{messages: [map()], created_at: String.t(), metadata: map()}}
+          | {:error, :not_found}
+  def load_session(sessions_dir, session_key) do
+    filename = sanitize_key(session_key) <> ".jsonl"
+    path = Path.join(sessions_dir, filename)
+
+    if File.exists?(path) do
+      lines =
+        path
+        |> File.read!()
+        |> String.split("\n", trim: true)
+
+      case lines do
+        [metadata_line | message_lines] ->
+          metadata_json = Jason.decode!(metadata_line)
+
+          messages =
+            Enum.map(message_lines, fn line ->
+              decoded = Jason.decode!(line)
+
+              %{
+                role: Map.get(decoded, "role"),
+                content: Map.get(decoded, "content"),
+                timestamp: Map.get(decoded, "timestamp")
+              }
+            end)
+
+          {:ok,
+           %{
+             messages: messages,
+             created_at: Map.get(metadata_json, "created_at", ""),
+             metadata: Map.get(metadata_json, "metadata", %{})
+           }}
+
+        [] ->
+          {:error, :not_found}
+      end
+    else
+      {:error, :not_found}
+    end
+  end
+
+  defp sanitize_key(key) do
+    String.replace(key, ":", "_")
+  end
 end
