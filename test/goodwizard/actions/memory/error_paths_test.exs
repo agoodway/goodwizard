@@ -66,7 +66,11 @@ defmodule Goodwizard.Actions.Memory.ErrorPathsTest do
       dir = Path.join(System.tmp_dir!(), "test_memory_ro_#{:rand.uniform(100_000)}")
       File.mkdir_p!(dir)
       File.chmod!(dir, 0o444)
-      on_exit(fn -> File.chmod!(dir, 0o755); File.rm_rf!(dir) end)
+
+      on_exit(fn ->
+        File.chmod!(dir, 0o755)
+        File.rm_rf!(dir)
+      end)
 
       assert {:error, msg} =
                AppendHistory.run(%{memory_dir: dir, entry: "test"}, %{})
@@ -78,7 +82,11 @@ defmodule Goodwizard.Actions.Memory.ErrorPathsTest do
       dir = Path.join(System.tmp_dir!(), "test_memory_ro_#{:rand.uniform(100_000)}")
       File.mkdir_p!(dir)
       File.chmod!(dir, 0o444)
-      on_exit(fn -> File.chmod!(dir, 0o755); File.rm_rf!(dir) end)
+
+      on_exit(fn ->
+        File.chmod!(dir, 0o755)
+        File.rm_rf!(dir)
+      end)
 
       assert {:error, msg} =
                WriteLongTerm.run(%{memory_dir: dir, content: "test"}, %{})
@@ -92,7 +100,11 @@ defmodule Goodwizard.Actions.Memory.ErrorPathsTest do
       path = Path.join(dir, "HISTORY.md")
       File.write!(path, "some content\n")
       File.chmod!(path, 0o000)
-      on_exit(fn -> File.chmod!(path, 0o644); File.rm_rf!(dir) end)
+
+      on_exit(fn ->
+        File.chmod!(path, 0o644)
+        File.rm_rf!(dir)
+      end)
 
       assert {:ok, %{matches: []}} =
                SearchHistory.run(%{memory_dir: dir, pattern: "content"}, %{})
@@ -104,7 +116,11 @@ defmodule Goodwizard.Actions.Memory.ErrorPathsTest do
       path = Path.join(dir, "MEMORY.md")
       File.write!(path, "some content")
       File.chmod!(path, 0o000)
-      on_exit(fn -> File.chmod!(path, 0o644); File.rm_rf!(dir) end)
+
+      on_exit(fn ->
+        File.chmod!(path, 0o644)
+        File.rm_rf!(dir)
+      end)
 
       assert {:ok, %{content: ""}} = ReadLongTerm.run(%{memory_dir: dir}, %{})
     end
@@ -116,7 +132,11 @@ defmodule Goodwizard.Actions.Memory.ErrorPathsTest do
       File.mkdir_p!(base)
       File.chmod!(base, 0o444)
       dir = Path.join(base, "subdir")
-      on_exit(fn -> File.chmod!(base, 0o755); File.rm_rf!(base) end)
+
+      on_exit(fn ->
+        File.chmod!(base, 0o755)
+        File.rm_rf!(base)
+      end)
 
       assert {:error, msg} =
                AppendHistory.run(%{memory_dir: dir, entry: "test"}, %{})
@@ -129,7 +149,11 @@ defmodule Goodwizard.Actions.Memory.ErrorPathsTest do
       File.mkdir_p!(base)
       File.chmod!(base, 0o444)
       dir = Path.join(base, "subdir")
-      on_exit(fn -> File.chmod!(base, 0o755); File.rm_rf!(base) end)
+
+      on_exit(fn ->
+        File.chmod!(base, 0o755)
+        File.rm_rf!(base)
+      end)
 
       assert {:error, msg} =
                WriteLongTerm.run(%{memory_dir: dir, content: "test"}, %{})

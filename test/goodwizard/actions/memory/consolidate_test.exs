@@ -59,7 +59,12 @@ defmodule Goodwizard.Actions.Memory.ConsolidateTest do
       # LLM call will fail (no API key in test), but action should handle gracefully
       result =
         Consolidate.run(
-          %{memory_dir: dir, messages: messages, memory_window: 10, current_memory: "existing memory"},
+          %{
+            memory_dir: dir,
+            messages: messages,
+            memory_window: 10,
+            current_memory: "existing memory"
+          },
           %{}
         )
 

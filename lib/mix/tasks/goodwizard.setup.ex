@@ -83,9 +83,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
         Mix.shell().info("Config already exists: #{config_path}")
 
       {:error, reason} ->
-        Mix.shell().error(
-          "Failed to create #{config_path}: #{:file.format_error(reason)}"
-        )
+        Mix.shell().error("Failed to create #{config_path}: #{:file.format_error(reason)}")
     end
   end
 

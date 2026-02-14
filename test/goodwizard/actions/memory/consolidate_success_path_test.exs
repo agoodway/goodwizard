@@ -22,7 +22,8 @@ defmodule Goodwizard.Actions.Memory.ConsolidateSuccessPathTest do
 
       # Simulate what consolidation does on LLM success:
       # 1. Append history entry
-      assert {:ok, _} = AppendHistory.run(%{memory_dir: dir, entry: "Discussed Elixir patterns"}, %{})
+      assert {:ok, _} =
+               AppendHistory.run(%{memory_dir: dir, entry: "Discussed Elixir patterns"}, %{})
 
       # 2. Write updated memory
       assert {:ok, _} =
@@ -54,12 +55,17 @@ defmodule Goodwizard.Actions.Memory.ConsolidateSuccessPathTest do
       AppendHistory.run(%{memory_dir: dir, entry: "Second conversation about testing"}, %{})
 
       WriteLongTerm.run(
-        %{memory_dir: dir, content: "User is setting up Phoenix project. Also interested in ExUnit."},
+        %{
+          memory_dir: dir,
+          content: "User is setting up Phoenix project. Also interested in ExUnit."
+        },
         %{}
       )
 
       # Verify history accumulated
-      {:ok, %{matches: matches}} = SearchHistory.run(%{memory_dir: dir, pattern: "conversation"}, %{})
+      {:ok, %{matches: matches}} =
+        SearchHistory.run(%{memory_dir: dir, pattern: "conversation"}, %{})
+
       assert length(matches) == 2
 
       # Verify memory was replaced (not appended)
@@ -105,7 +111,12 @@ defmodule Goodwizard.Actions.Memory.ConsolidateSuccessPathTest do
       # but the prompt construction should succeed
       result =
         Goodwizard.Actions.Memory.Consolidate.run(
-          %{memory_dir: dir, messages: messages, memory_window: 10, current_memory: "<existing>data</existing>"},
+          %{
+            memory_dir: dir,
+            messages: messages,
+            memory_window: 10,
+            current_memory: "<existing>data</existing>"
+          },
           %{}
         )
 

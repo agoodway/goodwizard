@@ -47,7 +47,8 @@ defmodule Goodwizard.Actions.Shell.Exec do
     timeout = Map.get(params, :timeout, 60)
     restrict = Map.get(params, :restrict_to_workspace, false)
 
-    with {:ok, deny_patterns} <- compile_patterns(Map.get(params, :deny_patterns), @default_deny_patterns),
+    with {:ok, deny_patterns} <-
+           compile_patterns(Map.get(params, :deny_patterns), @default_deny_patterns),
          {:ok, allow_patterns} <- compile_patterns(Map.get(params, :allow_patterns), nil),
          :ok <- check_deny_patterns(command, deny_patterns),
          :ok <- check_allow_patterns(command, allow_patterns),

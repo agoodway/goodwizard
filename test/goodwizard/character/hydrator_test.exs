@@ -128,9 +128,10 @@ defmodule Goodwizard.Character.HydratorTest do
       character = Hydrator.inject_memory(character, "User prefers dark mode")
 
       knowledge = Map.get(character, :knowledge, [])
+
       assert Enum.any?(knowledge, fn k ->
-        k.content == "User prefers dark mode" && k.category == "long-term-memory"
-      end)
+               k.content == "User prefers dark mode" && k.category == "long-term-memory"
+             end)
     end
   end
 
@@ -155,11 +156,12 @@ defmodule Goodwizard.Character.HydratorTest do
         })
 
       knowledge = Map.get(character, :knowledge, [])
+
       assert Enum.any?(knowledge, fn k ->
-        k.content =~ "Search tool documentation" &&
-        k.content =~ "[Skill: search]" &&
-        k.category == "active-skill"
-      end)
+               k.content =~ "Search tool documentation" &&
+                 k.content =~ "[Skill: search]" &&
+                 k.category == "active-skill"
+             end)
     end
 
     test "handles empty skills state" do
@@ -209,6 +211,44 @@ defmodule Goodwizard.Character.HydratorTest do
 
       assert prompt =~ "Available skills: search, edit, run"
       assert prompt =~ "Search documentation"
+    end
+
+    test "omits skills section when no skills discovered", %{workspace: workspace} do
+      {:ok, prompt} =
+        Hydrator.hydrate(workspace,
+          skills: %{summary: "", active: []}
+        )
+
+      refute prompt =~ "Available Skills"
+    end
+
+    test "omits skills section when skills option not provided", %{workspace: workspace} do
+      {:ok, prompt} = Hydrator.hydrate(workspace)
+
+      refute prompt =~ "Available Skills"
+    end
+
+    test "raises ArgumentError when skills passed as string", %{workspace: workspace} do
+      assert_raise ArgumentError, ":skills must be a map, got a string", fn ->
+        Hydrator.hydrate(workspace, skills: "some string")
+      end
+    end
+
+    test "includes skills summary as instruction and active content as knowledge", %{
+      workspace: workspace
+    } do
+      {:ok, prompt} =
+        Hydrator.hydrate(workspace,
+          skills: %{
+            summary: "## Available Skills\n\n- **deploy** - Deploy to prod",
+            active: [%{name: "deploy", content: "# Deploy\n\nRun deploy.sh"}]
+          }
+        )
+
+      assert prompt =~ "## Available Skills"
+      assert prompt =~ "**deploy**"
+      assert prompt =~ "[Skill: deploy]"
+      assert prompt =~ "Run deploy.sh"
     end
   end
 end

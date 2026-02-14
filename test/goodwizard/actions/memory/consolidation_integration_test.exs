@@ -76,7 +76,12 @@ defmodule Goodwizard.Actions.Memory.ConsolidationIntegrationTest do
 
       assert {:error, msg} =
                Consolidate.run(
-                 %{memory_dir: "/tmp/../../../etc", messages: messages, memory_window: 10, current_memory: ""},
+                 %{
+                   memory_dir: "/tmp/../../../etc",
+                   messages: messages,
+                   memory_window: 10,
+                   current_memory: ""
+                 },
                  %{}
                )
 
@@ -153,7 +158,11 @@ defmodule Goodwizard.Actions.Memory.ConsolidationIntegrationTest do
       dir = Path.join(base, "readonly")
       File.mkdir_p!(dir)
       File.chmod!(dir, 0o444)
-      on_exit(fn -> File.chmod!(dir, 0o755); File.rm_rf!(base) end)
+
+      on_exit(fn ->
+        File.chmod!(dir, 0o755)
+        File.rm_rf!(base)
+      end)
 
       messages = make_messages(15)
 

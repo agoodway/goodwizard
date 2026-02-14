@@ -48,7 +48,7 @@ defmodule Goodwizard.Plugins.Session do
     messages = Map.get(session, :messages, [])
 
     messages =
-      messages ++ [message]
+      (messages ++ [message])
       |> Enum.take(-@max_messages)
 
     updated_session = Map.put(session, :messages, messages)
@@ -170,11 +170,14 @@ defmodule Goodwizard.Plugins.Session do
             |> Enum.reduce([], fn line, acc ->
               case Jason.decode(line) do
                 {:ok, decoded} ->
-                  [%{
-                    role: Map.get(decoded, "role"),
-                    content: Map.get(decoded, "content"),
-                    timestamp: Map.get(decoded, "timestamp")
-                  } | acc]
+                  [
+                    %{
+                      role: Map.get(decoded, "role"),
+                      content: Map.get(decoded, "content"),
+                      timestamp: Map.get(decoded, "timestamp")
+                    }
+                    | acc
+                  ]
 
                 {:error, _} ->
                   Logger.warning("Skipping corrupted message line in session file")

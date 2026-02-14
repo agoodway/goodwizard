@@ -44,7 +44,11 @@ defmodule Goodwizard.Actions.Shell.ExecTest do
   test "workspace restriction blocks path traversal" do
     assert {:error, msg} =
              Exec.run(
-               %{command: "cat ../../etc/passwd", restrict_to_workspace: true, working_dir: "/tmp"},
+               %{
+                 command: "cat ../../etc/passwd",
+                 restrict_to_workspace: true,
+                 working_dir: "/tmp"
+               },
                %{}
              )
 
@@ -148,7 +152,11 @@ defmodule Goodwizard.Actions.Shell.ExecTest do
   test "workspace restriction blocks ${VAR} expansion" do
     assert {:error, msg} =
              Exec.run(
-               %{command: "cat ${HOME}/secrets", restrict_to_workspace: true, working_dir: "/tmp"},
+               %{
+                 command: "cat ${HOME}/secrets",
+                 restrict_to_workspace: true,
+                 working_dir: "/tmp"
+               },
                %{}
              )
 
@@ -158,7 +166,12 @@ defmodule Goodwizard.Actions.Shell.ExecTest do
   test "workspace restriction blocks cd" do
     assert {:error, msg} =
              Exec.run(
-               %{command: "cd / && ls", restrict_to_workspace: true, working_dir: "/tmp", deny_patterns: []},
+               %{
+                 command: "cd / && ls",
+                 restrict_to_workspace: true,
+                 working_dir: "/tmp",
+                 deny_patterns: []
+               },
                %{}
              )
 

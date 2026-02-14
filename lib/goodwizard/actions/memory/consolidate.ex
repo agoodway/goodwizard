@@ -93,7 +93,13 @@ defmodule Goodwizard.Actions.Memory.Consolidate do
 
       {:error, reason} ->
         Logger.warning("Consolidation LLM call failed: #{inspect(reason)}")
-        {:ok, %{consolidated: false, message: "Consolidation failed: #{inspect(reason)}", messages: messages}}
+
+        {:ok,
+         %{
+           consolidated: false,
+           message: "Consolidation failed: #{inspect(reason)}",
+           messages: messages
+         }}
     end
   end
 
@@ -161,7 +167,9 @@ defmodule Goodwizard.Actions.Memory.Consolidate do
   defp parse_json_response(content) when is_list(content) do
     text =
       content
-      |> Enum.filter(fn block -> Map.get(block, :type) == "text" || Map.get(block, "type") == "text" end)
+      |> Enum.filter(fn block ->
+        Map.get(block, :type) == "text" || Map.get(block, "type") == "text"
+      end)
       |> Enum.map(fn block -> Map.get(block, :text) || Map.get(block, "text") || "" end)
       |> Enum.join("")
 
