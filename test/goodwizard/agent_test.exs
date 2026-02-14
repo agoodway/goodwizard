@@ -262,6 +262,84 @@ defmodule Goodwizard.AgentTest do
     end
   end
 
+  describe "on_before_cmd/2 rescue path" do
+    test "hydration failure uses fallback system prompt via inner rescue" do
+      import ExUnit.CaptureLog
+
+      # Create agent with nil workspace — causes hydration to fail
+      agent = GoodwizardAgent.new(state: %{workspace: nil})
+      agent = %{agent | state: Map.put(agent.state, :workspace, nil)}
+
+      action = {:react_start, %{query: "Hello", request_id: "req_rescue"}}
+
+      log =
+        capture_log(fn ->
+          {:ok, _updated_agent, {:react_start, params}} =
+            GoodwizardAgent.on_before_cmd(agent, action)
+
+          # Inner rescue catches hydration failure and uses fallback prompt
+          assert params.system_prompt == "You are a helpful AI assistant."
+        end)
+
+      assert log =~ "Hydration failed"
+    end
+
+    test "outer rescue catches non-hydration errors and injects safe default prompt" do
+      import ExUnit.CaptureLog
+
+      # Create an agent with corrupted state that will fail in maybe_consolidate
+      agent = GoodwizardAgent.new(state: %{workspace: System.tmp_dir!()})
+      # Put session.messages as a non-list to trigger length/1 failure in maybe_consolidate
+      agent = %{agent | state: put_in(agent.state, [:session, :messages], :not_a_list)}
+
+      action = {:react_start, %{query: "Hello", request_id: "req_outer_rescue"}}
+
+      log =
+        capture_log(fn ->
+          {:ok, _updated_agent, {:react_start, params}} =
+            GoodwizardAgent.on_before_cmd(agent, action)
+
+          # Outer rescue should inject safe default prompt
+          assert params.system_prompt == "You are a helpful AI assistant."
+        end)
+
+      assert log =~ "on_before_cmd error"
+    end
+  end
+
+  describe "on_after_cmd/3 rescue path" do
+    test "recovers from exception and returns ok with original directives" do
+      import ExUnit.CaptureLog
+
+      # Create agent with state that will cause session operations to fail
+      agent = GoodwizardAgent.new(state: %{workspace: System.tmp_dir!()})
+
+      # Set up request tracking
+      start_action = {:react_start, %{query: "test", request_id: "req_rescue_after"}}
+      {:ok, agent, _action} = GoodwizardAgent.on_before_cmd(agent, start_action)
+
+      # Make strategy state show completed to trigger session update path
+      strat_state = StratState.get(agent, %{})
+      strat_state = strat_state |> Map.put(:status, :completed) |> Map.put(:result, "answer")
+      agent = StratState.put(agent, strat_state)
+
+      # Corrupt the state to cause session operations to fail
+      agent = %{agent | state: Map.put(agent.state, :session, :not_a_map)}
+
+      action = {:react_start, %{query: "test", request_id: "req_rescue_after"}}
+
+      log =
+        capture_log(fn ->
+          {:ok, _updated_agent, directives} =
+            GoodwizardAgent.on_after_cmd(agent, action, [:test_directive])
+
+          assert directives == [:test_directive]
+        end)
+
+      assert log =~ "on_after_cmd error"
+    end
+  end
+
   describe "ask_sync with mocked LLM (no tools)" do
     test "processes query through ReAct strategy and returns text response" do
       agent = GoodwizardAgent.new(state: %{workspace: System.tmp_dir!()})

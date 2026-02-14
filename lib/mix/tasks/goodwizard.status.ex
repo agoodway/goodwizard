@@ -91,8 +91,9 @@ defmodule Mix.Tasks.Goodwizard.Status do
     Mix.shell().info("=== Memory Stats ===")
 
     workspace = Config.workspace()
-    memory_dir = Path.join(Path.expand("~/.goodwizard"), "memory")
-    sessions_dir = Path.join(Path.expand("~/.goodwizard"), "sessions")
+    base_dir = workspace |> Path.dirname()
+    memory_dir = Path.join(base_dir, "memory")
+    sessions_dir = Path.join(base_dir, "sessions")
 
     # Long-term memory
     lt_path = Path.join(memory_dir, "long_term.md")

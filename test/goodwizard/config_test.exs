@@ -421,4 +421,87 @@ defmodule Goodwizard.ConfigTest do
       assert get_in(config, ["agent", "model"]) == "anthropic:claude-sonnet-4-5"
     end
   end
+
+  describe "validate!/0" do
+    test "returns :ok and logs success for valid defaults", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "nonexistent.toml")
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      import ExUnit.CaptureLog
+
+      log = capture_log(fn -> assert Config.validate!() == :ok end)
+      assert log =~ "Configuration validated successfully"
+    end
+
+    test "warns about unknown model prefix", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      File.write!(config_path, """
+      [agent]
+      model = "unknown-provider:some-model"
+      """)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      import ExUnit.CaptureLog
+
+      log = capture_log(fn -> Config.validate!() end)
+      assert log =~ "does not match known provider patterns"
+    end
+
+    test "warns when telegram enabled but no token set", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      File.write!(config_path, """
+      [channels.telegram]
+      enabled = true
+      """)
+
+      # Ensure no telegram token is set
+      Application.delete_env(:telegex, :token)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      import ExUnit.CaptureLog
+
+      log = capture_log(fn -> Config.validate!() end)
+      assert log =~ "TELEGRAM_BOT_TOKEN is not set"
+    end
+
+    test "warns when workspace directory does not exist", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+      missing_workspace = Path.join(tmp_dir, "nonexistent_workspace_#{System.unique_integer([:positive])}")
+
+      File.write!(config_path, """
+      [agent]
+      workspace = "#{missing_workspace}"
+      """)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      # workspace is auto-created by init, so remove it to test validate_workspace
+      File.rm_rf!(missing_workspace)
+
+      import ExUnit.CaptureLog
+
+      log = capture_log(fn -> Config.validate!() end)
+      assert log =~ "does not exist"
+    end
+
+    test "does not warn for valid known model prefix", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      File.write!(config_path, """
+      [agent]
+      model = "anthropic:claude-sonnet-4-5"
+      """)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      import ExUnit.CaptureLog
+
+      log = capture_log(fn -> Config.validate!() end)
+      refute log =~ "does not match known provider patterns"
+    end
+  end
 end

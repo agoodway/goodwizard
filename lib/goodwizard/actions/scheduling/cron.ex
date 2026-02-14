@@ -21,10 +21,20 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
       room_id: [type: :string, required: true, doc: "Target Messaging room identifier"]
     ]
 
+  require Logger
+
   alias Jido.Agent.Directive
+
+  # Standard 5-field cron has a minimum resolution of 1 minute.
+  # Warn on every-minute schedules to flag potential resource abuse.
+  @high_frequency_patterns ["* * * * *", "*/1 * * * *"]
 
   @impl true
   def run(%{schedule: schedule, task: task, room_id: room_id}, _context) do
+    if schedule in @high_frequency_patterns do
+      Logger.warning("Cron schedule #{inspect(schedule)} runs every minute — consider a less frequent interval")
+    end
+
     case validate_cron(schedule) do
       :ok ->
         message = %{type: "cron.task", task: task, room_id: room_id}

@@ -25,7 +25,12 @@ defmodule Goodwizard.Application do
   end
 
   defp start_optional_channels do
-    Goodwizard.Config.validate!()
+    try do
+      Goodwizard.Config.validate!()
+    rescue
+      e ->
+        Logger.warning("Config validation failed: #{Exception.message(e)} — continuing startup")
+    end
 
     if Goodwizard.Config.get(["channels", "telegram", "enabled"]) do
       Logger.info("Starting Telegram channel")

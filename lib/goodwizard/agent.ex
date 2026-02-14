@@ -94,7 +94,10 @@ defmodule Goodwizard.Agent do
           "on_before_cmd error: #{Exception.message(e)}\n#{Exception.format_stacktrace(__STACKTRACE__)}"
         )
 
-        {:ok, agent, action}
+        # Inject a safe default system prompt so the agent doesn't proceed with stale action
+        {:react_start, params} = action
+        safe_action = {:react_start, Map.put(params, :system_prompt, "You are a helpful AI assistant.")}
+        {:ok, agent, safe_action}
     end
   end
 
