@@ -24,24 +24,18 @@ defmodule Goodwizard.SubAgent do
   alias Goodwizard.SubAgent.Character
 
   @impl true
-  def on_before_cmd(agent, {:react_start, %{query: _query} = params} = _action) do
-    # Build character with task context injected as knowledge
+  def on_before_cmd(agent, {:react_start, params} = _action) do
     {:ok, character} = Character.new()
 
-    task_context = Map.get(params, :system_prompt, "")
-
     character =
-      if task_context != "" do
-        {:ok, character} =
-          Jido.Character.add_knowledge(character, task_context, category: "task-context")
-
-        character
-      else
-        character
+      case Map.get(params, :system_prompt, "") do
+        "" -> character
+        context ->
+          {:ok, updated} = Jido.Character.add_knowledge(character, context, category: "task-context")
+          updated
       end
 
     system_prompt = Jido.Character.to_system_prompt(character)
-
     action = {:react_start, Map.put(params, :system_prompt, system_prompt)}
     {:ok, agent, action}
   end
