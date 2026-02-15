@@ -1,0 +1,126 @@
+defmodule Goodwizard.Brain.SchemaTest do
+  use ExUnit.Case, async: true
+
+  alias Goodwizard.Brain.Schema
+
+  @test_schema %{
+    "$schema" => "http://json-schema.org/draft-07/schema#",
+    "title" => "TestEntity",
+    "version" => 1,
+    "type" => "object",
+    "required" => ["id", "name"],
+    "properties" => %{
+      "id" => %{"type" => "string", "pattern" => "^[a-z0-9]{6,}$"},
+      "name" => %{"type" => "string"},
+      "tags" => %{"type" => "array", "items" => %{"type" => "string"}}
+    },
+    "additionalProperties" => false
+  }
+
+  setup do
+    workspace = Path.join(System.tmp_dir!(), "brain_schema_test_#{:rand.uniform(100_000)}")
+    schemas_dir = Path.join([workspace, "brain", "schemas"])
+    File.mkdir_p!(schemas_dir)
+    on_exit(fn -> File.rm_rf!(workspace) end)
+    %{workspace: workspace, schemas_dir: schemas_dir}
+  end
+
+  describe "save/3 and load/2" do
+    test "saves and loads a schema", %{workspace: workspace} do
+      assert :ok = Schema.save(workspace, "test_entity", @test_schema)
+      assert {:ok, resolved} = Schema.load(workspace, "test_entity")
+      assert %ExJsonSchema.Schema.Root{} = resolved
+    end
+
+    test "save creates pretty-printed JSON file", %{
+      workspace: workspace,
+      schemas_dir: schemas_dir
+    } do
+      Schema.save(workspace, "test_entity", @test_schema)
+      content = File.read!(Path.join(schemas_dir, "test_entity.json"))
+      assert String.contains?(content, "\n")
+      assert {:ok, decoded} = Jason.decode(content)
+      assert decoded["title"] == "TestEntity"
+      assert decoded["version"] == 1
+    end
+
+    test "load returns error for non-existent schema", %{workspace: workspace} do
+      assert {:error, :enoent} = Schema.load(workspace, "nonexistent")
+    end
+  end
+
+  describe "validate/2" do
+    setup %{workspace: workspace} do
+      Schema.save(workspace, "test_entity", @test_schema)
+      {:ok, resolved} = Schema.load(workspace, "test_entity")
+      %{resolved: resolved}
+    end
+
+    test "validates correct data", %{resolved: resolved} do
+      data = %{"id" => "abcd1234", "name" => "Test"}
+      assert :ok = Schema.validate(resolved, data)
+    end
+
+    test "validates data with optional fields", %{resolved: resolved} do
+      data = %{"id" => "abcd1234", "name" => "Test", "tags" => ["foo", "bar"]}
+      assert :ok = Schema.validate(resolved, data)
+    end
+
+    test "rejects data missing required field", %{resolved: resolved} do
+      data = %{"id" => "abcd1234"}
+      assert {:error, errors} = Schema.validate(resolved, data)
+      assert is_list(errors)
+      assert length(errors) > 0
+    end
+
+    test "rejects data with wrong type", %{resolved: resolved} do
+      data = %{"id" => "abcd1234", "name" => 123}
+      assert {:error, _} = Schema.validate(resolved, data)
+    end
+
+    test "rejects data with invalid id pattern", %{resolved: resolved} do
+      data = %{"id" => "AB", "name" => "Test"}
+      assert {:error, _} = Schema.validate(resolved, data)
+    end
+
+    test "rejects additional properties", %{resolved: resolved} do
+      data = %{"id" => "abcd1234", "name" => "Test", "extra" => "nope"}
+      assert {:error, _} = Schema.validate(resolved, data)
+    end
+  end
+
+  describe "list_types/1" do
+    test "lists available entity types", %{workspace: workspace} do
+      Schema.save(workspace, "people", @test_schema)
+      Schema.save(workspace, "places", @test_schema)
+      Schema.save(workspace, "events", @test_schema)
+
+      assert {:ok, types} = Schema.list_types(workspace)
+      assert types == ["events", "people", "places"]
+    end
+
+    test "returns empty list for empty schemas dir", %{
+      workspace: workspace,
+      schemas_dir: schemas_dir
+    } do
+      # Remove any files that might exist
+      File.ls!(schemas_dir) |> Enum.each(&File.rm!(Path.join(schemas_dir, &1)))
+
+      assert {:ok, []} = Schema.list_types(workspace)
+    end
+
+    test "returns empty list when schemas dir doesn't exist" do
+      workspace = Path.join(System.tmp_dir!(), "no_schemas_#{:rand.uniform(100_000)}")
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      assert {:ok, []} = Schema.list_types(workspace)
+    end
+
+    test "ignores non-json files", %{workspace: workspace, schemas_dir: schemas_dir} do
+      Schema.save(workspace, "people", @test_schema)
+      File.write!(Path.join(schemas_dir, "README.md"), "ignore me")
+
+      assert {:ok, ["people"]} = Schema.list_types(workspace)
+    end
+  end
+end
