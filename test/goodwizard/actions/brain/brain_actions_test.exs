@@ -20,7 +20,9 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
   end
 
   defp init_brain(context) do
-    {:ok, _} = CreateEntity.run(%{entity_type: "people", data: %{"name" => "Init"}, body: ""}, context)
+    {:ok, _} =
+      CreateEntity.run(%{entity_type: "people", data: %{"name" => "Init"}, body: ""}, context)
+
     :ok
   end
 
@@ -51,7 +53,10 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
   describe "ReadEntity" do
     test "reads a created entity", %{context: context} do
       {:ok, created} =
-        CreateEntity.run(%{entity_type: "people", data: %{"name" => "Eve"}, body: "Notes."}, context)
+        CreateEntity.run(
+          %{entity_type: "people", data: %{"name" => "Eve"}, body: "Notes."},
+          context
+        )
 
       params = %{entity_type: "people", id: created.id}
 
@@ -79,7 +84,10 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
 
     test "updates body when provided", %{context: context} do
       {:ok, created} =
-        CreateEntity.run(%{entity_type: "people", data: %{"name" => "Grace"}, body: "Old."}, context)
+        CreateEntity.run(
+          %{entity_type: "people", data: %{"name" => "Grace"}, body: "Old."},
+          context
+        )
 
       params = %{entity_type: "people", id: created.id, data: %{}, body: "New notes."}
 
@@ -89,7 +97,10 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
 
     test "preserves body when not provided", %{context: context} do
       {:ok, created} =
-        CreateEntity.run(%{entity_type: "people", data: %{"name" => "Hank"}, body: "Keep me."}, context)
+        CreateEntity.run(
+          %{entity_type: "people", data: %{"name" => "Hank"}, body: "Keep me."},
+          context
+        )
 
       params = %{entity_type: "people", id: created.id, data: %{"name" => "Hank Updated"}}
 
@@ -101,7 +112,10 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
       init_brain(context)
 
       assert {:error, _} =
-               UpdateEntity.run(%{entity_type: "people", id: "nonexistent", data: %{"name" => "Ghost"}}, context)
+               UpdateEntity.run(
+                 %{entity_type: "people", id: "nonexistent", data: %{"name" => "Ghost"}},
+                 context
+               )
     end
   end
 
@@ -224,7 +238,10 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
       init_brain(context)
 
       assert {:error, msg} =
-               CreateEntity.run(%{entity_type: "../etc", data: %{"name" => "Evil"}, body: ""}, context)
+               CreateEntity.run(
+                 %{entity_type: "../etc", data: %{"name" => "Evil"}, body: ""},
+                 context
+               )
 
       assert is_binary(msg)
     end
@@ -233,7 +250,10 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
       init_brain(context)
 
       assert {:error, msg} =
-               CreateEntity.run(%{entity_type: "people\0evil", data: %{"name" => "Evil"}, body: ""}, context)
+               CreateEntity.run(
+                 %{entity_type: "people\0evil", data: %{"name" => "Evil"}, body: ""},
+                 context
+               )
 
       assert is_binary(msg)
     end
@@ -241,7 +261,9 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
     test "rejects id with path traversal", %{context: context} do
       init_brain(context)
 
-      assert {:error, msg} = ReadEntity.run(%{entity_type: "people", id: "../../etc/passwd"}, context)
+      assert {:error, msg} =
+               ReadEntity.run(%{entity_type: "people", id: "../../etc/passwd"}, context)
+
       assert is_binary(msg)
     end
 

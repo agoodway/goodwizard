@@ -7,7 +7,11 @@ defmodule Goodwizard.Actions.Brain.ListEntities do
     name: "list_entities",
     description: "List all entities of a given type from the brain knowledge base",
     schema: [
-      entity_type: [type: :string, required: true, doc: "The entity type (e.g. \"notes\", \"contacts\")"]
+      entity_type: [
+        type: :string,
+        required: true,
+        doc: "The entity type (e.g. \"notes\", \"contacts\")"
+      ]
     ]
 
   alias Goodwizard.Actions.Brain.Helpers

@@ -48,7 +48,10 @@ defmodule Goodwizard.Brain.SchemaTest do
       assert {:error, :enoent} = Schema.load(workspace, "nonexistent")
     end
 
-    test "load returns error for corrupted JSON", %{workspace: workspace, schemas_dir: schemas_dir} do
+    test "load returns error for corrupted JSON", %{
+      workspace: workspace,
+      schemas_dir: schemas_dir
+    } do
       File.write!(Path.join(schemas_dir, "broken.json"), "not valid json{{{")
       assert {:error, %Jason.DecodeError{}} = Schema.load(workspace, "broken")
     end

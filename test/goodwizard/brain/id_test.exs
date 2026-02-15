@@ -98,7 +98,9 @@ defmodule Goodwizard.Brain.IdTest do
       refute File.exists?(lock_file)
     end
 
-    test "recovers counter from existing entities across type directories", %{workspace: workspace} do
+    test "recovers counter from existing entities across type directories", %{
+      workspace: workspace
+    } do
       counter_file = Path.join([workspace, "brain", ".counter"])
       brain_dir = Path.join(workspace, "brain")
 

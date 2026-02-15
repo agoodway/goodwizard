@@ -7,7 +7,11 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
     name: "save_schema",
     description: "Save a JSON Schema definition for an entity type",
     schema: [
-      entity_type: [type: :string, required: true, doc: "The entity type (e.g. \"notes\", \"contacts\")"],
+      entity_type: [
+        type: :string,
+        required: true,
+        doc: "The entity type (e.g. \"notes\", \"contacts\")"
+      ],
       schema: [type: :map, required: true, doc: "The JSON Schema definition as a map"]
     ]
 

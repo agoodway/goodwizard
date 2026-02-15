@@ -59,7 +59,7 @@ defmodule Goodwizard.Brain.Id do
 
       {:error, :eexist} when retries < @max_lock_retries ->
         maybe_clean_stale_lock(lock_file)
-        backoff = @base_backoff_ms * :math.pow(2, retries) |> trunc()
+        backoff = (@base_backoff_ms * :math.pow(2, retries)) |> trunc()
         jitter = :rand.uniform(max(backoff, 1))
         Process.sleep(backoff + jitter)
         locked_generate(counter_file, retries + 1)
@@ -102,7 +102,10 @@ defmodule Goodwizard.Brain.Id do
             {:ok, n}
 
           _ ->
-            Logger.warning("Corrupted counter file at #{path}: #{inspect(String.trim(content))}, recovering from existing entities")
+            Logger.warning(
+              "Corrupted counter file at #{path}: #{inspect(String.trim(content))}, recovering from existing entities"
+            )
+
             recover_counter(path)
         end
 

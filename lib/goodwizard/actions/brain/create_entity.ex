@@ -7,7 +7,11 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
     name: "create_entity",
     description: "Create a new entity of a given type in the brain knowledge base",
     schema: [
-      entity_type: [type: :string, required: true, doc: "The entity type (e.g. \"notes\", \"contacts\")"],
+      entity_type: [
+        type: :string,
+        required: true,
+        doc: "The entity type (e.g. \"notes\", \"contacts\")"
+      ],
       data: [type: :map, required: true, doc: "Entity data as a map of field names to values"],
       body: [type: :string, default: "", doc: "Optional markdown body content"]
     ]

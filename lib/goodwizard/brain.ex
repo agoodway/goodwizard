@@ -36,7 +36,10 @@ defmodule Goodwizard.Brain do
 
     with {:ok, _} <- ensure_initialized(workspace),
          {:ok, id} <- Id.generate(workspace),
-         data = data |> Map.drop(@system_fields) |> Map.merge(%{"id" => id, "created_at" => now, "updated_at" => now}),
+         data =
+           data
+           |> Map.drop(@system_fields)
+           |> Map.merge(%{"id" => id, "created_at" => now, "updated_at" => now}),
          {:ok, schema} <- Schema.load(workspace, entity_type),
          :ok <- Schema.validate(schema, data),
          {:ok, type_dir} <- Paths.entity_type_dir(workspace, entity_type),
