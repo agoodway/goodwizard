@@ -44,6 +44,7 @@ defmodule Goodwizard.Actions.Shell.Exec do
     command = params.command
     working_dir = Map.get(params, :working_dir)
     timeout = Map.get(params, :timeout, 60)
+
     with {:ok, deny_patterns} <-
            compile_patterns(Map.get(params, :deny_patterns), @default_deny_patterns),
          {:ok, allow_patterns} <- compile_patterns(Map.get(params, :allow_patterns), nil),

@@ -23,7 +23,11 @@ defmodule Goodwizard.Actions.Filesystem.GrepFile do
       ],
       file_glob: [type: :string, doc: "Glob pattern to filter files (e.g. \"*.ex\")"],
       max_results: [type: :integer, default: 100, doc: "Maximum number of matching lines"],
-      fixed_string: [type: :boolean, default: false, doc: "Treat pattern as literal string, not regex"]
+      fixed_string: [
+        type: :boolean,
+        default: false,
+        doc: "Treat pattern as literal string, not regex"
+      ]
     ]
 
   alias Goodwizard.Actions.Filesystem
@@ -82,7 +86,9 @@ defmodule Goodwizard.Actions.Filesystem.GrepFile do
 
   defp validate_file_glob(params) do
     case Map.get(params, :file_glob) do
-      nil -> :ok
+      nil ->
+        :ok
+
       glob when is_binary(glob) ->
         if Regex.match?(@safe_glob_pattern, glob) do
           :ok
@@ -96,8 +102,11 @@ defmodule Goodwizard.Actions.Filesystem.GrepFile do
     case System.find_executable("rg") do
       nil ->
         case System.find_executable("grep") do
-          nil -> {:error, "No search tool available: install ripgrep (rg) or ensure grep is on PATH"}
-          path -> {:ok, path}
+          nil ->
+            {:error, "No search tool available: install ripgrep (rg) or ensure grep is on PATH"}
+
+          path ->
+            {:ok, path}
         end
 
       path ->

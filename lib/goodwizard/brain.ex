@@ -58,6 +58,7 @@ defmodule Goodwizard.Brain do
           Logger.error(fn ->
             "[Brain] write_exclusive failed type=#{entity_type} id=#{id} error=#{inspect(error)}"
           end)
+
           error
       end
     else
@@ -65,6 +66,7 @@ defmodule Goodwizard.Brain do
         Logger.error(fn ->
           "[Brain] create pipeline failed type=#{entity_type} reason=#{inspect(reason)}"
         end)
+
         error
     end
   end

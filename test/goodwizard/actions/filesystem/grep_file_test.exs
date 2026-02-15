@@ -110,7 +110,9 @@ defmodule Goodwizard.Actions.Filesystem.GrepFileTest do
   test "character truncation when output exceeds max_chars", %{tmp_dir: tmp_dir} do
     path = Path.join(tmp_dir, "big.txt")
     # Each line is ~100 chars; 200 lines should exceed 10,000 chars
-    content = Enum.map_join(1..200, "\n", fn i -> "match_#{String.pad_leading(to_string(i), 90, "x")}" end)
+    content =
+      Enum.map_join(1..200, "\n", fn i -> "match_#{String.pad_leading(to_string(i), 90, "x")}" end)
+
     File.write!(path, content <> "\n")
 
     assert {:ok, %{matches: matches}} =
