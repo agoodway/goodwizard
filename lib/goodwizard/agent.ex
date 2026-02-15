@@ -23,6 +23,7 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Memory.Consolidate,
       Goodwizard.Actions.Skills.ActivateSkill,
       Goodwizard.Actions.Skills.LoadSkillResource,
+      Goodwizard.Actions.Skills.CreateSkill,
       Goodwizard.Actions.Subagent.Spawn,
       Goodwizard.Actions.Messaging.Send,
       Goodwizard.Actions.Scheduling.Cron
