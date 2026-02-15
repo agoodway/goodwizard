@@ -3,7 +3,7 @@ defmodule Goodwizard.Brain.SeedsTest do
 
   alias Goodwizard.Brain.{Seeds, Schema}
 
-  @expected_types ~w(companies events notes people places tasks)
+  @expected_types ~w(companies events notes people places tasklists tasks)
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "brain_seeds_test_#{:rand.uniform(100_000)}")
@@ -14,9 +14,9 @@ defmodule Goodwizard.Brain.SeedsTest do
   end
 
   describe "seed/1" do
-    test "creates all 6 schema files", %{workspace: workspace} do
+    test "creates all 7 schema files", %{workspace: workspace} do
       assert {:ok, seeded} = Seeds.seed(workspace)
-      assert length(seeded) == 6
+      assert length(seeded) == 7
       assert Enum.sort(seeded) == @expected_types
     end
 
@@ -52,7 +52,7 @@ defmodule Goodwizard.Brain.SeedsTest do
 
     test "is idempotent — skips existing schemas", %{workspace: workspace} do
       {:ok, first_seeded} = Seeds.seed(workspace)
-      assert length(first_seeded) == 6
+      assert length(first_seeded) == 7
 
       {:ok, second_seeded} = Seeds.seed(workspace)
       assert second_seeded == []
@@ -64,7 +64,7 @@ defmodule Goodwizard.Brain.SeedsTest do
 
       {:ok, seeded} = Seeds.seed(workspace)
       assert "people" not in seeded
-      assert length(seeded) == 5
+      assert length(seeded) == 6
 
       # Verify people.json was not overwritten
       content = File.read!(Path.join(schemas_dir, "people.json"))
@@ -117,6 +117,17 @@ defmodule Goodwizard.Brain.SeedsTest do
       assert schema["properties"]["priority"]["enum"] == ["low", "medium", "high"]
     end
 
+    test "tasklists schema has status enum and tasks entity_ref_list" do
+      schema = Seeds.schema_for("tasklists")
+      assert schema["required"] == ["id", "title"]
+
+      assert schema["properties"]["status"]["enum"] == ["active", "completed", "archived"]
+
+      tasks = schema["properties"]["tasks"]
+      assert tasks["type"] == "array"
+      assert tasks["items"]["pattern"] == "^tasks/[a-z0-9]{8,}$"
+    end
+
     test "notes schema has polymorphic related_to references" do
       schema = Seeds.schema_for("notes")
       related = schema["properties"]["related_to"]
@@ -125,8 +136,8 @@ defmodule Goodwizard.Brain.SeedsTest do
   end
 
   describe "entity_types/0" do
-    test "returns 6 types" do
-      assert length(Seeds.entity_types()) == 6
+    test "returns 7 types" do
+      assert length(Seeds.entity_types()) == 7
     end
   end
 end
@@ -147,7 +158,7 @@ defmodule Goodwizard.BrainTest do
       refute File.exists?(Path.join(workspace, "brain"))
 
       assert {:ok, seeded} = Brain.ensure_initialized(workspace)
-      assert length(seeded) == 6
+      assert length(seeded) == 7
 
       assert File.dir?(Path.join(workspace, "brain"))
       assert File.dir?(Path.join([workspace, "brain", "schemas"]))
@@ -155,7 +166,7 @@ defmodule Goodwizard.BrainTest do
 
     test "is idempotent — second call returns empty list", %{workspace: workspace} do
       {:ok, first} = Brain.ensure_initialized(workspace)
-      assert length(first) == 6
+      assert length(first) == 7
 
       {:ok, second} = Brain.ensure_initialized(workspace)
       assert second == []
@@ -180,7 +191,7 @@ defmodule Goodwizard.BrainTest do
     test "initialize -> generate ID -> load schema -> validate", %{workspace: workspace} do
       # 1. Initialize brain (seeds schemas)
       assert {:ok, seeded} = Brain.ensure_initialized(workspace)
-      assert length(seeded) == 6
+      assert length(seeded) == 7
 
       # 2. Generate an ID
       assert {:ok, id} = Goodwizard.Brain.Id.generate(workspace)

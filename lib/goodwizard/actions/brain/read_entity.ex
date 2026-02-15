@@ -15,6 +15,8 @@ defmodule Goodwizard.Actions.Brain.ReadEntity do
       id: [type: :string, required: true, doc: "The entity ID"]
     ]
 
+  require Logger
+
   alias Goodwizard.Actions.Brain.Helpers
 
   @impl true
@@ -22,11 +24,19 @@ defmodule Goodwizard.Actions.Brain.ReadEntity do
   def run(params, context) do
     workspace = get_in(context, [:state, :workspace]) || "."
 
+    Logger.info(
+      "[Brain.ReadEntity] workspace=#{workspace} type=#{params.entity_type} id=#{params.id}"
+    )
+
     case Goodwizard.Brain.read(workspace, params.entity_type, params.id) do
       {:ok, {data, body}} ->
         {:ok, %{data: data, body: body}}
 
       {:error, reason} ->
+        Logger.error(
+          "[Brain.ReadEntity] failed type=#{params.entity_type} id=#{params.id} reason=#{inspect(reason)}"
+        )
+
         {:error, Helpers.format_error(reason)}
     end
   end

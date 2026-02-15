@@ -350,6 +350,69 @@ defmodule Goodwizard.BrainCrudTest do
     end
   end
 
+  describe "tasklists CRUD" do
+    test "create, read, list, update, and delete a tasklist", %{workspace: workspace} do
+      # Create
+      assert {:ok, {id, data, body}} =
+               Brain.create(workspace, "tasklists", %{"title" => "Sprint Backlog"})
+
+      assert data["title"] == "Sprint Backlog"
+      assert body == ""
+
+      # Read
+      assert {:ok, {read_data, _body}} = Brain.read(workspace, "tasklists", id)
+      assert read_data["title"] == "Sprint Backlog"
+
+      # List
+      assert {:ok, entities} = Brain.list(workspace, "tasklists")
+      assert length(entities) == 1
+
+      # Update
+      assert {:ok, {updated, _body}} =
+               Brain.update(workspace, "tasklists", id, %{
+                 "title" => "Sprint Backlog v2",
+                 "status" => "active"
+               })
+
+      assert updated["title"] == "Sprint Backlog v2"
+      assert updated["status"] == "active"
+
+      # Delete
+      assert :ok = Brain.delete(workspace, "tasklists", id)
+      assert {:error, :not_found} = Brain.read(workspace, "tasklists", id)
+    end
+
+    test "validates status enum", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "tasklists", %{
+                 "title" => "Bad Status",
+                 "status" => "invalid"
+               })
+    end
+
+    test "accepts tasks as entity reference list", %{workspace: workspace} do
+      # First create a task to reference
+      {:ok, {task_id, _data, _body}} =
+        Brain.create(workspace, "tasks", %{"title" => "Do something"})
+
+      assert {:ok, {_id, data, _body}} =
+               Brain.create(workspace, "tasklists", %{
+                 "title" => "My List",
+                 "tasks" => ["tasks/#{task_id}"]
+               })
+
+      assert data["tasks"] == ["tasks/#{task_id}"]
+    end
+
+    test "rejects invalid task references", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "tasklists", %{
+                 "title" => "Bad Refs",
+                 "tasks" => ["people/abc12345"]
+               })
+    end
+  end
+
   describe "list entity count limit" do
     test "list returns at most 1000 entities", %{workspace: workspace} do
       Brain.ensure_initialized(workspace)

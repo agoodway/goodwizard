@@ -15,6 +15,8 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
       schema: [type: :map, required: true, doc: "The JSON Schema definition as a map"]
     ]
 
+  require Logger
+
   alias Goodwizard.Actions.Brain.Helpers
   alias Goodwizard.Brain.Schema
 
@@ -23,12 +25,21 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
   def run(params, context) do
     workspace = get_in(context, [:state, :workspace]) || "."
 
+    Logger.info(
+      "[Brain.SaveSchema] workspace=#{workspace} type=#{params.entity_type}"
+    )
+
     with :ok <- validate_schema_structure(params.schema) do
       case Schema.save(workspace, params.entity_type, params.schema) do
         :ok ->
+          Logger.info("[Brain.SaveSchema] saved type=#{params.entity_type}")
           {:ok, %{message: "Schema saved for type: #{params.entity_type}"}}
 
         {:error, reason} ->
+          Logger.error(
+            "[Brain.SaveSchema] failed type=#{params.entity_type} reason=#{inspect(reason)}"
+          )
+
           {:error, Helpers.format_error(reason)}
       end
     end

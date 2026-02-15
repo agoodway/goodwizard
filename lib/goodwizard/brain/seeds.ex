@@ -2,13 +2,13 @@ defmodule Goodwizard.Brain.Seeds do
   @moduledoc """
   Default schema definitions for the brain knowledge base.
 
-  Ships 6 initial entity type schemas as Elixir maps and writes them
+  Ships 7 initial entity type schemas as Elixir maps and writes them
   to disk on first use via `seed/1`.
   """
 
   alias Goodwizard.Brain.{Id, Schema}
 
-  @entity_types ~w(people places events notes tasks companies)
+  @entity_types ~w(people places events notes tasks companies tasklists)
 
   @doc "Returns the list of default entity type names."
   @spec entity_types() :: [String.t()]
@@ -120,6 +120,18 @@ defmodule Goodwizard.Brain.Seeds do
       "size" => %{"type" => "string"},
       "location" => %{"type" => "string"},
       "contacts" => entity_ref_list("people")
+    })
+  end
+
+  def schema_for("tasklists") do
+    build_schema("Tasklist", ["id", "title"], %{
+      "title" => %{"type" => "string"},
+      "description" => %{"type" => "string"},
+      "status" => %{
+        "type" => "string",
+        "enum" => ["active", "completed", "archived"]
+      },
+      "tasks" => entity_ref_list("tasks")
     })
   end
 

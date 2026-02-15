@@ -14,6 +14,8 @@ defmodule Goodwizard.Actions.Brain.GetSchema do
       ]
     ]
 
+  require Logger
+
   alias Goodwizard.Actions.Brain.Helpers
   alias Goodwizard.Brain.Paths
 
@@ -22,15 +24,27 @@ defmodule Goodwizard.Actions.Brain.GetSchema do
   def run(params, context) do
     workspace = get_in(context, [:state, :workspace]) || "."
 
+    Logger.info(
+      "[Brain.GetSchema] workspace=#{workspace} type=#{params.entity_type}"
+    )
+
     with {:ok, path} <- Paths.schema_path(workspace, params.entity_type),
          {:ok, content} <- File.read(path),
          {:ok, schema_map} <- Jason.decode(content) do
       {:ok, %{schema: schema_map}}
     else
       {:error, :enoent} ->
+        Logger.error(
+          "[Brain.GetSchema] schema not found type=#{params.entity_type}"
+        )
+
         {:error, "Schema not found for type: #{params.entity_type}"}
 
       {:error, reason} ->
+        Logger.error(
+          "[Brain.GetSchema] failed type=#{params.entity_type} reason=#{inspect(reason)}"
+        )
+
         {:error, Helpers.format_error(reason)}
     end
   end

@@ -6,6 +6,8 @@ defmodule Goodwizard.Brain do
   YAML frontmatter, validated against JSON Schema definitions.
   """
 
+  require Logger
+
   alias Goodwizard.Brain.{Entity, Id, Paths, Schema, Seeds}
 
   @system_fields ["id", "created_at", "updated_at"]
@@ -48,9 +50,18 @@ defmodule Goodwizard.Brain do
       content = Entity.serialize(data, body)
 
       case write_exclusive(path, content, id) do
-        :ok -> {:ok, {id, data, body}}
-        {:error, _} = error -> error
+        :ok ->
+          Logger.info("[Brain] wrote entity path=#{path}")
+          {:ok, {id, data, body}}
+
+        {:error, _} = error ->
+          Logger.error("[Brain] write_exclusive failed path=#{path} error=#{inspect(error)}")
+          error
       end
+    else
+      {:error, reason} = error ->
+        Logger.error("[Brain] create pipeline failed reason=#{inspect(reason)}")
+        error
     end
   end
 
@@ -205,14 +216,22 @@ defmodule Goodwizard.Brain do
     brain_dir = Paths.brain_dir(workspace)
     schemas_dir = Paths.schemas_dir(workspace)
 
+    Logger.info("[Brain] ensure_initialized workspace=#{workspace} brain_dir=#{brain_dir}")
+
     with :ok <- File.mkdir_p(brain_dir),
          :ok <- File.mkdir_p(schemas_dir),
          {:ok, existing} <- Schema.list_types(workspace) do
       if existing == [] do
+        Logger.info("[Brain] no schemas found, seeding defaults")
         Seeds.seed(workspace)
       else
+        Logger.info("[Brain] already initialized, schemas=#{inspect(existing)}")
         {:ok, []}
       end
+    else
+      {:error, reason} = error ->
+        Logger.error("[Brain] ensure_initialized failed reason=#{inspect(reason)}")
+        error
     end
   end
 
