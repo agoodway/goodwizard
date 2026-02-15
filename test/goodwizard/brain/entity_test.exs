@@ -172,8 +172,28 @@ defmodule Goodwizard.Brain.EntityTest do
 
     test "quotes strings containing each special character" do
       special_chars = [
-        ":", "#", "\"", "'", "\n", "[", "]", "{", "}", ",",
-        "&", "*", "?", "|", "-", "<", ">", "=", "!", "%", "@", "`"
+        ":",
+        "#",
+        "\"",
+        "'",
+        "\n",
+        "[",
+        "]",
+        "{",
+        "}",
+        ",",
+        "&",
+        "*",
+        "?",
+        "|",
+        "-",
+        "<",
+        ">",
+        "=",
+        "!",
+        "%",
+        "@",
+        "`"
       ]
 
       for char <- special_chars do

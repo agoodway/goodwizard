@@ -106,7 +106,9 @@ defmodule Goodwizard.BrainCrudTest do
 
     test "returns not_found for nonexistent entity", %{workspace: workspace} do
       Brain.ensure_initialized(workspace)
-      assert {:error, :not_found} = Brain.update(workspace, "people", "nonexistent", %{"name" => "Ghost"})
+
+      assert {:error, :not_found} =
+               Brain.update(workspace, "people", "nonexistent", %{"name" => "Ghost"})
     end
 
     test "returns schema validation error for invalid update", %{workspace: workspace} do
@@ -235,7 +237,9 @@ defmodule Goodwizard.BrainCrudTest do
   describe "body size limits" do
     test "create rejects oversized body", %{workspace: workspace} do
       large_body = String.duplicate("x", 10_485_761)
-      assert {:error, :body_too_large} = Brain.create(workspace, "people", %{"name" => "Alice"}, large_body)
+
+      assert {:error, :body_too_large} =
+               Brain.create(workspace, "people", %{"name" => "Alice"}, large_body)
     end
 
     test "update rejects oversized body", %{workspace: workspace} do

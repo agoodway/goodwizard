@@ -7,7 +7,11 @@ defmodule Goodwizard.Actions.Brain.UpdateEntity do
     name: "update_entity",
     description: "Update an existing entity by type and ID in the brain knowledge base",
     schema: [
-      entity_type: [type: :string, required: true, doc: "The entity type (e.g. \"notes\", \"contacts\")"],
+      entity_type: [
+        type: :string,
+        required: true,
+        doc: "The entity type (e.g. \"notes\", \"contacts\")"
+      ],
       id: [type: :string, required: true, doc: "The entity ID"],
       data: [type: :map, required: true, doc: "Fields to update as a map"],
       body: [type: :string, doc: "Optional new markdown body content (nil preserves existing)"]

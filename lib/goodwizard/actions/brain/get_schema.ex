@@ -7,7 +7,11 @@ defmodule Goodwizard.Actions.Brain.GetSchema do
     name: "get_schema",
     description: "Get the JSON Schema definition for an entity type",
     schema: [
-      entity_type: [type: :string, required: true, doc: "The entity type (e.g. \"notes\", \"contacts\")"]
+      entity_type: [
+        type: :string,
+        required: true,
+        doc: "The entity type (e.g. \"notes\", \"contacts\")"
+      ]
     ]
 
   alias Goodwizard.Actions.Brain.Helpers
