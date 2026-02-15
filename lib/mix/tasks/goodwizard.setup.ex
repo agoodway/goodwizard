@@ -5,24 +5,23 @@ defmodule Mix.Tasks.Goodwizard.Setup do
       $ mix goodwizard.setup
 
   Creates:
-    - ~/.goodwizard/workspace/
-    - ~/.goodwizard/memory/
-    - ~/.goodwizard/skills/
-    - ~/.goodwizard/sessions/
-    - ~/.goodwizard/config.toml (if missing)
+    - priv/workspace/memory/
+    - priv/workspace/sessions/
+    - priv/workspace/skills/
+    - config.toml (project root, if missing)
   """
   use Mix.Task
 
   @shortdoc "Set up Goodwizard workspace directories and default config"
 
-  @base_dir "~/.goodwizard"
-  @subdirs ~w(workspace memory skills sessions)
+  @base_dir "priv/workspace"
+  @subdirs ~w(memory sessions skills)
 
   @default_config """
   # Goodwizard configuration
 
   [agent]
-  workspace = "~/.goodwizard/workspace"
+  workspace = "priv/workspace"
   model = "anthropic:claude-sonnet-4-5"
   max_tokens = 8192
   temperature = 0.7
@@ -70,7 +69,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
       Mix.raise("Setup failed: could not create required directories")
     end
 
-    config_path = Path.join(base, "config.toml")
+    config_path = "config.toml"
 
     case File.open(config_path, [:write, :exclusive]) do
       {:ok, file} ->

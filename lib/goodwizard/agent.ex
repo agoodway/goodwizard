@@ -193,7 +193,7 @@ defmodule Goodwizard.Agent do
   end
 
   defp persist_session(agent) do
-    sessions_dir = Path.expand("~/.goodwizard/sessions")
+    sessions_dir = Goodwizard.Config.sessions_dir()
     session_key = Map.get(agent.state, :session_key, "default")
     state = agent.state
 

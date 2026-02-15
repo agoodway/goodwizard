@@ -1,14 +1,14 @@
 ## ADDED Requirements
 
 ### Requirement: Config loads from TOML file
-The system SHALL load configuration from `~/.goodwizard/config.toml` at startup. The TOML file structure SHALL support sections: `[agent]`, `[channels.cli]`, `[channels.telegram]`, `[tools.exec]`, `[tools]`, `[browser]`, and `[browser.search]`.
+The system SHALL load configuration from `config.toml (project root)` at startup. The TOML file structure SHALL support sections: `[agent]`, `[channels.cli]`, `[channels.telegram]`, `[tools.exec]`, `[tools]`, `[browser]`, and `[browser.search]`.
 
 #### Scenario: Config file exists with valid TOML
-- **WHEN** `~/.goodwizard/config.toml` exists and contains valid TOML
+- **WHEN** `config.toml (project root)` exists and contains valid TOML
 - **THEN** all values from the file SHALL be loaded into the Config GenServer state
 
 #### Scenario: Config file does not exist
-- **WHEN** `~/.goodwizard/config.toml` does not exist
+- **WHEN** `config.toml (project root)` does not exist
 - **THEN** the system SHALL start with hardcoded default values and log a warning
 
 #### Scenario: Config file contains invalid TOML
@@ -17,7 +17,7 @@ The system SHALL load configuration from `~/.goodwizard/config.toml` at startup.
 
 ### Requirement: Config provides default values
 The system SHALL use the following defaults when no TOML file is present or a key is missing:
-- `agent.workspace` = `"~/.goodwizard/workspace"`
+- `agent.workspace` = `"priv/workspace"`
 - `agent.model` = `"anthropic:claude-sonnet-4-5"`
 - `agent.max_tokens` = `8192`
 - `agent.temperature` = `0.7`
@@ -99,6 +99,8 @@ The Config module SHALL expose the following public API:
 - `get/0` — returns the entire config map
 - `get/1` — accepts a key path (list of atoms) and returns the nested value
 - `workspace/0` — returns the expanded workspace path
+- `memory_dir/0` — returns the expanded memory directory path (`workspace/memory`)
+- `sessions_dir/0` — returns the expanded sessions directory path (`workspace/sessions`)
 - `model/0` — returns the current model string
 
 #### Scenario: get/0 returns full config
@@ -109,21 +111,21 @@ The Config module SHALL expose the following public API:
 - **WHEN** `Config.get([:agent, :model])` is called
 - **THEN** it SHALL return the value at that path or `nil` if not found
 
-#### Scenario: workspace/0 expands tilde
-- **WHEN** config has `agent.workspace = "~/.goodwizard/workspace"` and `Config.workspace()` is called
-- **THEN** it SHALL return the fully expanded path (e.g., `"/Users/tbrewer/.goodwizard/workspace"`)
+#### Scenario: workspace/0 expands relative path
+- **WHEN** config has `agent.workspace = "priv/workspace"` and `Config.workspace()` is called
+- **THEN** it SHALL return the fully expanded absolute path (e.g., `"/path/to/project/priv/workspace"`)
 
 #### Scenario: model/0 returns model string
 - **WHEN** `Config.model()` is called
 - **THEN** it SHALL return the configured model string (e.g., `"anthropic:claude-sonnet-4-5"`)
 
 ### Requirement: Workspace directory creation
-The system SHALL ensure the workspace directory exists after config initialization.
+The system SHALL ensure the workspace directory and its subdirectories (`memory/`, `sessions/`) exist after config initialization.
 
 #### Scenario: Workspace directory does not exist
 - **WHEN** the configured workspace path does not exist at startup
-- **THEN** the system SHALL create the directory (including parents) during Config init
+- **THEN** the system SHALL create the workspace directory, `memory/`, and `sessions/` subdirectories during Config init
 
 #### Scenario: Workspace directory already exists
 - **WHEN** the configured workspace path already exists
-- **THEN** the system SHALL proceed without error
+- **THEN** the system SHALL ensure `memory/` and `sessions/` subdirectories exist without error

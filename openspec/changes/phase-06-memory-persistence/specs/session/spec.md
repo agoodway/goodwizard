@@ -8,7 +8,7 @@
 - **THEN** the agent's state at key `:session` contains `%{messages: [], created_at: <iso8601_string>, metadata: %{}}`
 
 #### Scenario: Mount loads persisted session
-- **WHEN** the Session skill is mounted and a JSONL file exists at `~/.goodwizard/sessions/<session_key>.jsonl`
+- **WHEN** the Session skill is mounted and a JSONL file exists at `<Config.sessions_dir()>/<session_key>.jsonl`
 - **THEN** the agent's state at key `:session` contains messages loaded from the JSONL file
 - **THEN** the `created_at` and `metadata` values are restored from the JSONL metadata line
 
@@ -49,8 +49,8 @@ The `load_session/2` function SHALL read a JSONL file and return the session sta
 - **THEN** each message is restored as a map with `:role`, `:content`, and `:timestamp` keys
 
 ### Requirement: Sessions directory created on first save
-The sessions directory (`~/.goodwizard/sessions/`) SHALL be created automatically if it does not exist when `save_session/3` is called.
+The sessions directory (`Config.sessions_dir()`, defaulting to `priv/workspace/sessions/`) SHALL be created automatically if it does not exist when `save_session/3` is called.
 
 #### Scenario: Directory created automatically
-- **WHEN** `save_session/3` is called and `~/.goodwizard/sessions/` does not exist
+- **WHEN** `save_session/3` is called and the sessions directory does not exist
 - **THEN** the directory is created and the session file is written successfully

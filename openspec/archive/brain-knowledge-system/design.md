@@ -1,6 +1,6 @@
 ## Context
 
-Goodwizard is an Elixir-based AI agent built on the Jido framework. It uses a workspace directory (`~/.goodwizard/workspace` by default) for file storage, memory, and skills. The agent already has filesystem actions (read, write, edit, list), a memory subsystem (history + long-term), and a prompt skills plugin that discovers `SKILL.md` files.
+Goodwizard is an Elixir-based AI agent built on the Jido framework. It uses a workspace directory (`priv/workspace` by default) for file storage, memory, and skills. The agent already has filesystem actions (read, write, edit, list), a memory subsystem (history + long-term), and a prompt skills plugin that discovers `SKILL.md` files.
 
 The current memory system stores unstructured text. There is no way to store, validate, or query structured entities. The user wants a personal knowledge base ("brain") with typed entities backed by JSON Schema validation.
 

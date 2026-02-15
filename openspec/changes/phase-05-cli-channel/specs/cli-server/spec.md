@@ -23,9 +23,9 @@ The CLI Server SHALL create a Messaging room via `Goodwizard.Messaging.get_or_cr
 The CLI Server SHALL start an AgentServer via `Goodwizard.Jido.start_agent/2` during `init/1` with the id `"cli:direct"` and workspace from options.
 
 #### Scenario: Agent started with correct configuration
-- **WHEN** the CLI Server initializes with workspace `"/home/user/.goodwizard/workspace"`
+- **WHEN** the CLI Server initializes with workspace `"/home/user/project/priv/workspace"`
 - **THEN** an AgentServer is started with id `"cli:direct"`
-- **THEN** the agent's initial state contains workspace `"/home/user/.goodwizard/workspace"`, channel `"cli"`, and chat_id `"direct"`
+- **THEN** the agent's initial state contains workspace `"/home/user/project/priv/workspace"`, channel `"cli"`, and chat_id `"direct"`
 
 ### Requirement: CLI Server runs REPL loop in linked Task
 The CLI Server SHALL spawn a linked Task during `init/1` that runs the blocking REPL loop using `IO.gets/1`.

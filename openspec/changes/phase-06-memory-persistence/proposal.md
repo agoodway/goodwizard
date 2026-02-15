@@ -36,7 +36,7 @@ Port of `nanobot/agent/memory.py:MemoryStore` expanded into a Jido skill.
 
 Update Session skill to persist to JSONL files. Port of `nanobot/session/manager.py:SessionManager` (lines 61-203):
 
-- Session dir: `~/.goodwizard/sessions/`
+- Session dir: `priv/workspace/sessions/` (via `Config.sessions_dir()`)
 - Filename: session key with `:` replaced by `_`, `.jsonl` extension
 - JSONL format: first line is metadata, rest are messages
 - Load on agent creation, save after each turn

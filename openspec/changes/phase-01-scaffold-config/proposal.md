@@ -12,7 +12,7 @@ Create the Mix project `goodwizard` with:
 - **Goodwizard.Jido** instance module (`use Jido, otp_app: :goodwizard`) for agent lifecycle management
 - **Goodwizard.Messaging** module (`use JidoMessaging, adapter: JidoMessaging.Adapters.ETS`) for all messaging infrastructure — rooms, participants, messages, signal bus, and channel supervision
 - **Goodwizard.Application** supervision tree starting Config + Jido + Messaging
-- **Goodwizard.Config** GenServer that loads `~/.goodwizard/config.toml` + env var overrides
+- **Goodwizard.Config** GenServer that loads `config.toml` (project root) + env var overrides
 
 ### Why jido_ai instead of req_llm
 
@@ -30,7 +30,7 @@ Port of `nanobot/config/schema.py`. TOML structure:
 
 ```toml
 [agent]
-workspace = "~/.goodwizard/workspace"
+workspace = "priv/workspace"
 model = "anthropic:claude-sonnet-4-5"
 max_tokens = 8192
 temperature = 0.7

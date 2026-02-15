@@ -1,11 +1,11 @@
 ## ADDED Requirements
 
 ### Requirement: Setup task creates workspace directories
-The `mix goodwizard.setup` task SHALL create the workspace directory structure at `~/.goodwizard/` with subdirectories `workspace/`, `memory/`, `skills/`, and `sessions/`.
+The `mix goodwizard.setup` task SHALL create the workspace directory structure at `priv/workspace/` with subdirectories `memory/`, `sessions/`, and `skills/`.
 
 #### Scenario: First-time setup
-- **WHEN** `mix goodwizard.setup` is run and `~/.goodwizard/` does not exist
-- **THEN** the directories `~/.goodwizard/workspace/`, `~/.goodwizard/memory/`, `~/.goodwizard/skills/`, and `~/.goodwizard/sessions/` are created
+- **WHEN** `mix goodwizard.setup` is run and `priv/workspace/` does not exist
+- **THEN** the directories `priv/workspace/memory/`, `priv/workspace/sessions/`, and `priv/workspace/skills/` are created
 - **THEN** a success message is printed for each created directory
 
 #### Scenario: Setup with existing directories
@@ -14,14 +14,14 @@ The `mix goodwizard.setup` task SHALL create the workspace directory structure a
 - **THEN** existing directories are not modified
 
 ### Requirement: Setup task writes default config
-The `mix goodwizard.setup` task SHALL write a default `config.toml` to `~/.goodwizard/config.toml` if the file does not already exist.
+The `mix goodwizard.setup` task SHALL write a default `config.toml` to the project root (`config.toml`) if the file does not already exist.
 
 #### Scenario: Default config created
-- **WHEN** `mix goodwizard.setup` is run and `~/.goodwizard/config.toml` does not exist
-- **THEN** a default `config.toml` is written with workspace, model, and default settings
+- **WHEN** `mix goodwizard.setup` is run and `config.toml` does not exist in the project root
+- **THEN** a default `config.toml` is written with workspace set to `"priv/workspace"`, model, and default settings
 
 #### Scenario: Existing config preserved
-- **WHEN** `mix goodwizard.setup` is run and `~/.goodwizard/config.toml` already exists
+- **WHEN** `mix goodwizard.setup` is run and `config.toml` already exists in the project root
 - **THEN** the existing file is not overwritten
 - **THEN** a message indicates the config already exists
 

@@ -8,7 +8,7 @@ defmodule Goodwizard.Channels.Telegram.Handler do
 
   ## Configuration
 
-  In `~/.goodwizard/config.toml`:
+  In `config.toml` (project root):
 
       [channels.telegram]
       enabled = true

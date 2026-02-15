@@ -89,13 +89,11 @@ defmodule Mix.Tasks.Goodwizard.Status do
   defp print_memory_stats do
     Mix.shell().info("=== Memory Stats ===")
 
-    workspace = Config.workspace()
-    base_dir = workspace |> Path.dirname()
-    memory_dir = Path.join(base_dir, "memory")
-    sessions_dir = Path.join(base_dir, "sessions")
+    memory_dir = Config.memory_dir()
+    sessions_dir = Config.sessions_dir()
 
     # Long-term memory
-    lt_path = Path.join(memory_dir, "long_term.md")
+    lt_path = Path.join(memory_dir, "MEMORY.md")
 
     lt_size =
       case File.stat(lt_path) do
@@ -113,7 +111,7 @@ defmodule Mix.Tasks.Goodwizard.Status do
       end
 
     Mix.shell().info("  Sessions: #{session_count} session files in #{sessions_dir}")
-    Mix.shell().info("  Workspace: #{workspace}")
+    Mix.shell().info("  Workspace: #{Config.workspace()}")
     Mix.shell().info("")
   end
 end

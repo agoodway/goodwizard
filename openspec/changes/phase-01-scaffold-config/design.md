@@ -8,7 +8,7 @@ The original Nanobot uses a Python config schema (~289 lines) with TOML-based co
 
 **Goals:**
 - Compilable Mix project with all core dependencies resolved
-- Goodwizard.Config GenServer that loads `~/.goodwizard/config.toml` with env var overrides
+- Goodwizard.Config GenServer that loads `config.toml` (project root) with env var overrides
 - Goodwizard.Jido instance module wired into the supervision tree
 - Test suite proving config loading, env overrides, defaults, and path expansion
 

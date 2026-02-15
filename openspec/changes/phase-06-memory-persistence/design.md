@@ -9,7 +9,7 @@ The reference implementation is nanobot's Python codebase: `memory.py` (31-line 
 **Goals:**
 - `Goodwizard.Skills.Memory` Jido Skill that loads MEMORY.md from workspace on mount
 - Five memory actions: ReadLongTerm, WriteLongTerm, AppendHistory, SearchHistory, Consolidate
-- JSONL session persistence in `~/.goodwizard/sessions/` (load on start, save after each turn)
+- JSONL session persistence in `Config.sessions_dir()` (`priv/workspace/sessions/` by default) (load on start, save after each turn)
 - LLM-driven consolidation that summarizes old messages into HISTORY.md and updates MEMORY.md
 - Memory content included in system prompt via ContextBuilder's existing `:memory` option
 - Consolidation triggered automatically when message count exceeds `memory_window` (default 50)

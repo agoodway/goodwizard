@@ -36,23 +36,19 @@ defmodule Goodwizard.Plugins.MemoryTest do
       assert state.long_term_content == ""
     end
 
-    test "defaults to ~/.goodwizard/workspace when memory_dir is nil" do
+    test "defaults to priv/workspace/memory when memory_dir is nil" do
       {:ok, state} = Memory.mount(%{}, %{memory_dir: nil})
-      assert state.memory_dir == Path.expand("~/.goodwizard/workspace")
+      assert state.memory_dir == Path.expand("priv/workspace/memory")
     end
 
-    test "defaults to ~/.goodwizard/workspace when memory_dir is empty" do
+    test "defaults to priv/workspace/memory when memory_dir is empty" do
       {:ok, state} = Memory.mount(%{}, %{memory_dir: ""})
-      assert state.memory_dir == Path.expand("~/.goodwizard/workspace")
+      assert state.memory_dir == Path.expand("priv/workspace/memory")
     end
 
-    test "falls back to workspace from agent state" do
-      dir = tmp_memory_dir()
-      on_exit(fn -> File.rm_rf!(dir) end)
-
-      agent = %{state: %{workspace: dir}}
-      {:ok, state} = Memory.mount(agent, %{})
-      assert state.memory_dir == dir
+    test "defaults to priv/workspace/memory when no config provided" do
+      {:ok, state} = Memory.mount(%{}, %{})
+      assert state.memory_dir == Path.expand("priv/workspace/memory")
     end
   end
 end

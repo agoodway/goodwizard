@@ -3,7 +3,7 @@ defmodule Mix.Tasks.Goodwizard.SetupTest do
 
   alias Mix.Tasks.Goodwizard.Setup
 
-  @subdirs ~w(workspace memory skills sessions)
+  @subdirs ~w(memory sessions skills)
 
   defp with_tmp_dir(fun) do
     tmp = Path.join(System.tmp_dir!(), "goodwizard_test_#{System.unique_integer([:positive])}")
@@ -28,17 +28,31 @@ defmodule Mix.Tasks.Goodwizard.SetupTest do
       end)
     end
 
-    test "creates config.toml at base directory" do
-      with_tmp_dir(fn tmp ->
-        Setup.run(["--base-dir", tmp])
+    test "creates config.toml at project root" do
+      config_path = "config.toml"
+      had_config = File.exists?(config_path)
 
-        config_path = Path.join(tmp, "config.toml")
-        assert File.exists?(config_path), "Expected config.toml to exist"
+      if had_config do
+        # config.toml already exists — setup should not overwrite it
+        with_tmp_dir(fn tmp ->
+          Setup.run(["--base-dir", tmp])
+          assert File.exists?(config_path)
+        end)
+      else
+        try do
+          with_tmp_dir(fn tmp ->
+            Setup.run(["--base-dir", tmp])
 
-        content = File.read!(config_path)
-        assert content =~ "[agent]"
-        assert content =~ "workspace"
-      end)
+            assert File.exists?(config_path), "Expected config.toml to exist"
+
+            content = File.read!(config_path)
+            assert content =~ "[agent]"
+            assert content =~ "workspace"
+          end)
+        after
+          unless had_config, do: File.rm(config_path)
+        end
+      end
     end
 
     test "is idempotent — running twice does not raise" do
@@ -55,7 +69,7 @@ defmodule Mix.Tasks.Goodwizard.SetupTest do
     test "raises on directory creation failure" do
       # Use a path that can't be created (file exists where dir expected)
       with_tmp_dir(fn tmp ->
-        blocker = Path.join(tmp, "workspace")
+        blocker = Path.join(tmp, "memory")
         File.write!(blocker, "not a dir")
 
         assert_raise Mix.Error, ~r/could not create required directories/, fn ->
@@ -68,15 +82,27 @@ defmodule Mix.Tasks.Goodwizard.SetupTest do
     end
 
     test "does not overwrite existing config.toml" do
+      config_path = "config.toml"
+      had_config = File.exists?(config_path)
+      original_content = if had_config, do: File.read!(config_path)
+
       with_tmp_dir(fn tmp ->
-        config_path = Path.join(tmp, "config.toml")
-        File.write!(config_path, "# custom config")
+        unless had_config do
+          File.write!(config_path, "# custom config")
+        end
 
         Setup.run(["--base-dir", tmp])
 
-        # Original content should be preserved
-        assert File.read!(config_path) == "# custom config"
+        if had_config do
+          assert File.read!(config_path) == original_content
+        else
+          assert File.read!(config_path) == "# custom config"
+        end
       end)
+
+      unless had_config do
+        File.rm(config_path)
+      end
     end
   end
 end

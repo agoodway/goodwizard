@@ -90,7 +90,7 @@ defmodule Goodwizard.ConfigTest do
       assert get_in(config, ["agent", "model"]) == "openai:gpt-4o"
       # Default values preserved
       assert get_in(config, ["agent", "max_tokens"]) == 8192
-      assert get_in(config, ["agent", "workspace"]) == "~/.goodwizard/workspace"
+      assert get_in(config, ["agent", "workspace"]) == "priv/workspace"
       assert get_in(config, ["channels", "cli", "enabled"]) == true
       assert get_in(config, ["browser", "headless"]) == true
     end
@@ -153,7 +153,7 @@ defmodule Goodwizard.ConfigTest do
       {:ok, _pid} = Config.start_link(config_path: config_path)
 
       config = Config.get()
-      assert get_in(config, ["agent", "workspace"]) == "~/.goodwizard/workspace"
+      assert get_in(config, ["agent", "workspace"]) == "priv/workspace"
       assert get_in(config, ["agent", "model"]) == "anthropic:claude-sonnet-4-5"
       assert get_in(config, ["agent", "max_tokens"]) == 8192
       assert get_in(config, ["agent", "temperature"]) == 0.7
@@ -172,15 +172,14 @@ defmodule Goodwizard.ConfigTest do
   end
 
   describe "workspace/0 expands ~ to full path" do
-    test "expands tilde in default workspace path", %{tmp_dir: tmp_dir} do
+    test "expands relative default workspace path", %{tmp_dir: tmp_dir} do
       config_path = Path.join(tmp_dir, "nonexistent.toml")
 
       {:ok, _pid} = Config.start_link(config_path: config_path)
 
       workspace = Config.workspace()
-      home = System.user_home!()
 
-      assert workspace == Path.join(home, ".goodwizard/workspace")
+      assert workspace == Path.expand("priv/workspace")
       refute String.contains?(workspace, "~")
     end
 
@@ -198,6 +197,32 @@ defmodule Goodwizard.ConfigTest do
       home = System.user_home!()
 
       assert workspace == Path.join(home, "my-workspace")
+    end
+  end
+
+  describe "memory_dir/0 and sessions_dir/0" do
+    test "returns paths under workspace by default", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "nonexistent.toml")
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      workspace = Config.workspace()
+      assert Config.memory_dir() == Path.join(workspace, "memory")
+      assert Config.sessions_dir() == Path.join(workspace, "sessions")
+    end
+
+    test "follows custom workspace setting", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "config.toml")
+
+      File.write!(config_path, """
+      [agent]
+      workspace = "#{tmp_dir}/custom"
+      """)
+
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      assert Config.memory_dir() == Path.join(tmp_dir, "custom/memory")
+      assert Config.sessions_dir() == Path.join(tmp_dir, "custom/sessions")
     end
   end
 
@@ -355,7 +380,7 @@ defmodule Goodwizard.ConfigTest do
   end
 
   describe "workspace directory creation" do
-    test "creates workspace directory on startup when it does not exist", %{tmp_dir: tmp_dir} do
+    test "creates workspace directory and subdirs on startup", %{tmp_dir: tmp_dir} do
       config_path = Path.join(tmp_dir, "config.toml")
       workspace_path = Path.join(tmp_dir, "new_workspace")
 
@@ -368,8 +393,9 @@ defmodule Goodwizard.ConfigTest do
 
       {:ok, _pid} = Config.start_link(config_path: config_path)
 
-      assert File.exists?(workspace_path)
       assert File.dir?(workspace_path)
+      assert File.dir?(Path.join(workspace_path, "memory"))
+      assert File.dir?(Path.join(workspace_path, "sessions"))
     end
   end
 

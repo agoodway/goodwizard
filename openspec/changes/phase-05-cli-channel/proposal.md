@@ -38,7 +38,7 @@ No `ChannelSupervisor` is needed — `Goodwizard.Messaging` (via jido_messaging)
 
 ### Mix Tasks
 
-**mix goodwizard.setup** — Create workspace dirs (`~/.goodwizard/workspace/`, `memory/`, `skills/`, `sessions/`) and write default `config.toml` if missing.
+**mix goodwizard.setup** — Create workspace dirs (`priv/workspace/memory/`, `priv/workspace/sessions/`, `priv/workspace/skills/`) and write default `config.toml` to the project root if missing.
 
 **mix goodwizard.cli** — Start application, launch CLI Server directly, keep alive.
 

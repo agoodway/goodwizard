@@ -46,7 +46,7 @@ defmodule Goodwizard.ShutdownHandler do
 
     Logger.info("Flushing sessions for #{length(agents)} agent(s)")
 
-    sessions_dir = Path.expand("~/.goodwizard/sessions")
+    sessions_dir = Goodwizard.Config.sessions_dir()
 
     task =
       Task.async(fn ->

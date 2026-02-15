@@ -2,7 +2,7 @@ defmodule Goodwizard.Config do
   @moduledoc """
   Configuration GenServer for Goodwizard.
 
-  Loads configuration from `~/.goodwizard/config.toml` with env var overrides.
+  Loads configuration from `config.toml` (project root) with env var overrides.
   Three-layer merge: hardcoded defaults -> TOML file -> env vars (highest priority).
   """
   use GenServer
@@ -79,6 +79,14 @@ defmodule Goodwizard.Config do
     end
   end
 
+  @doc "Returns the expanded memory directory path (workspace/memory)."
+  @spec memory_dir() :: String.t()
+  def memory_dir, do: Path.join(workspace(), "memory")
+
+  @doc "Returns the expanded sessions directory path (workspace/sessions)."
+  @spec sessions_dir() :: String.t()
+  def sessions_dir, do: Path.join(workspace(), "sessions")
+
   @doc "Returns the current model string."
   @spec model() :: String.t() | nil
   def model do
@@ -108,7 +116,7 @@ defmodule Goodwizard.Config do
   def init(opts) do
     config_path =
       Keyword.get(opts, :config_path) ||
-        Application.get_env(:goodwizard, :config_path, "~/.goodwizard/config.toml")
+        Application.get_env(:goodwizard, :config_path, "config.toml")
 
     expanded_path = Path.expand(config_path)
 
@@ -264,12 +272,14 @@ defmodule Goodwizard.Config do
   defp ensure_workspace(config) do
     workspace = get_in(config, ["agent", "workspace"]) |> Path.expand()
 
-    case File.mkdir_p(workspace) do
-      :ok ->
-        :ok
+    for dir <- [workspace, Path.join(workspace, "memory"), Path.join(workspace, "sessions")] do
+      case File.mkdir_p(dir) do
+        :ok ->
+          :ok
 
-      {:error, reason} ->
-        Logger.warning("Could not create workspace directory #{workspace}: #{inspect(reason)}")
+        {:error, reason} ->
+          Logger.warning("Could not create directory #{dir}: #{inspect(reason)}")
+      end
     end
   end
 

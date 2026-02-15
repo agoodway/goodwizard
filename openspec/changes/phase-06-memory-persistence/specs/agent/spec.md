@@ -33,7 +33,7 @@ The agent SHALL override `on_after_cmd/3` to append the user query and assistant
 
 #### Scenario: Session persisted after each turn
 - **WHEN** `on_after_cmd/3` completes
-- **THEN** the session is saved to the JSONL file in `~/.goodwizard/sessions/`
+- **THEN** the session is saved to the JSONL file in `Config.sessions_dir()`
 
 ## ADDED Requirements
 
