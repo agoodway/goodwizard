@@ -9,7 +9,7 @@ Phase 6 (Memory + Persistence) must be complete. The ContextBuilder already has 
 ## Goals / Non-Goals
 
 **Goals:**
-- `Goodwizard.Skills.PromptSkills` Jido Skill that scans both `workspace/skills/` and `.claude/skills/`
+- `Goodwizard.Skills.PromptSkills` Jido Skill that scans `workspace/skills/`
 - Claude Code-compatible frontmatter parsing (`name` + `description` required, extra fields as passthrough `meta`)
 - Name and description validation matching Claude Code constraints
 - Plain-text skills summary for system prompt injection (~20 tokens/skill)
@@ -81,13 +81,11 @@ Skills can be activated with the activate_skill tool when relevant.
 
 **Alternatives considered**: XML format (original design — verbose, unnatural in markdown context), JSON (machine-readable but wasteful in prompt context).
 
-### 6. Dual directory scanning with workspace precedence
+### 6. Single directory scanning
 
-**Decision**: Scan both `workspace/skills/` and `.claude/skills/` for SKILL.md files. On name collision, the workspace copy takes precedence.
+**Decision**: Scan only `workspace/skills/` for SKILL.md files.
 
-**Rationale**: `.claude/skills/` is the standard Claude Code location. `workspace/skills/` is the Goodwizard convention. Scanning both ensures compatibility with both ecosystems. Workspace precedence allows project-specific overrides of shared skills.
-
-**Alternatives considered**: Only scan `.claude/skills/` (breaks Goodwizard convention), only scan `workspace/skills/` (misses Claude Code skills), merge on collision (complex, ambiguous behavior).
+**Rationale**: `workspace/skills/` is the Goodwizard convention. Keeping a single scan directory simplifies the implementation and avoids precedence rules. `.claude/skills/` is Claude Code's own convention and is not relevant to Goodwizard's runtime.
 
 ## Risks / Trade-offs
 
@@ -95,10 +93,10 @@ Skills can be activated with the activate_skill tool when relevant.
 
 **[Many skills consuming metadata budget]** → With ~20 tokens per skill in Tier 1, a workspace with 50 skills would use ~1000 tokens in every system prompt. Mitigation: this is acceptable overhead; workspaces rarely have that many skills. If needed, a future pagination mechanism could limit Tier 1 entries.
 
-**[Missing skill directories]** → If neither `workspace/skills/` nor `.claude/skills/` exists, the scan should gracefully return an empty list. Mitigation: check directory existence before listing, return `[]` if absent.
+**[Missing skill directory]** → If `workspace/skills/` does not exist, the scan should gracefully return an empty list. Mitigation: check directory existence before listing, return `[]` if absent.
 
 **[Frontmatter encoding edge cases]** → SKILL.md files with non-UTF-8 encoding or malformed YAML frontmatter could cause parse errors. Mitigation: wrap parsing in try/rescue, skip malformed skills with a warning log, and continue scanning remaining files.
 
 **[Path traversal in resource loading]** → The `load_skill_resource` action must prevent `../../etc/passwd` style attacks. Mitigation: validate the requested filename against the pre-indexed resource list (built at mount time) rather than constructing paths from user input.
 
-**[Extra frontmatter fields]** → Claude Code skills in `.claude/skills/` contain extra fields like `license`, `compatibility`, `metadata.author`, `metadata.version`. Mitigation: these are preserved as passthrough `meta` — no validation applied, no behavioral effect. This ensures forward compatibility with future Claude Code frontmatter extensions.
+**[Extra frontmatter fields]** → Skills may contain extra fields like `license`, `compatibility`, `metadata.author`, `metadata.version`. Mitigation: these are preserved as passthrough `meta` — no validation applied, no behavioral effect. This ensures forward compatibility with future frontmatter extensions.

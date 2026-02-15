@@ -9,7 +9,7 @@ Prompt skills let users extend the agent's capabilities by dropping SKILL.md fil
 ### Goodwizard.Skills.PromptSkills (Jido Skill)
 
 - State key: `:prompt_skills`
-- On mount: scan `workspace/skills/` and `.claude/skills/` for SKILL.md files (workspace takes precedence on name collision)
+- On mount: scan `workspace/skills/` for SKILL.md files
 - Parse Claude Code frontmatter (`name`, `description`, passthrough extra fields as `meta`)
 - Index resource files (non-SKILL.md files in each skill directory)
 - Cache SKILL.md body (frontmatter stripped) per skill
@@ -57,7 +57,7 @@ Skills are injected via `Hydrator.inject_skills/2`:
 | Frontmatter | Custom (always, requirements) | Claude Code compatible (name, description only) |
 | Loading model | Two-tier (always vs on-demand XML) | Three-tier progressive disclosure |
 | Summary format | XML `<skills>` | Plain-text markdown |
-| Scan dirs | `workspace/skills/` only | `workspace/skills/` + `.claude/skills/` |
+| Scan dirs | `workspace/skills/` only | `workspace/skills/` only |
 | Actions | None (passive skill only) | `activate_skill` + `load_skill_resource` |
 | Requirements | Loader checks bins/env | Skills handle own prereqs in instructions |
 | Resources | Not tracked | Indexed and loadable via action |

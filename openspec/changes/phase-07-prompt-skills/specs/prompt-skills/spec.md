@@ -1,22 +1,18 @@
 ## ADDED Requirements
 
-### Requirement: Skill scanning finds SKILL.md files in both directories
-The `Goodwizard.Skills.PromptSkills` module SHALL scan both `workspace/skills/` and `.claude/skills/` for subdirectories containing a `SKILL.md` file. Each subdirectory with a valid `SKILL.md` SHALL be treated as a discovered skill. Non-SKILL.md files in a skill directory SHALL be indexed as resources.
+### Requirement: Skill scanning finds SKILL.md files in workspace/skills/
+The `Goodwizard.Skills.PromptSkills` module SHALL scan `workspace/skills/` for subdirectories containing a `SKILL.md` file. Each subdirectory with a valid `SKILL.md` SHALL be treated as a discovered skill. Non-SKILL.md files in a skill directory SHALL be indexed as resources.
 
 #### Scenario: Skills directory with multiple skills
-- **WHEN** `workspace/skills/` contains subdirectories `search/SKILL.md` and `deploy/SKILL.md`, and `.claude/skills/` contains `edit/SKILL.md`
-- **THEN** the scan SHALL return three discovered skills
+- **WHEN** `workspace/skills/` contains subdirectories `search/SKILL.md` and `deploy/SKILL.md`
+- **THEN** the scan SHALL return two discovered skills
 
-#### Scenario: Workspace takes precedence on name collision
-- **WHEN** both `workspace/skills/deploy/SKILL.md` and `.claude/skills/deploy/SKILL.md` exist
-- **THEN** the scan SHALL use the workspace copy and ignore the `.claude/skills/` copy
-
-#### Scenario: Neither skills directory exists
-- **WHEN** the workspace has no `skills/` directory and no `.claude/skills/` directory
+#### Scenario: Skills directory does not exist
+- **WHEN** the workspace has no `skills/` directory
 - **THEN** the scan SHALL return an empty list without error
 
-#### Scenario: Empty skills directories
-- **WHEN** both skill directories exist but contain no subdirectories with SKILL.md files
+#### Scenario: Empty skills directory
+- **WHEN** the skill directory exists but contains no subdirectories with SKILL.md files
 - **THEN** the scan SHALL return an empty list
 
 #### Scenario: Subdirectory without SKILL.md is ignored
@@ -111,18 +107,18 @@ The module SHALL generate a plain-text markdown summary of all discovered skills
 ### Requirement: PromptSkills mounts on agent initialization
 The `Goodwizard.Skills.PromptSkills` Jido Skill SHALL use `state_key: :prompt_skills`. On mount, it SHALL scan both skill directories, parse and validate each SKILL.md, index resources, cache stripped body content, and build the plain-text summary.
 
-#### Scenario: Mount with populated skills directories
-- **WHEN** the skill is mounted on an agent with `workspace: "/home/user/project"` and the workspace contains 3 skills across `skills/` and `.claude/skills/`
+#### Scenario: Mount with populated skills directory
+- **WHEN** the skill is mounted on an agent with `workspace: "/home/user/project"` and the workspace contains skills in `skills/`
 - **THEN** the state at `:prompt_skills` SHALL contain the skills list (with name, description, path, dir, content, resources, meta per skill) and the pre-rendered skills_summary
 
 #### Scenario: Mount with empty workspace
 - **WHEN** the skill is mounted on an agent with `workspace: "/home/user/project"` and no skills exist
 - **THEN** the state at `:prompt_skills` SHALL contain an empty skills list and an empty skills_summary string
 
-#### Scenario: Mount resolves scan directories from workspace
+#### Scenario: Mount resolves scan directory from workspace
 - **WHEN** the skill is mounted on an agent with `workspace: "/home/user/project"`
-- **THEN** the skill SHALL scan `/home/user/project/skills/` and `/home/user/project/.claude/skills/` for SKILL.md files
+- **THEN** the skill SHALL scan `/home/user/project/skills/` for SKILL.md files
 
 #### Scenario: Mount skips invalid skills gracefully
-- **WHEN** the skill directories contain 3 skill subdirectories but 1 has malformed frontmatter
+- **WHEN** the skill directory contains 3 skill subdirectories but 1 has malformed frontmatter
 - **THEN** the state SHALL contain 2 valid skills and the malformed skill SHALL be skipped with a warning log
