@@ -12,7 +12,12 @@ defmodule Goodwizard.Brain.Id do
 
   @alphabet "abcdefghijklmnopqrstuvwxyz0123456789"
   @min_length 8
-  @id_pattern Regex.compile!("^[a-z0-9]{#{@min_length},}$")
+  @id_pattern_string "^[a-z0-9]{#{@min_length},}$"
+  @id_pattern Regex.compile!(@id_pattern_string)
+
+  @doc "Returns the ID pattern string for use in JSON Schema definitions."
+  @spec id_pattern() :: String.t()
+  def id_pattern, do: @id_pattern_string
 
   @doc """
   Generates a new unique ID by reading/incrementing the counter file
@@ -32,6 +37,7 @@ defmodule Goodwizard.Brain.Id do
 
   @max_lock_retries 10
   @base_backoff_ms 5
+  @stale_lock_seconds 30
 
   defp locked_generate(counter_file, retries \\ 0) do
     lock_file = counter_file <> ".lock"
@@ -52,6 +58,7 @@ defmodule Goodwizard.Brain.Id do
         end
 
       {:error, :eexist} when retries < @max_lock_retries ->
+        maybe_clean_stale_lock(lock_file)
         backoff = @base_backoff_ms * :math.pow(2, retries) |> trunc()
         jitter = :rand.uniform(max(backoff, 1))
         Process.sleep(backoff + jitter)
@@ -62,6 +69,21 @@ defmodule Goodwizard.Brain.Id do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp maybe_clean_stale_lock(lock_file) do
+    case File.stat(lock_file) do
+      {:ok, %{mtime: mtime}} ->
+        lock_age = NaiveDateTime.diff(NaiveDateTime.utc_now(), NaiveDateTime.from_erl!(mtime))
+
+        if lock_age > @stale_lock_seconds do
+          Logger.warning("Removing stale lock file at #{lock_file} (age: #{lock_age}s)")
+          File.rm(lock_file)
+        end
+
+      {:error, _} ->
+        :ok
     end
   end
 

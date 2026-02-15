@@ -232,7 +232,62 @@ defmodule Goodwizard.BrainCrudTest do
     end
   end
 
+  describe "body size limits" do
+    test "create rejects oversized body", %{workspace: workspace} do
+      large_body = String.duplicate("x", 10_485_761)
+      assert {:error, :body_too_large} = Brain.create(workspace, "people", %{"name" => "Alice"}, large_body)
+    end
+
+    test "update rejects oversized body", %{workspace: workspace} do
+      {:ok, {id, _data, _body}} = Brain.create(workspace, "people", %{"name" => "Alice"})
+      large_body = String.duplicate("x", 10_485_761)
+      assert {:error, :body_too_large} = Brain.update(workspace, "people", id, %{}, large_body)
+    end
+
+    test "update allows nil body (preserves existing)", %{workspace: workspace} do
+      {:ok, {id, _data, _body}} = Brain.create(workspace, "people", %{"name" => "Alice"}, "notes")
+      assert {:ok, {_data, "notes"}} = Brain.update(workspace, "people", id, %{"name" => "Alice"})
+    end
+  end
+
+  describe "write_exclusive error handling" do
+    test "create returns error when entity directory is read-only", %{workspace: workspace} do
+      Brain.ensure_initialized(workspace)
+
+      {:ok, type_dir} = Goodwizard.Brain.Paths.entity_type_dir(workspace, "people")
+      File.mkdir_p!(type_dir)
+      File.chmod!(type_dir, 0o444)
+
+      result = Brain.create(workspace, "people", %{"name" => "WriteTest"})
+
+      File.chmod!(type_dir, 0o755)
+
+      assert {:error, _reason} = result
+    end
+  end
+
   describe "concurrent operations" do
+    test "concurrent updates do not corrupt entity data", %{workspace: workspace} do
+      {:ok, {id, _data, _body}} = Brain.create(workspace, "people", %{"name" => "Alice"})
+
+      results =
+        1..10
+        |> Task.async_stream(
+          fn i -> Brain.update(workspace, "people", id, %{"name" => "Alice-#{i}"}) end,
+          max_concurrency: 5
+        )
+        |> Enum.map(fn {:ok, result} -> result end)
+
+      # Most updates should succeed — some may fail due to concurrent read/write races
+      successes = Enum.filter(results, &match?({:ok, _}, &1))
+      assert length(successes) >= 5
+
+      # Final state should be valid and parseable regardless
+      {:ok, {final_data, _body}} = Brain.read(workspace, "people", id)
+      assert final_data["id"] == id
+      assert String.starts_with?(final_data["name"], "Alice-")
+    end
+
     test "concurrent creates produce unique entities", %{workspace: workspace} do
       Brain.ensure_initialized(workspace)
 

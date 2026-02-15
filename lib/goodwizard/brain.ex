@@ -9,6 +9,9 @@ defmodule Goodwizard.Brain do
   alias Goodwizard.Brain.{Entity, Id, Paths, Schema, Seeds}
 
   @system_fields ["id", "created_at", "updated_at"]
+  @max_list_entities 1_000
+  # 10 MB max body size
+  @max_body_bytes 10_485_760
 
   @doc """
   Creates a new entity of the given type.
@@ -21,6 +24,14 @@ defmodule Goodwizard.Brain do
   @spec create(String.t(), String.t(), map(), String.t()) ::
           {:ok, {String.t(), map(), String.t()}} | {:error, term()}
   def create(workspace, entity_type, data, body \\ "") do
+    if byte_size(body) > @max_body_bytes do
+      {:error, :body_too_large}
+    else
+      do_create(workspace, entity_type, data, body)
+    end
+  end
+
+  defp do_create(workspace, entity_type, data, body) do
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
     with {:ok, _} <- ensure_initialized(workspace),
@@ -64,6 +75,14 @@ defmodule Goodwizard.Brain do
   @spec update(String.t(), String.t(), String.t(), map(), String.t() | nil) ::
           {:ok, {map(), String.t()}} | {:error, term()}
   def update(workspace, entity_type, id, new_data, body \\ nil) do
+    if body != nil and byte_size(body) > @max_body_bytes do
+      {:error, :body_too_large}
+    else
+      do_update(workspace, entity_type, id, new_data, body)
+    end
+  end
+
+  defp do_update(workspace, entity_type, id, new_data, body) do
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
     with {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
@@ -114,6 +133,7 @@ defmodule Goodwizard.Brain do
           files
           |> Enum.filter(&String.ends_with?(&1, ".md"))
           |> Enum.sort()
+          |> Enum.take(@max_list_entities)
           |> Enum.reduce_while({:ok, []}, fn file, {:ok, acc} ->
             path = Path.join(type_dir, file)
 
@@ -179,19 +199,25 @@ defmodule Goodwizard.Brain do
     real_workspace = resolve_symlinks(Path.expand(workspace))
 
     if String.starts_with?(real_path, real_workspace <> "/") do
-      File.read(path)
+      File.read(real_path)
     else
       {:error, :path_traversal}
     end
   end
 
-  defp resolve_symlinks(path) do
+  @max_symlink_depth 40
+
+  defp resolve_symlinks(path, depth \\ 0)
+
+  defp resolve_symlinks(path, depth) when depth >= @max_symlink_depth, do: path
+
+  defp resolve_symlinks(path, depth) do
     case :file.read_link_all(path) do
       {:ok, target} ->
         target
         |> List.to_string()
         |> Path.expand(Path.dirname(path))
-        |> resolve_symlinks()
+        |> resolve_symlinks(depth + 1)
 
       {:error, _} ->
         parent = Path.dirname(path)
@@ -199,7 +225,7 @@ defmodule Goodwizard.Brain do
         if parent == path do
           path
         else
-          Path.join(resolve_symlinks(parent), Path.basename(path))
+          Path.join(resolve_symlinks(parent, depth + 1), Path.basename(path))
         end
     end
   end
