@@ -16,6 +16,8 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
       body: [type: :string, default: "", doc: "Optional markdown body content"]
     ]
 
+  require Logger
+
   alias Goodwizard.Actions.Brain.Helpers
 
   @impl true
@@ -24,11 +26,20 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
     workspace = get_in(context, [:state, :workspace]) || "."
     body = Map.get(params, :body, "")
 
+    Logger.info(
+      "[Brain.CreateEntity] workspace=#{workspace} type=#{params.entity_type} data=#{inspect(params.data)}"
+    )
+
     case Goodwizard.Brain.create(workspace, params.entity_type, params.data, body) do
       {:ok, {id, data, body}} ->
+        Logger.info("[Brain.CreateEntity] created id=#{id} type=#{params.entity_type}")
         {:ok, %{id: id, data: data, body: body}}
 
       {:error, reason} ->
+        Logger.error(
+          "[Brain.CreateEntity] failed type=#{params.entity_type} reason=#{inspect(reason)}"
+        )
+
         {:error, Helpers.format_error(reason)}
     end
   end

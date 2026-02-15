@@ -16,6 +16,20 @@ ANTHROPIC_API_KEY=your-anthropic-key
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 ```
 
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `just setup` | Run setup |
+| `just up` | Start the agent |
+| `just cli` | Start the CLI channel |
+| `just status` | Show agent status |
+| `just test` | Run tests |
+| `just check` | Run quality checks (compile, format, credo, doctor, dialyzer, test) |
+| `just build` | Compile the project |
+| `just clean` | Clean build artifacts |
+| `just deploy` | Deploy to production |
+
 ## Telegram Bot Setup
 
 ### 1. Create the bot
@@ -36,7 +50,7 @@ TELEGRAM_BOT_TOKEN=7123456789:AAFmtwQR...your-token
 
 ### 3. Enable the Telegram channel
 
-Edit `~/.goodwizard/config.toml`:
+Edit `config.toml`:
 
 ```toml
 [channels.telegram]
@@ -63,11 +77,3 @@ Message [@BotFather](https://t.me/BotFather) and use `/mybots` to:
 - `/setabouttext` — bio in the bot's profile
 - `/setname` — change the display name
 - `/setcommands` — set the command menu
-
-## Running
-
-```bash
-mix goodwizard.start
-```
-
-You should see `Telegram channel started` in the logs. Message your bot in Telegram to start chatting.

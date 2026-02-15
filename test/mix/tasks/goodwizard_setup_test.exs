@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Goodwizard.SetupTest do
   alias Mix.Tasks.Goodwizard.Setup
 
   @subdirs ~w(memory sessions skills)
+  @entity_types ~w(people places events notes tasks companies tasklists)
 
   defp with_tmp_dir(fun) do
     tmp = Path.join(System.tmp_dir!(), "goodwizard_test_#{System.unique_integer([:positive])}")
@@ -55,6 +56,26 @@ defmodule Mix.Tasks.Goodwizard.SetupTest do
       end
     end
 
+    test "creates brain directory structure and seeds schemas" do
+      with_tmp_dir(fn tmp ->
+        Setup.run(["--base-dir", tmp])
+
+        brain_dir = Path.join(tmp, "brain")
+        assert File.dir?(brain_dir), "Expected brain/ directory to exist"
+
+        schemas_dir = Path.join(brain_dir, "schemas")
+        assert File.dir?(schemas_dir), "Expected brain/schemas/ directory to exist"
+
+        for type <- @entity_types do
+          schema_path = Path.join(schemas_dir, "#{type}.json")
+          assert File.exists?(schema_path), "Expected schema #{type}.json to exist"
+
+          type_dir = Path.join(brain_dir, type)
+          assert File.dir?(type_dir), "Expected brain/#{type}/ directory to exist"
+        end
+      end)
+    end
+
     test "is idempotent — running twice does not raise" do
       with_tmp_dir(fn tmp ->
         Setup.run(["--base-dir", tmp])
@@ -62,6 +83,11 @@ defmodule Mix.Tasks.Goodwizard.SetupTest do
 
         for subdir <- @subdirs do
           assert File.dir?(Path.join(tmp, subdir))
+        end
+
+        # Brain should still be intact
+        for type <- @entity_types do
+          assert File.exists?(Path.join([tmp, "brain", "schemas", "#{type}.json"]))
         end
       end)
     end
