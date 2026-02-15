@@ -10,20 +10,20 @@ defmodule Goodwizard.Actions.Brain.ListEntities do
       entity_type: [type: :string, required: true, doc: "The entity type (e.g. \"notes\", \"contacts\")"]
     ]
 
+  alias Goodwizard.Actions.Brain.Helpers
+
   @impl true
+  @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(params, context) do
     workspace = get_in(context, [:state, :workspace]) || "."
 
     case Goodwizard.Brain.list(workspace, params.entity_type) do
       {:ok, entities} ->
         items = Enum.map(entities, fn {data, body} -> %{data: data, body: body} end)
-        {:ok, %{entities: items, count: length(items)}}
+        {:ok, %{entities: items}}
 
       {:error, reason} ->
-        {:error, format_error(reason)}
+        {:error, Helpers.format_error(reason)}
     end
   end
-
-  defp format_error(reason) when is_binary(reason), do: reason
-  defp format_error(reason), do: inspect(reason)
 end

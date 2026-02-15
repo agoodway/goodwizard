@@ -19,6 +19,11 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
     %{workspace: workspace, context: context}
   end
 
+  defp init_brain(context) do
+    {:ok, _} = CreateEntity.run(%{entity_type: "people", data: %{"name" => "Init"}, body: ""}, context)
+    :ok
+  end
+
   describe "CreateEntity" do
     test "creates entity and returns id, data, body", %{context: context} do
       params = %{entity_type: "people", data: %{"name" => "Alice"}, body: ""}
@@ -56,9 +61,7 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
     end
 
     test "returns error for nonexistent entity", %{context: context} do
-      # Initialize brain first
-      CreateEntity.run(%{entity_type: "people", data: %{"name" => "Init"}, body: ""}, context)
-
+      init_brain(context)
       assert {:error, _} = ReadEntity.run(%{entity_type: "people", id: "nonexistent"}, context)
     end
   end
@@ -95,7 +98,7 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
     end
 
     test "returns error for nonexistent entity", %{context: context} do
-      CreateEntity.run(%{entity_type: "people", data: %{"name" => "Init"}, body: ""}, context)
+      init_brain(context)
 
       assert {:error, _} =
                UpdateEntity.run(%{entity_type: "people", id: "nonexistent", data: %{"name" => "Ghost"}}, context)
@@ -116,8 +119,7 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
     end
 
     test "returns error for nonexistent entity", %{context: context} do
-      CreateEntity.run(%{entity_type: "people", data: %{"name" => "Init"}, body: ""}, context)
-
+      init_brain(context)
       assert {:error, _} = DeleteEntity.run(%{entity_type: "people", id: "nonexistent"}, context)
     end
   end
@@ -128,22 +130,21 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
       CreateEntity.run(%{entity_type: "people", data: %{"name" => "Bob"}, body: ""}, context)
 
       assert {:ok, result} = ListEntities.run(%{entity_type: "people"}, context)
-      assert result.count == 2
+      assert length(result.entities) == 2
 
       names = Enum.map(result.entities, & &1.data["name"]) |> Enum.sort()
       assert names == ["Alice", "Bob"]
     end
 
     test "returns empty list when no entities exist", %{context: context} do
-      assert {:ok, %{entities: [], count: 0}} =
+      assert {:ok, %{entities: []}} =
                ListEntities.run(%{entity_type: "people"}, context)
     end
   end
 
   describe "GetSchema" do
     test "returns schema for a seeded type", %{context: context} do
-      # Initialize brain to seed schemas
-      CreateEntity.run(%{entity_type: "people", data: %{"name" => "Init"}, body: ""}, context)
+      init_brain(context)
 
       assert {:ok, %{schema: schema}} = GetSchema.run(%{entity_type: "people"}, context)
       assert is_map(schema)
@@ -151,17 +152,14 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
     end
 
     test "returns error for nonexistent type", %{context: context} do
-      # Initialize brain first
-      CreateEntity.run(%{entity_type: "people", data: %{"name" => "Init"}, body: ""}, context)
-
+      init_brain(context)
       assert {:error, _} = GetSchema.run(%{entity_type: "nonexistent_type"}, context)
     end
   end
 
   describe "SaveSchema" do
     test "saves a new schema", %{context: context} do
-      # Initialize brain first
-      CreateEntity.run(%{entity_type: "people", data: %{"name" => "Init"}, body: ""}, context)
+      init_brain(context)
 
       schema = %{
         "type" => "object",
@@ -180,37 +178,115 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
       assert {:ok, %{schema: loaded}} = GetSchema.run(%{entity_type: "projects"}, context)
       assert loaded["properties"]["title"]["type"] == "string"
     end
+
+    test "rejects invalid JSON Schema", %{context: context} do
+      init_brain(context)
+
+      invalid_schema = %{"type" => "not_a_real_type", "$ref" => "#/definitions/missing"}
+
+      assert {:error, msg} =
+               SaveSchema.run(%{entity_type: "bad", schema: invalid_schema}, context)
+
+      assert msg =~ "Invalid JSON Schema"
+    end
   end
 
   describe "ListEntityTypes" do
     test "lists available entity types", %{context: context} do
-      # Initialize brain to seed default schemas
-      CreateEntity.run(%{entity_type: "people", data: %{"name" => "Init"}, body: ""}, context)
+      init_brain(context)
 
       assert {:ok, result} = ListEntityTypes.run(%{}, context)
       assert is_list(result.types)
-      assert result.count > 0
+      assert length(result.types) > 0
       assert "people" in result.types
     end
 
     test "returns empty list for uninitialized workspace", %{context: context} do
-      assert {:ok, %{types: [], count: 0}} = ListEntityTypes.run(%{}, context)
+      assert {:ok, %{types: []}} = ListEntityTypes.run(%{}, context)
     end
   end
 
   describe "workspace resolution" do
     test "falls back to current directory when workspace not in context" do
-      # Use a temp workspace but don't put it in context
       workspace = Path.join(System.tmp_dir!(), "brain_no_ctx_#{:rand.uniform(100_000)}")
       on_exit(fn -> File.rm_rf!(workspace) end)
 
-      # With empty context, it falls back to "."
       empty_context = %{state: %{}}
 
-      # This should work with default workspace "."
       # Just verify it doesn't crash
       result = ListEntityTypes.run(%{}, empty_context)
       assert {:ok, _} = result
+    end
+  end
+
+  describe "security: path traversal and injection" do
+    test "rejects entity_type with path traversal", %{context: context} do
+      init_brain(context)
+
+      assert {:error, msg} =
+               CreateEntity.run(%{entity_type: "../etc", data: %{"name" => "Evil"}, body: ""}, context)
+
+      assert is_binary(msg)
+    end
+
+    test "rejects entity_type with null bytes", %{context: context} do
+      init_brain(context)
+
+      assert {:error, msg} =
+               CreateEntity.run(%{entity_type: "people\0evil", data: %{"name" => "Evil"}, body: ""}, context)
+
+      assert is_binary(msg)
+    end
+
+    test "rejects id with path traversal", %{context: context} do
+      init_brain(context)
+
+      assert {:error, msg} = ReadEntity.run(%{entity_type: "people", id: "../../etc/passwd"}, context)
+      assert is_binary(msg)
+    end
+
+    test "rejects empty entity_type", %{context: context} do
+      assert {:error, msg} =
+               CreateEntity.run(%{entity_type: "", data: %{"name" => "Evil"}, body: ""}, context)
+
+      assert is_binary(msg)
+    end
+  end
+
+  describe "concurrent access" do
+    test "concurrent updates return at least one success", %{context: context} do
+      {:ok, created} =
+        CreateEntity.run(%{entity_type: "people", data: %{"name" => "Target"}, body: ""}, context)
+
+      tasks =
+        for i <- 1..5 do
+          Task.async(fn ->
+            UpdateEntity.run(
+              %{entity_type: "people", id: created.id, data: %{"name" => "Updated #{i}"}},
+              context
+            )
+          end)
+        end
+
+      results = Enum.map(tasks, &Task.await/1)
+      successes = Enum.filter(results, &match?({:ok, _}, &1))
+      assert length(successes) >= 1
+    end
+
+    test "concurrent creates produce unique IDs", %{context: context} do
+      tasks =
+        for i <- 1..5 do
+          Task.async(fn ->
+            CreateEntity.run(
+              %{entity_type: "people", data: %{"name" => "Person #{i}"}, body: ""},
+              context
+            )
+          end)
+        end
+
+      results = Enum.map(tasks, &Task.await/1)
+      ids = for {:ok, result} <- results, do: result.id
+      assert length(ids) == length(Enum.uniq(ids))
     end
   end
 end

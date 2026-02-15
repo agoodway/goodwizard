@@ -13,7 +13,10 @@ defmodule Goodwizard.Actions.Brain.UpdateEntity do
       body: [type: :string, doc: "Optional new markdown body content (nil preserves existing)"]
     ]
 
+  alias Goodwizard.Actions.Brain.Helpers
+
   @impl true
+  @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(params, context) do
     workspace = get_in(context, [:state, :workspace]) || "."
     body = Map.get(params, :body)
@@ -23,10 +26,7 @@ defmodule Goodwizard.Actions.Brain.UpdateEntity do
         {:ok, %{data: data, body: body}}
 
       {:error, reason} ->
-        {:error, format_error(reason)}
+        {:error, Helpers.format_error(reason)}
     end
   end
-
-  defp format_error(reason) when is_binary(reason), do: reason
-  defp format_error(reason), do: inspect(reason)
 end

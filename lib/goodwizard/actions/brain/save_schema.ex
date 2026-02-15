@@ -11,21 +11,31 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
       schema: [type: :map, required: true, doc: "The JSON Schema definition as a map"]
     ]
 
+  alias Goodwizard.Actions.Brain.Helpers
   alias Goodwizard.Brain.Schema
 
   @impl true
+  @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(params, context) do
     workspace = get_in(context, [:state, :workspace]) || "."
 
-    case Schema.save(workspace, params.entity_type, params.schema) do
-      :ok ->
-        {:ok, %{message: "Schema saved for type: #{params.entity_type}"}}
+    with :ok <- validate_schema_structure(params.schema) do
+      case Schema.save(workspace, params.entity_type, params.schema) do
+        :ok ->
+          {:ok, %{message: "Schema saved for type: #{params.entity_type}"}}
 
-      {:error, reason} ->
-        {:error, format_error(reason)}
+        {:error, reason} ->
+          {:error, Helpers.format_error(reason)}
+      end
     end
   end
 
-  defp format_error(reason) when is_binary(reason), do: reason
-  defp format_error(reason), do: inspect(reason)
+  defp validate_schema_structure(schema) when is_map(schema) do
+    try do
+      ExJsonSchema.Schema.resolve(schema)
+      :ok
+    rescue
+      _ -> {:error, "Invalid JSON Schema: schema could not be resolved"}
+    end
+  end
 end

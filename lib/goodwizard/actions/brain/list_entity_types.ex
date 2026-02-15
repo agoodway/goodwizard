@@ -8,21 +8,20 @@ defmodule Goodwizard.Actions.Brain.ListEntityTypes do
     description: "List all available entity types in the brain knowledge base",
     schema: []
 
+  alias Goodwizard.Actions.Brain.Helpers
   alias Goodwizard.Brain.Schema
 
   @impl true
+  @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(_params, context) do
     workspace = get_in(context, [:state, :workspace]) || "."
 
     case Schema.list_types(workspace) do
       {:ok, types} ->
-        {:ok, %{types: types, count: length(types)}}
+        {:ok, %{types: types}}
 
       {:error, reason} ->
-        {:error, format_error(reason)}
+        {:error, Helpers.format_error(reason)}
     end
   end
-
-  defp format_error(reason) when is_binary(reason), do: reason
-  defp format_error(reason), do: inspect(reason)
 end
