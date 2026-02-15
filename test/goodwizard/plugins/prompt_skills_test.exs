@@ -47,58 +47,7 @@ defmodule Goodwizard.Plugins.PromptSkillsTest do
       assert length(skills) == 2
     end
 
-    test "finds SKILL.md files in .claude/skills/" do
-      workspace = tmp_workspace()
-      on_exit(fn -> File.rm_rf!(workspace) end)
-
-      claude_dir = Path.join([workspace, ".claude", "skills"])
-      File.mkdir_p!(claude_dir)
-      create_skill_dir(claude_dir, "edit")
-
-      skills = PromptSkills.scan_skills(workspace)
-      assert length(skills) == 1
-      assert hd(skills).name == "edit"
-    end
-
-    test "finds skills in both directories" do
-      workspace = tmp_workspace()
-      on_exit(fn -> File.rm_rf!(workspace) end)
-
-      ws_dir = Path.join(workspace, "skills")
-      claude_dir = Path.join([workspace, ".claude", "skills"])
-      File.mkdir_p!(ws_dir)
-      File.mkdir_p!(claude_dir)
-
-      create_skill_dir(ws_dir, "search")
-      create_skill_dir(claude_dir, "edit")
-
-      skills = PromptSkills.scan_skills(workspace)
-      names = Enum.map(skills, & &1.name)
-      assert "search" in names
-      assert "edit" in names
-      assert length(skills) == 2
-    end
-
-    test "workspace takes precedence on name collision" do
-      workspace = tmp_workspace()
-      on_exit(fn -> File.rm_rf!(workspace) end)
-
-      ws_dir = Path.join(workspace, "skills")
-      claude_dir = Path.join([workspace, ".claude", "skills"])
-      File.mkdir_p!(ws_dir)
-      File.mkdir_p!(claude_dir)
-
-      create_skill_dir(ws_dir, "deploy", body: "Workspace deploy")
-      create_skill_dir(claude_dir, "deploy", body: "Claude deploy")
-
-      skills = PromptSkills.scan_skills(workspace)
-      assert length(skills) == 1
-      deploy = hd(skills)
-      assert deploy.content =~ "Workspace deploy"
-      refute deploy.content =~ "Claude deploy"
-    end
-
-    test "returns empty list when neither directory exists" do
+    test "returns empty list when directory does not exist" do
       workspace = tmp_workspace()
       on_exit(fn -> File.rm_rf!(workspace) end)
 
@@ -111,7 +60,6 @@ defmodule Goodwizard.Plugins.PromptSkillsTest do
       on_exit(fn -> File.rm_rf!(workspace) end)
 
       File.mkdir_p!(Path.join(workspace, "skills"))
-      File.mkdir_p!(Path.join([workspace, ".claude", "skills"]))
 
       skills = PromptSkills.scan_skills(workspace)
       assert skills == []
