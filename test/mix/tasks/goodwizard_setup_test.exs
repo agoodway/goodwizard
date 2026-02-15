@@ -107,6 +107,18 @@ defmodule Mix.Tasks.Goodwizard.SetupTest do
       end)
     end
 
+    test "raises when Brain.ensure_initialized fails" do
+      with_tmp_dir(fn tmp ->
+        # Create the brain dir as a regular file to make mkdir_p inside ensure_initialized fail
+        brain_dir = Path.join(tmp, "brain")
+        File.write!(brain_dir, "not a directory")
+
+        assert_raise Mix.Error, ~r/could not initialize brain/, fn ->
+          Setup.run(["--base-dir", tmp])
+        end
+      end)
+    end
+
     test "does not overwrite existing config.toml" do
       config_path = "config.toml"
       had_config = File.exists?(config_path)

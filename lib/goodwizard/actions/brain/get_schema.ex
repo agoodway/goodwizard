@@ -41,9 +41,9 @@ defmodule Goodwizard.Actions.Brain.GetSchema do
         {:error, "Schema not found for type: #{params.entity_type}"}
 
       {:error, reason} ->
-        Logger.error(
+        Logger.error(fn ->
           "[Brain.GetSchema] failed type=#{params.entity_type} reason=#{inspect(reason)}"
-        )
+        end)
 
         {:error, Helpers.format_error(reason)}
     end

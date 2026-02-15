@@ -22,11 +22,11 @@ defmodule Goodwizard.Actions.Brain.ListEntityTypes do
 
     case Schema.list_types(workspace) do
       {:ok, types} ->
-        Logger.info("[Brain.ListEntityTypes] found types=#{inspect(types)}")
+        Logger.info(fn -> "[Brain.ListEntityTypes] found types=#{inspect(types)}" end)
         {:ok, %{types: types}}
 
       {:error, reason} ->
-        Logger.error("[Brain.ListEntityTypes] failed reason=#{inspect(reason)}")
+        Logger.error(fn -> "[Brain.ListEntityTypes] failed reason=#{inspect(reason)}" end)
         {:error, Helpers.format_error(reason)}
     end
   end

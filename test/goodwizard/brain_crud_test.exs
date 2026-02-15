@@ -411,6 +411,50 @@ defmodule Goodwizard.BrainCrudTest do
                  "tasks" => ["people/abc12345"]
                })
     end
+
+    test "rejects task refs with too-short IDs", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "tasklists", %{
+                 "title" => "Short ID",
+                 "tasks" => ["tasks/abc"]
+               })
+    end
+
+    test "rejects task refs with uppercase characters", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "tasklists", %{
+                 "title" => "Uppercase",
+                 "tasks" => ["tasks/ABCD1234"]
+               })
+    end
+
+    test "accepts empty tasks array", %{workspace: workspace} do
+      assert {:ok, {_id, data, _body}} =
+               Brain.create(workspace, "tasklists", %{
+                 "title" => "Empty List",
+                 "tasks" => []
+               })
+
+      assert data["tasks"] == []
+    end
+
+    test "rejects missing required title", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "tasklists", %{"description" => "No title"})
+    end
+
+    test "accepts multiple task references", %{workspace: workspace} do
+      {:ok, {id1, _, _}} = Brain.create(workspace, "tasks", %{"title" => "Task 1"})
+      {:ok, {id2, _, _}} = Brain.create(workspace, "tasks", %{"title" => "Task 2"})
+
+      assert {:ok, {_id, data, _body}} =
+               Brain.create(workspace, "tasklists", %{
+                 "title" => "Multi Ref",
+                 "tasks" => ["tasks/#{id1}", "tasks/#{id2}"]
+               })
+
+      assert length(data["tasks"]) == 2
+    end
   end
 
   describe "list entity count limit" do

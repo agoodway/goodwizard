@@ -91,17 +91,31 @@ defmodule Mix.Tasks.Goodwizard.Setup do
     end
 
     # Create entity type directories so they're ready for use
-    for type <- Goodwizard.Brain.Seeds.entity_types() do
-      case Goodwizard.Brain.Paths.entity_type_dir(base, type) do
-        {:ok, dir} ->
-          case File.mkdir_p(dir) do
-            :ok -> Mix.shell().info("Created #{dir}")
-            {:error, reason} -> Mix.shell().error("Failed to create #{dir}: #{inspect(reason)}")
-          end
+    dir_errors =
+      for type <- Goodwizard.Brain.Seeds.entity_types(), reduce: [] do
+        acc ->
+          case Goodwizard.Brain.Paths.entity_type_dir(base, type) do
+            {:ok, dir} ->
+              case File.mkdir_p(dir) do
+                :ok ->
+                  Mix.shell().info("Created #{dir}")
+                  acc
 
-        {:error, reason} ->
-          Mix.shell().error("Invalid entity type #{type}: #{reason}")
+                {:error, reason} ->
+                  msg = "Failed to create #{dir}: #{inspect(reason)}"
+                  Mix.shell().error(msg)
+                  [msg | acc]
+              end
+
+            {:error, reason} ->
+              msg = "Invalid entity type #{type}: #{reason}"
+              Mix.shell().error(msg)
+              [msg | acc]
+          end
       end
+
+    if dir_errors != [] do
+      Mix.raise("Setup failed: could not create entity type directories")
     end
   end
 

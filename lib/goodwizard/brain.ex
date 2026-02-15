@@ -51,16 +51,20 @@ defmodule Goodwizard.Brain do
 
       case write_exclusive(path, content, id) do
         :ok ->
-          Logger.info("[Brain] wrote entity path=#{path}")
+          Logger.info("[Brain] wrote entity type=#{entity_type} id=#{id}")
           {:ok, {id, data, body}}
 
         {:error, _} = error ->
-          Logger.error("[Brain] write_exclusive failed path=#{path} error=#{inspect(error)}")
+          Logger.error(fn ->
+            "[Brain] write_exclusive failed type=#{entity_type} id=#{id} error=#{inspect(error)}"
+          end)
           error
       end
     else
       {:error, reason} = error ->
-        Logger.error("[Brain] create pipeline failed reason=#{inspect(reason)}")
+        Logger.error(fn ->
+          "[Brain] create pipeline failed type=#{entity_type} reason=#{inspect(reason)}"
+        end)
         error
     end
   end
@@ -216,7 +220,7 @@ defmodule Goodwizard.Brain do
     brain_dir = Paths.brain_dir(workspace)
     schemas_dir = Paths.schemas_dir(workspace)
 
-    Logger.info("[Brain] ensure_initialized workspace=#{workspace} brain_dir=#{brain_dir}")
+    Logger.info("[Brain] ensure_initialized brain_dir=#{Path.relative_to_cwd(brain_dir)}")
 
     with :ok <- File.mkdir_p(brain_dir),
          :ok <- File.mkdir_p(schemas_dir),
@@ -225,12 +229,12 @@ defmodule Goodwizard.Brain do
         Logger.info("[Brain] no schemas found, seeding defaults")
         Seeds.seed(workspace)
       else
-        Logger.info("[Brain] already initialized, schemas=#{inspect(existing)}")
+        Logger.info(fn -> "[Brain] already initialized, schemas=#{inspect(existing)}" end)
         {:ok, []}
       end
     else
       {:error, reason} = error ->
-        Logger.error("[Brain] ensure_initialized failed reason=#{inspect(reason)}")
+        Logger.error(fn -> "[Brain] ensure_initialized failed reason=#{inspect(reason)}" end)
         error
     end
   end
