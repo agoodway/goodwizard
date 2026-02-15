@@ -25,7 +25,16 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Skills.LoadSkillResource,
       Goodwizard.Actions.Subagent.Spawn,
       Goodwizard.Actions.Messaging.Send,
-      Goodwizard.Actions.Scheduling.Cron
+      Goodwizard.Actions.Scheduling.Cron,
+      # Brain
+      Goodwizard.Actions.Brain.CreateEntity,
+      Goodwizard.Actions.Brain.ReadEntity,
+      Goodwizard.Actions.Brain.UpdateEntity,
+      Goodwizard.Actions.Brain.DeleteEntity,
+      Goodwizard.Actions.Brain.ListEntities,
+      Goodwizard.Actions.Brain.GetSchema,
+      Goodwizard.Actions.Brain.SaveSchema,
+      Goodwizard.Actions.Brain.ListEntityTypes
     ],
     model: "anthropic:claude-sonnet-4-5",
     max_iterations: 20,
