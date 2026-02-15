@@ -67,12 +67,14 @@ defmodule Goodwizard.Actions.Filesystem.GrepFileTest do
     path = Path.join(tmp_dir, "context.txt")
     File.write!(path, "line1\nline2\nMATCH\nline4\nline5\n")
 
-    assert {:ok, %{matches: matches}} =
+    assert {:ok, %{matches: matches, match_count: count}} =
              GrepFile.run(%{path: path, pattern: "MATCH", context_lines: 1}, %{})
 
     assert matches =~ "line2"
     assert matches =~ "MATCH"
     assert matches =~ "line4"
+    # match_count should only count the actual match, not context lines
+    assert count == 1
   end
 
   test "file glob filtering limits searched files", %{tmp_dir: tmp_dir} do
@@ -97,17 +99,85 @@ defmodule Goodwizard.Actions.Filesystem.GrepFileTest do
     assert count <= 5
   end
 
-  test "workspace restriction returns error for paths outside workspace", %{tmp_dir: _tmp_dir} do
-    # This test verifies that resolve_path enforces workspace restrictions.
-    # When restrict_to_workspace is configured, paths outside are rejected.
-    # We test this indirectly — resolve_path returns the workspace error format.
-    # In production, the config server enforces this; in tests it's typically disabled.
-    # We verify the action correctly delegates to Filesystem.resolve_path by
-    # checking that a nonexistent path returns the expected error format.
+  test "nonexistent path returns path-not-found error format" do
     path = "/nonexistent_path_for_test"
 
     result = GrepFile.run(%{path: path, pattern: "test"}, %{})
 
     assert {:error, "Path not found: " <> _} = result
+  end
+
+  test "character truncation when output exceeds max_chars", %{tmp_dir: tmp_dir} do
+    path = Path.join(tmp_dir, "big.txt")
+    # Each line is ~100 chars; 200 lines should exceed 10,000 chars
+    content = Enum.map_join(1..200, "\n", fn i -> "match_#{String.pad_leading(to_string(i), 90, "x")}" end)
+    File.write!(path, content <> "\n")
+
+    assert {:ok, %{matches: matches}} =
+             GrepFile.run(%{path: path, pattern: "match_", max_results: 200}, %{})
+
+    assert matches =~ "truncated"
+    assert matches =~ "more chars"
+  end
+
+  test "malformed regex returns search error", %{tmp_dir: tmp_dir} do
+    path = Path.join(tmp_dir, "regex_test.txt")
+    File.write!(path, "some content\n")
+
+    assert {:error, "Search failed: " <> _} =
+             GrepFile.run(%{path: path, pattern: "["}, %{})
+  end
+
+  test "non-recursive search does not match files in subdirectories", %{tmp_dir: tmp_dir} do
+    sub = Path.join(tmp_dir, "nested")
+    File.mkdir_p!(sub)
+    File.write!(Path.join(tmp_dir, "top.txt"), "findme\n")
+    File.write!(Path.join(sub, "deep.txt"), "findme\n")
+
+    assert {:ok, %{matches: matches}} =
+             GrepFile.run(%{path: tmp_dir, pattern: "findme", recursive: false}, %{})
+
+    assert matches =~ "top.txt"
+    refute matches =~ "deep.txt"
+  end
+
+  test "context_lines above max returns error", %{tmp_dir: tmp_dir} do
+    path = Path.join(tmp_dir, "ctx.txt")
+    File.write!(path, "content\n")
+
+    assert {:error, "context_lines must be <= 100" <> _} =
+             GrepFile.run(%{path: path, pattern: "content", context_lines: 999_999}, %{})
+  end
+
+  test "pattern starting with dash does not trigger flag injection", %{tmp_dir: tmp_dir} do
+    path = Path.join(tmp_dir, "dash.txt")
+    File.write!(path, "--help\n--version\nnormal line\n")
+
+    result = GrepFile.run(%{path: path, pattern: "--help"}, %{})
+
+    # Should find the literal text, not trigger rg/grep help output
+    assert {:ok, %{matches: matches, match_count: count}} = result
+    assert count >= 1
+    assert matches =~ "--help"
+  end
+
+  test "fixed_string search treats metacharacters literally", %{tmp_dir: tmp_dir} do
+    path = Path.join(tmp_dir, "literal.txt")
+    File.write!(path, "foo.bar\nfooXbar\n")
+
+    assert {:ok, %{matches: matches, match_count: count}} =
+             GrepFile.run(%{path: path, pattern: "foo.bar", fixed_string: true}, %{})
+
+    assert count == 1
+    assert matches =~ "foo.bar"
+    refute matches =~ "fooXbar"
+  end
+
+  test "invalid file_glob returns error", %{tmp_dir: tmp_dir} do
+    path = Path.join(tmp_dir, "glob_test.txt")
+    File.write!(path, "content\n")
+
+    assert {:error, "Invalid file_glob: contains unsafe characters"} =
+             GrepFile.run(%{path: path, pattern: "content", file_glob: "*.ex; rm -rf /"}, %{})
   end
 end
