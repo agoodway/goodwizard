@@ -73,6 +73,21 @@ defmodule Goodwizard.Brain.EntityTest do
       assert data["count"] == 42
       assert Map.keys(data) |> Enum.all?(&is_binary/1)
     end
+
+    test "rejects frontmatter with YAML anchors" do
+      content = "---\nname: &anchor value\n---\n"
+      assert {:error, :yaml_anchors_not_allowed} = Entity.parse(content)
+    end
+
+    test "rejects frontmatter with YAML aliases" do
+      content = "---\nname: *alias\n---\n"
+      assert {:error, :yaml_anchors_not_allowed} = Entity.parse(content)
+    end
+
+    test "rejects frontmatter with numeric anchors" do
+      content = "---\nname: &123 value\n---\n"
+      assert {:error, :yaml_anchors_not_allowed} = Entity.parse(content)
+    end
   end
 
   describe "serialize/2" do

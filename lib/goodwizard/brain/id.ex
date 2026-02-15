@@ -164,6 +164,10 @@ defmodule Goodwizard.Brain.Id do
   end
 
   defp write_counter(path, value) do
-    File.write(path, Integer.to_string(value))
+    tmp_path = path <> ".tmp"
+
+    with :ok <- File.write(tmp_path, Integer.to_string(value)) do
+      File.rename(tmp_path, path)
+    end
   end
 end

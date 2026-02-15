@@ -60,7 +60,7 @@ defmodule Goodwizard.Brain do
           {:ok, {map(), String.t()}} | {:error, term()}
   def read(workspace, entity_type, id) do
     with {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
-         {:ok, content} <- read_file(path) do
+         {:ok, content} <- safe_read(path, workspace) do
       Entity.parse(content)
     end
   end
@@ -86,18 +86,44 @@ defmodule Goodwizard.Brain do
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
     with {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
-         {:ok, content} <- read_file(path),
-         {:ok, {existing_data, existing_body}} <- Entity.parse(content),
-         safe_data = Map.drop(new_data, ["id", "created_at", "updated_at"]),
-         merged = Map.merge(existing_data, safe_data) |> Map.put("updated_at", now),
-         final_body = if(body != nil, do: body, else: existing_body),
-         {:ok, schema} <- Schema.load(workspace, entity_type),
-         :ok <- Schema.validate(schema, merged) do
-      result = Entity.serialize(merged, final_body)
-      case File.write(path, result) do
-        :ok -> {:ok, {merged, final_body}}
-        {:error, reason} -> {:error, reason}
-      end
+         {:ok, real_path} <- safe_resolve(path, workspace),
+         {:ok, schema} <- Schema.load(workspace, entity_type) do
+      locked_update(real_path, now, new_data, body, schema)
+    end
+  end
+
+  defp locked_update(path, now, new_data, body, schema) do
+    lock_file = path <> ".lock"
+
+    case :file.open(lock_file, [:write, :exclusive]) do
+      {:ok, lock_fd} ->
+        try do
+          with {:ok, content} <- read_file(path),
+               {:ok, {existing_data, existing_body}} <- Entity.parse(content),
+               safe_data = Map.drop(new_data, ["id", "created_at", "updated_at"]),
+               merged = Map.merge(existing_data, safe_data) |> Map.put("updated_at", now),
+               final_body = if(body != nil, do: body, else: existing_body),
+               :ok <- Schema.validate(schema, merged) do
+            result = Entity.serialize(merged, final_body)
+
+            case File.write(path, result) do
+              :ok -> {:ok, {merged, final_body}}
+              {:error, reason} -> {:error, reason}
+            end
+          end
+        after
+          :file.close(lock_fd)
+          File.rm(lock_file)
+        end
+
+      {:error, :eexist} ->
+        {:error, :update_locked}
+
+      {:error, :enoent} ->
+        {:error, :not_found}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -108,8 +134,9 @@ defmodule Goodwizard.Brain do
   """
   @spec delete(String.t(), String.t(), String.t()) :: :ok | {:error, term()}
   def delete(workspace, entity_type, id) do
-    with {:ok, path} <- Paths.entity_path(workspace, entity_type, id) do
-      case File.rm(path) do
+    with {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
+         {:ok, real_path} <- safe_resolve(path, workspace) do
+      case File.rm(real_path) do
         :ok -> :ok
         {:error, :enoent} -> {:error, :not_found}
         {:error, reason} -> {:error, reason}
@@ -194,14 +221,20 @@ defmodule Goodwizard.Brain do
     end
   end
 
-  defp safe_read(path, workspace) do
+  defp safe_resolve(path, workspace) do
     real_path = resolve_symlinks(path)
     real_workspace = resolve_symlinks(Path.expand(workspace))
 
     if String.starts_with?(real_path, real_workspace <> "/") do
-      File.read(real_path)
+      {:ok, real_path}
     else
       {:error, :path_traversal}
+    end
+  end
+
+  defp safe_read(path, workspace) do
+    with {:ok, real_path} <- safe_resolve(path, workspace) do
+      read_file(real_path)
     end
   end
 
