@@ -28,6 +28,7 @@ erl_crash.dump
 
 # Agent workspace
 /priv/workspace/
+config.toml
 
 # Generated on host
 *.ez
