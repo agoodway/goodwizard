@@ -49,8 +49,16 @@ defmodule Goodwizard.Brain.Paths do
   Validates that a path segment is safe. Rejects `..`, leading `/`, and null bytes.
   """
   @spec validate_segment(String.t(), String.t()) :: :ok | {:error, String.t()}
+  @max_segment_length 255
+
   def validate_segment(segment, label) do
     cond do
+      segment == "" ->
+        {:error, "#{label} must not be empty"}
+
+      byte_size(segment) > @max_segment_length ->
+        {:error, "#{label} exceeds maximum length of #{@max_segment_length}"}
+
       String.contains?(segment, "\0") ->
         {:error, "#{label} contains null bytes"}
 

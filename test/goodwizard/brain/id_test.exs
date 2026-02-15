@@ -56,6 +56,32 @@ defmodule Goodwizard.Brain.IdTest do
       {:ok, _id} = Id.generate(workspace)
       assert File.read!(counter_path) == "101"
     end
+
+    test "handles corrupted counter file gracefully", %{workspace: workspace} do
+      counter_path = Path.join([workspace, "brain", ".counter"])
+      File.write!(counter_path, "not_a_number")
+
+      assert {:ok, id} = Id.generate(workspace)
+      assert Id.valid?(id)
+      # Counter resets to 0, increments to 1
+      assert File.read!(counter_path) == "1"
+    end
+
+    test "returns error when counter directory is unwritable", _context do
+      # Use a path under /dev/null which can't be a directory
+      workspace = "/dev/null/impossible"
+      assert {:error, _reason} = Id.generate(workspace)
+    end
+
+    test "generates unique IDs under concurrent access", %{workspace: workspace} do
+      ids =
+        1..50
+        |> Task.async_stream(fn _ -> Id.generate(workspace) end, max_concurrency: 10)
+        |> Enum.map(fn {:ok, {:ok, id}} -> id end)
+
+      assert length(ids) == 50
+      assert length(Enum.uniq(ids)) == 50
+    end
   end
 
   describe "valid?/1" do

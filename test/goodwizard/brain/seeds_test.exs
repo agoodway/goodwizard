@@ -70,6 +70,17 @@ defmodule Goodwizard.Brain.SeedsTest do
       content = File.read!(Path.join(schemas_dir, "people.json"))
       assert {:ok, %{"existing" => true}} = Jason.decode(content)
     end
+
+    test "returns error when schemas directory is unwritable", %{
+      workspace: workspace,
+      schemas_dir: schemas_dir
+    } do
+      # Make schemas dir read-only to force write failure
+      File.chmod!(schemas_dir, 0o444)
+      on_exit(fn -> File.chmod(schemas_dir, 0o755) end)
+
+      assert {:error, _reason} = Seeds.seed(workspace)
+    end
   end
 
   describe "schema_for/1" do
@@ -109,7 +120,7 @@ defmodule Goodwizard.Brain.SeedsTest do
     test "notes schema has polymorphic related_to references" do
       schema = Seeds.schema_for("notes")
       related = schema["properties"]["related_to"]
-      assert related["items"]["pattern"] == "^[a-z_]+/[a-z0-9]{6,}$"
+      assert related["items"]["pattern"] == "^[a-z_]+/[a-z0-9]{8,}$"
     end
   end
 
@@ -162,6 +173,29 @@ defmodule Goodwizard.BrainTest do
       # Verify the modified schema was preserved
       content = File.read!(path)
       assert {:ok, %{"custom" => true}} = Jason.decode(content)
+    end
+  end
+
+  describe "end-to-end workflow" do
+    test "initialize -> generate ID -> load schema -> validate", %{workspace: workspace} do
+      # 1. Initialize brain (seeds schemas)
+      assert {:ok, seeded} = Brain.ensure_initialized(workspace)
+      assert length(seeded) == 6
+
+      # 2. Generate an ID
+      assert {:ok, id} = Goodwizard.Brain.Id.generate(workspace)
+      assert Goodwizard.Brain.Id.valid?(id)
+
+      # 3. Load a seeded schema
+      assert {:ok, resolved} = Goodwizard.Brain.Schema.load(workspace, "people")
+
+      # 4. Validate data against schema
+      valid_data = %{"id" => id, "name" => "Alice"}
+      assert :ok = Goodwizard.Brain.Schema.validate(resolved, valid_data)
+
+      # 5. Invalid data should fail
+      invalid_data = %{"id" => "AB", "name" => 123}
+      assert {:error, _} = Goodwizard.Brain.Schema.validate(resolved, invalid_data)
     end
   end
 end

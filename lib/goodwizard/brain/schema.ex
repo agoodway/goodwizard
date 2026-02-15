@@ -31,10 +31,7 @@ defmodule Goodwizard.Brain.Schema do
   @spec validate(ExJsonSchema.Schema.Root.t(), map()) ::
           :ok | {:error, [{String.t(), String.t()}]}
   def validate(resolved_schema, data) do
-    case ExJsonSchema.Validator.validate(resolved_schema, data) do
-      :ok -> :ok
-      {:error, errors} -> {:error, errors}
-    end
+    ExJsonSchema.Validator.validate(resolved_schema, data)
   end
 
   @doc """
