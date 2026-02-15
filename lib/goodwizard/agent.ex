@@ -15,6 +15,7 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Filesystem.WriteFile,
       Goodwizard.Actions.Filesystem.EditFile,
       Goodwizard.Actions.Filesystem.ListDir,
+      Goodwizard.Actions.Filesystem.GrepFile,
       Goodwizard.Actions.Shell.Exec,
       Goodwizard.Actions.Memory.ReadLongTerm,
       Goodwizard.Actions.Memory.WriteLongTerm,
