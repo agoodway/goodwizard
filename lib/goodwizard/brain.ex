@@ -2,11 +2,142 @@ defmodule Goodwizard.Brain do
   @moduledoc """
   Entry point for the brain knowledge base subsystem.
 
-  Handles initialization including directory creation and schema seeding
-  on first access.
+  Provides CRUD operations for entities stored as markdown files with
+  YAML frontmatter, validated against JSON Schema definitions.
   """
 
-  alias Goodwizard.Brain.{Paths, Schema, Seeds}
+  alias Goodwizard.Brain.{Entity, Id, Paths, Schema, Seeds}
+
+  @doc """
+  Creates a new entity of the given type.
+
+  Generates an ID, sets timestamps, validates against the type's schema,
+  and writes the entity file. Initializes the brain on first use.
+
+  Returns `{:ok, {id, data, body}}` or `{:error, reason}`.
+  """
+  @spec create(String.t(), String.t(), map(), String.t()) ::
+          {:ok, {String.t(), map(), String.t()}} | {:error, term()}
+  def create(workspace, entity_type, data, body \\ "") do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    with {:ok, _} <- ensure_initialized(workspace),
+         {:ok, id} <- Id.generate(workspace),
+         data = Map.merge(data, %{"id" => id, "created_at" => now, "updated_at" => now}),
+         {:ok, schema} <- Schema.load(workspace, entity_type),
+         :ok <- Schema.validate(schema, data),
+         {:ok, type_dir} <- Paths.entity_type_dir(workspace, entity_type),
+         :ok <- File.mkdir_p(type_dir),
+         {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
+         :ok <- check_not_exists(path, id) do
+      content = Entity.serialize(data, body)
+      case File.write(path, content) do
+        :ok -> {:ok, {id, data, body}}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Reads an entity by type and ID.
+
+  Returns `{:ok, {data, body}}` or `{:error, reason}`.
+  """
+  @spec read(String.t(), String.t(), String.t()) ::
+          {:ok, {map(), String.t()}} | {:error, term()}
+  def read(workspace, entity_type, id) do
+    with {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
+         {:ok, content} <- read_file(path) do
+      Entity.parse(content)
+    end
+  end
+
+  @doc """
+  Updates an existing entity. Merges new data with existing data,
+  updates the `updated_at` timestamp, validates, and writes.
+
+  If `body` is nil, the existing body is preserved.
+  Returns `{:ok, {data, body}}` or `{:error, reason}`.
+  """
+  @spec update(String.t(), String.t(), String.t(), map(), String.t() | nil) ::
+          {:ok, {map(), String.t()}} | {:error, term()}
+  def update(workspace, entity_type, id, new_data, body \\ nil) do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    with {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
+         {:ok, content} <- read_file(path),
+         {:ok, {existing_data, existing_body}} <- Entity.parse(content),
+         merged = Map.merge(existing_data, new_data) |> Map.put("updated_at", now),
+         final_body = if(body != nil, do: body, else: existing_body),
+         {:ok, schema} <- Schema.load(workspace, entity_type),
+         :ok <- Schema.validate(schema, merged) do
+      result = Entity.serialize(merged, final_body)
+      case File.write(path, result) do
+        :ok -> {:ok, {merged, final_body}}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Deletes an entity by type and ID.
+
+  Returns `:ok` or `{:error, reason}`.
+  """
+  @spec delete(String.t(), String.t(), String.t()) :: :ok | {:error, term()}
+  def delete(workspace, entity_type, id) do
+    with {:ok, path} <- Paths.entity_path(workspace, entity_type, id) do
+      case File.rm(path) do
+        :ok -> :ok
+        {:error, :enoent} -> {:error, :not_found}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Lists all entities of a given type.
+
+  Initializes the brain on first use. Returns `{:ok, [{data, body}]}`
+  or `{:error, reason}`.
+  """
+  @spec list(String.t(), String.t()) ::
+          {:ok, [{map(), String.t()}]} | {:error, term()}
+  def list(workspace, entity_type) do
+    with {:ok, _} <- ensure_initialized(workspace),
+         {:ok, type_dir} <- Paths.entity_type_dir(workspace, entity_type) do
+      case File.ls(type_dir) do
+        {:ok, files} ->
+          files
+          |> Enum.filter(&String.ends_with?(&1, ".md"))
+          |> Enum.sort()
+          |> Enum.reduce_while({:ok, []}, fn file, {:ok, acc} ->
+            path = Path.join(type_dir, file)
+
+            case File.read(path) do
+              {:ok, content} ->
+                case Entity.parse(content) do
+                  {:ok, entity} -> {:cont, {:ok, [entity | acc]}}
+                  {:error, reason} -> {:halt, {:error, reason}}
+                end
+
+              {:error, reason} ->
+                {:halt, {:error, reason}}
+            end
+          end)
+          |> case do
+            {:ok, entities} -> {:ok, Enum.reverse(entities)}
+            error -> error
+          end
+
+        {:error, :enoent} ->
+          {:ok, []}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
 
   @doc """
   Ensures the brain directory structure exists and seeds default schemas
@@ -29,6 +160,22 @@ defmodule Goodwizard.Brain do
       else
         {:ok, []}
       end
+    end
+  end
+
+  defp read_file(path) do
+    case File.read(path) do
+      {:ok, content} -> {:ok, content}
+      {:error, :enoent} -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp check_not_exists(path, id) do
+    if File.exists?(path) do
+      {:error, {:duplicate_id, id}}
+    else
+      :ok
     end
   end
 end
