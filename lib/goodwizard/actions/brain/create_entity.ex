@@ -5,18 +5,23 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
 
   use Jido.Action,
     name: "create_entity",
-    description: "Create a new entity of a given type in the brain knowledge base",
+    description:
+      "Create a new entity in the brain. Pass entity_type and data with fields matching the schema. " <>
+        "Example: entity_type=\"companies\", data={\"name\": \"Acme Corp\"}. Use get_schema first to see required fields.",
     schema: [
       entity_type: [
         type: :string,
         required: true,
-        doc: "The entity type (e.g. \"notes\", \"contacts\")"
+        doc: "The entity type (e.g. \"people\", \"companies\", \"notes\")"
       ],
-      data: [type: :map, required: true, doc: "Entity data as a map of field names to values"],
+      data: [
+        type: :map,
+        required: true,
+        doc:
+          "JSON object with fields matching the entity type schema (e.g. {\"name\": \"Alice\", \"email\": \"alice@example.com\"} for people)"
+      ],
       body: [type: :string, default: "", doc: "Optional markdown body content"]
     ]
-
-  require Logger
 
   alias Goodwizard.Actions.Brain.Helpers
 
@@ -26,20 +31,11 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
     workspace = Helpers.workspace(context)
     body = Map.get(params, :body, "")
 
-    Logger.info(fn ->
-      "[Brain.CreateEntity] workspace=#{workspace} type=#{params.entity_type} keys=#{inspect(Map.keys(params.data))}"
-    end)
-
     case Goodwizard.Brain.create(workspace, params.entity_type, params.data, body) do
       {:ok, {id, data, body}} ->
-        Logger.info("[Brain.CreateEntity] created id=#{id} type=#{params.entity_type}")
         {:ok, %{id: id, data: data, body: body}}
 
       {:error, reason} ->
-        Logger.error(fn ->
-          "[Brain.CreateEntity] failed type=#{params.entity_type} reason=#{inspect(reason)}"
-        end)
-
         {:error, Helpers.format_error(reason)}
     end
   end

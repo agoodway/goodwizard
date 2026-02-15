@@ -128,35 +128,8 @@ defmodule Goodwizard.Brain.Id do
           |> Enum.filter(&File.dir?(Path.join(brain_dir, &1)))
           |> Enum.reject(&String.starts_with?(&1, "."))
           |> Enum.reject(&(&1 == "schemas"))
-          |> Enum.flat_map(fn type_dir ->
-            type_path = Path.join(brain_dir, type_dir)
-
-            case File.ls(type_path) do
-              {:ok, files} ->
-                files
-                |> Enum.filter(&String.ends_with?(&1, ".md"))
-                |> Enum.map(&String.replace_suffix(&1, ".md", ""))
-
-              _ ->
-                []
-            end
-          end)
-          |> Enum.flat_map(fn id ->
-            case Sqids.new(alphabet: @alphabet, min_length: @min_length) do
-              {:ok, sqids} ->
-                try do
-                  case Sqids.decode!(sqids, id) do
-                    [n] -> [n]
-                    _ -> []
-                  end
-                rescue
-                  _ -> []
-                end
-
-              _ ->
-                []
-            end
-          end)
+          |> Enum.flat_map(&list_entity_ids(brain_dir, &1))
+          |> Enum.flat_map(&decode_id/1)
           |> Enum.max(fn -> 0 end)
 
         Logger.info("Counter recovered to #{max_id} from existing entities")
@@ -165,6 +138,31 @@ defmodule Goodwizard.Brain.Id do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp list_entity_ids(brain_dir, type_dir) do
+    type_path = Path.join(brain_dir, type_dir)
+
+    case File.ls(type_path) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".md"))
+        |> Enum.map(&String.replace_suffix(&1, ".md", ""))
+
+      _ ->
+        []
+    end
+  end
+
+  defp decode_id(id) do
+    with {:ok, sqids} <- Sqids.new(alphabet: @alphabet, min_length: @min_length),
+         [n] <- Sqids.decode!(sqids, id) do
+      [n]
+    else
+      _ -> []
+    end
+  rescue
+    _ -> []
   end
 
   defp write_counter(path, value) do

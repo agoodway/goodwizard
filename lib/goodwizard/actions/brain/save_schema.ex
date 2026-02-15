@@ -5,17 +5,19 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
 
   use Jido.Action,
     name: "save_schema",
-    description: "Save a JSON Schema definition for an entity type",
+    description: "Save or update a JSON Schema definition for an entity type in the brain",
     schema: [
       entity_type: [
         type: :string,
         required: true,
-        doc: "The entity type (e.g. \"notes\", \"contacts\")"
+        doc: "The entity type (e.g. \"people\", \"companies\", \"notes\")"
       ],
-      schema: [type: :map, required: true, doc: "The JSON Schema definition as a map"]
+      schema: [
+        type: :map,
+        required: true,
+        doc: "A valid JSON Schema object defining the entity structure"
+      ]
     ]
-
-  require Logger
 
   alias Goodwizard.Actions.Brain.Helpers
   alias Goodwizard.Brain.Schema
@@ -25,30 +27,22 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
   def run(params, context) do
     workspace = Helpers.workspace(context)
 
-    Logger.info("[Brain.SaveSchema] workspace=#{workspace} type=#{params.entity_type}")
-
     with :ok <- validate_schema_structure(params.schema) do
       case Schema.save(workspace, params.entity_type, params.schema) do
         :ok ->
-          Logger.info("[Brain.SaveSchema] saved type=#{params.entity_type}")
+          Goodwizard.Cache.delete("brain:schema_summaries:#{workspace}")
           {:ok, %{message: "Schema saved for type: #{params.entity_type}"}}
 
         {:error, reason} ->
-          Logger.error(fn ->
-            "[Brain.SaveSchema] failed type=#{params.entity_type} reason=#{inspect(reason)}"
-          end)
-
           {:error, Helpers.format_error(reason)}
       end
     end
   end
 
   defp validate_schema_structure(schema) when is_map(schema) do
-    try do
-      ExJsonSchema.Schema.resolve(schema)
-      :ok
-    rescue
-      _ -> {:error, "Invalid JSON Schema: schema could not be resolved"}
-    end
+    ExJsonSchema.Schema.resolve(schema)
+    :ok
+  rescue
+    _ -> {:error, "Invalid JSON Schema: schema could not be resolved"}
   end
 end

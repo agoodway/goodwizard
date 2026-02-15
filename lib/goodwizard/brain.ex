@@ -46,25 +46,21 @@ defmodule Goodwizard.Brain do
          :ok <- Schema.validate(schema, data),
          {:ok, type_dir} <- Paths.entity_type_dir(workspace, entity_type),
          :ok <- File.mkdir_p(type_dir),
-         {:ok, path} <- Paths.entity_path(workspace, entity_type, id) do
-      content = Entity.serialize(data, body)
+         {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
+         :ok <- write_and_log(path, Entity.serialize(data, body), entity_type, id) do
+      {:ok, {id, data, body}}
+    end
+  end
 
-      case write_exclusive(path, content, id) do
-        :ok ->
-          Logger.info("[Brain] wrote entity type=#{entity_type} id=#{id}")
-          {:ok, {id, data, body}}
+  defp write_and_log(path, content, entity_type, id) do
+    case write_exclusive(path, content, id) do
+      :ok ->
+        Logger.info("[Brain] wrote entity type=#{entity_type} id=#{id}")
+        :ok
 
-        {:error, _} = error ->
-          Logger.error(fn ->
-            "[Brain] write_exclusive failed type=#{entity_type} id=#{id} error=#{inspect(error)}"
-          end)
-
-          error
-      end
-    else
-      {:error, reason} = error ->
+      {:error, _} = error ->
         Logger.error(fn ->
-          "[Brain] create pipeline failed type=#{entity_type} reason=#{inspect(reason)}"
+          "[Brain] write_exclusive failed type=#{entity_type} id=#{id} error=#{inspect(error)}"
         end)
 
         error
@@ -174,38 +170,54 @@ defmodule Goodwizard.Brain do
           {:ok, [{map(), String.t()}]} | {:error, term()}
   def list(workspace, entity_type) do
     with {:ok, _} <- ensure_initialized(workspace),
-         {:ok, type_dir} <- Paths.entity_type_dir(workspace, entity_type) do
-      case File.ls(type_dir) do
-        {:ok, files} ->
+         {:ok, type_dir} <- Paths.entity_type_dir(workspace, entity_type),
+         {:ok, files} <- list_entity_files(type_dir) do
+      read_entity_files(type_dir, files, workspace)
+    end
+  end
+
+  defp list_entity_files(type_dir) do
+    case File.ls(type_dir) do
+      {:ok, files} ->
+        entity_files =
           files
           |> Enum.filter(&String.ends_with?(&1, ".md"))
           |> Enum.sort()
           |> Enum.take(@max_list_entities)
-          |> Enum.reduce_while({:ok, []}, fn file, {:ok, acc} ->
-            path = Path.join(type_dir, file)
 
-            case safe_read(path, workspace) do
-              {:ok, content} ->
-                case Entity.parse(content) do
-                  {:ok, entity} -> {:cont, {:ok, [entity | acc]}}
-                  {:error, reason} -> {:halt, {:error, {:parse_error, file, reason}}}
-                end
+        {:ok, entity_files}
 
-              {:error, reason} ->
-                {:halt, {:error, reason}}
-            end
-          end)
-          |> case do
-            {:ok, entities} -> {:ok, Enum.reverse(entities)}
-            error -> error
-          end
+      {:error, :enoent} ->
+        {:ok, []}
 
-        {:error, :enoent} ->
-          {:ok, []}
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 
-        {:error, reason} ->
-          {:error, reason}
+  defp read_entity_files(type_dir, files, workspace) do
+    files
+    |> Enum.reduce_while({:ok, []}, fn file, {:ok, acc} ->
+      case read_entity_file(type_dir, file, workspace) do
+        {:ok, entity} -> {:cont, {:ok, [entity | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
       end
+    end)
+    |> then(fn
+      {:ok, entities} -> {:ok, Enum.reverse(entities)}
+      error -> error
+    end)
+  end
+
+  defp read_entity_file(type_dir, file, workspace) do
+    path = Path.join(type_dir, file)
+
+    with {:ok, content} <- safe_read(path, workspace),
+         {:ok, entity} <- Entity.parse(content) do
+      {:ok, entity}
+    else
+      {:error, :path_traversal} -> {:error, :path_traversal}
+      {:error, reason} -> {:error, {:parse_error, file, reason}}
     end
   end
 
@@ -227,18 +239,18 @@ defmodule Goodwizard.Brain do
     with :ok <- File.mkdir_p(brain_dir),
          :ok <- File.mkdir_p(schemas_dir),
          {:ok, existing} <- Schema.list_types(workspace) do
-      if existing == [] do
-        Logger.info("[Brain] no schemas found, seeding defaults")
-        Seeds.seed(workspace)
-      else
-        Logger.info(fn -> "[Brain] already initialized, schemas=#{inspect(existing)}" end)
-        {:ok, []}
-      end
-    else
-      {:error, reason} = error ->
-        Logger.error(fn -> "[Brain] ensure_initialized failed reason=#{inspect(reason)}" end)
-        error
+      maybe_seed(workspace, existing)
     end
+  end
+
+  defp maybe_seed(workspace, []) do
+    Logger.info("[Brain] no schemas found, seeding defaults")
+    Seeds.seed(workspace)
+  end
+
+  defp maybe_seed(_workspace, existing) do
+    Logger.info(fn -> "[Brain] already initialized, schemas=#{inspect(existing)}" end)
+    {:ok, []}
   end
 
   defp read_file(path) do

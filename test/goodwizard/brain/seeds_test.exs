@@ -1,7 +1,7 @@
 defmodule Goodwizard.Brain.SeedsTest do
   use ExUnit.Case, async: true
 
-  alias Goodwizard.Brain.{Seeds, Schema}
+  alias Goodwizard.Brain.{Schema, Seeds}
 
   @expected_types ~w(companies events notes people places tasklists tasks)
 
@@ -125,13 +125,13 @@ defmodule Goodwizard.Brain.SeedsTest do
 
       tasks = schema["properties"]["tasks"]
       assert tasks["type"] == "array"
-      assert tasks["items"]["pattern"] == "^tasks/[a-z0-9]{8,}$"
+      assert tasks["items"]["pattern"] == "^tasks/[a-z0-9]{8,64}$"
     end
 
     test "notes schema has polymorphic related_to references" do
       schema = Seeds.schema_for("notes")
       related = schema["properties"]["related_to"]
-      assert related["items"]["pattern"] == "^[a-z_]+/[a-z0-9]{8,}$"
+      assert related["items"]["pattern"] == "^[a-z_]+/[a-z0-9]{8,64}$"
     end
   end
 
@@ -146,6 +146,7 @@ defmodule Goodwizard.BrainTest do
   use ExUnit.Case, async: true
 
   alias Goodwizard.Brain
+  alias Goodwizard.Brain.{Id, Paths, Schema}
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "brain_init_test_#{:rand.uniform(100_000)}")
@@ -176,7 +177,7 @@ defmodule Goodwizard.BrainTest do
       Brain.ensure_initialized(workspace)
 
       # Modify a schema to verify it's not overwritten
-      {:ok, path} = Goodwizard.Brain.Paths.schema_path(workspace, "people")
+      {:ok, path} = Paths.schema_path(workspace, "people")
       File.write!(path, Jason.encode!(%{"custom" => true}))
 
       {:ok, []} = Brain.ensure_initialized(workspace)
@@ -194,19 +195,19 @@ defmodule Goodwizard.BrainTest do
       assert length(seeded) == 7
 
       # 2. Generate an ID
-      assert {:ok, id} = Goodwizard.Brain.Id.generate(workspace)
-      assert Goodwizard.Brain.Id.valid?(id)
+      assert {:ok, id} = Id.generate(workspace)
+      assert Id.valid?(id)
 
       # 3. Load a seeded schema
-      assert {:ok, resolved} = Goodwizard.Brain.Schema.load(workspace, "people")
+      assert {:ok, resolved} = Schema.load(workspace, "people")
 
       # 4. Validate data against schema
       valid_data = %{"id" => id, "name" => "Alice"}
-      assert :ok = Goodwizard.Brain.Schema.validate(resolved, valid_data)
+      assert :ok = Schema.validate(resolved, valid_data)
 
       # 5. Invalid data should fail
       invalid_data = %{"id" => "AB", "name" => 123}
-      assert {:error, _} = Goodwizard.Brain.Schema.validate(resolved, invalid_data)
+      assert {:error, _} = Schema.validate(resolved, invalid_data)
     end
   end
 end

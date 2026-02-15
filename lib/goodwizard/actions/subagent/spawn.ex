@@ -16,8 +16,6 @@ defmodule Goodwizard.Actions.Subagent.Spawn do
       context: [type: :string, doc: "Optional context to provide to the subagent"]
     ]
 
-  require Logger
-
   alias Goodwizard.SubAgent
 
   @ask_timeout 120_000

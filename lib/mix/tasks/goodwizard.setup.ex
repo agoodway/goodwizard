@@ -14,6 +14,8 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   """
   use Mix.Task
 
+  alias Goodwizard.Brain
+
   @shortdoc "Set up Goodwizard workspace directories and default config"
 
   @base_dir "priv/workspace"
@@ -77,8 +79,12 @@ defmodule Mix.Tasks.Goodwizard.Setup do
 
   defp setup_brain(base) do
     Mix.shell().info("Initializing brain...")
+    init_brain(base)
+    create_entity_type_dirs(base)
+  end
 
-    case Goodwizard.Brain.ensure_initialized(base) do
+  defp init_brain(base) do
+    case Brain.ensure_initialized(base) do
       {:ok, []} ->
         Mix.shell().info("Brain already initialized")
 
@@ -89,33 +95,29 @@ defmodule Mix.Tasks.Goodwizard.Setup do
         Mix.shell().error("Failed to initialize brain: #{inspect(reason)}")
         Mix.raise("Setup failed: could not initialize brain")
     end
+  end
 
-    # Create entity type directories so they're ready for use
+  defp create_entity_type_dirs(base) do
     dir_errors =
-      for type <- Goodwizard.Brain.Seeds.entity_types(), reduce: [] do
-        acc ->
-          case Goodwizard.Brain.Paths.entity_type_dir(base, type) do
-            {:ok, dir} ->
-              case File.mkdir_p(dir) do
-                :ok ->
-                  Mix.shell().info("Created #{dir}")
-                  acc
-
-                {:error, reason} ->
-                  msg = "Failed to create #{dir}: #{inspect(reason)}"
-                  Mix.shell().error(msg)
-                  [msg | acc]
-              end
-
-            {:error, reason} ->
-              msg = "Invalid entity type #{type}: #{reason}"
-              Mix.shell().error(msg)
-              [msg | acc]
-          end
+      for type <- Brain.Seeds.entity_types(), reduce: [] do
+        acc -> create_entity_type_dir(base, type, acc)
       end
 
     if dir_errors != [] do
       Mix.raise("Setup failed: could not create entity type directories")
+    end
+  end
+
+  defp create_entity_type_dir(base, type, acc) do
+    with {:ok, dir} <- Brain.Paths.entity_type_dir(base, type),
+         :ok <- File.mkdir_p(dir) do
+      Mix.shell().info("Created #{dir}")
+      acc
+    else
+      {:error, reason} ->
+        msg = "Failed to create entity type dir for #{type}: #{inspect(reason)}"
+        Mix.shell().error(msg)
+        [msg | acc]
     end
   end
 

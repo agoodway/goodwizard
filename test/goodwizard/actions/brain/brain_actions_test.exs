@@ -3,13 +3,13 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
 
   alias Goodwizard.Actions.Brain.{
     CreateEntity,
-    ReadEntity,
-    UpdateEntity,
     DeleteEntity,
-    ListEntities,
     GetSchema,
+    ListEntities,
+    ListEntityTypes,
+    ReadEntity,
     SaveSchema,
-    ListEntityTypes
+    UpdateEntity
   }
 
   setup do
@@ -211,7 +211,7 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
 
       assert {:ok, result} = ListEntityTypes.run(%{}, context)
       assert is_list(result.types)
-      assert length(result.types) > 0
+      assert result.types != []
       assert "people" in result.types
     end
 
@@ -292,7 +292,7 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
 
       results = Enum.map(tasks, &Task.await/1)
       successes = Enum.filter(results, &match?({:ok, _}, &1))
-      assert length(successes) >= 1
+      assert successes != []
     end
 
     test "concurrent creates produce unique IDs", %{context: context} do

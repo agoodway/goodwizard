@@ -6,7 +6,7 @@ defmodule Goodwizard.Brain.Seeds do
   to disk on first use via `seed/1`.
   """
 
-  alias Goodwizard.Brain.{Id, Schema}
+  alias Goodwizard.Brain.{Id, Paths, Schema}
 
   @entity_types ~w(people places events notes tasks companies tasklists)
 
@@ -24,16 +24,9 @@ defmodule Goodwizard.Brain.Seeds do
   def seed(workspace) do
     results =
       Enum.reduce_while(@entity_types, {:ok, []}, fn type, {:ok, seeded} ->
-        with {:ok, path} <- Goodwizard.Brain.Paths.schema_path(workspace, type) do
-          if File.exists?(path) do
-            {:cont, {:ok, seeded}}
-          else
-            case Schema.save(workspace, type, schema_for(type)) do
-              :ok -> {:cont, {:ok, [type | seeded]}}
-              {:error, reason} -> {:halt, {:error, reason}}
-            end
-          end
-        else
+        case seed_type(workspace, type) do
+          :skip -> {:cont, {:ok, seeded}}
+          :ok -> {:cont, {:ok, [type | seeded]}}
           {:error, reason} -> {:halt, {:error, reason}}
         end
       end)
@@ -41,6 +34,12 @@ defmodule Goodwizard.Brain.Seeds do
     case results do
       {:ok, seeded} -> {:ok, Enum.reverse(seeded)}
       error -> error
+    end
+  end
+
+  defp seed_type(workspace, type) do
+    with {:ok, path} <- Paths.schema_path(workspace, type) do
+      if File.exists?(path), do: :skip, else: Schema.save(workspace, type, schema_for(type))
     end
   end
 

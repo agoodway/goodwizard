@@ -14,8 +14,6 @@ defmodule Goodwizard.Actions.Brain.ListEntities do
       ]
     ]
 
-  require Logger
-
   alias Goodwizard.Actions.Brain.Helpers
 
   @impl true
@@ -23,23 +21,12 @@ defmodule Goodwizard.Actions.Brain.ListEntities do
   def run(params, context) do
     workspace = Helpers.workspace(context)
 
-    Logger.info("[Brain.ListEntities] workspace=#{workspace} type=#{params.entity_type}")
-
     case Goodwizard.Brain.list(workspace, params.entity_type) do
       {:ok, entities} ->
         items = Enum.map(entities, fn {data, body} -> %{data: data, body: body} end)
-
-        Logger.info(
-          "[Brain.ListEntities] found #{length(items)} entities type=#{params.entity_type}"
-        )
-
         {:ok, %{entities: items}}
 
       {:error, reason} ->
-        Logger.error(fn ->
-          "[Brain.ListEntities] failed type=#{params.entity_type} reason=#{inspect(reason)}"
-        end)
-
         {:error, Helpers.format_error(reason)}
     end
   end

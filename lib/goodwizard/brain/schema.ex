@@ -59,6 +59,54 @@ defmodule Goodwizard.Brain.Schema do
     end
   end
 
+  @system_fields ~w(id created_at updated_at)
+
+  @doc """
+  Returns summaries of all entity types with their required and optional fields.
+
+  Each summary is a map with `:type`, `:title`, `:required`, and `:optional` keys.
+  System fields (id, created_at, updated_at) are excluded from the field lists.
+  Skips schemas that cannot be read or decoded.
+
+  Returns `{:ok, [summary]}` or `{:error, reason}`.
+  """
+  @spec summarize_types(String.t()) :: {:ok, [map()]} | {:error, term()}
+  def summarize_types(workspace) do
+    case list_types(workspace) do
+      {:ok, types} ->
+        summaries =
+          types
+          |> Enum.map(&summarize_type(workspace, &1))
+          |> Enum.reject(&is_nil/1)
+
+        {:ok, summaries}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp summarize_type(workspace, type) do
+    with {:ok, path} <- Paths.schema_path(workspace, type),
+         {:ok, content} <- File.read(path),
+         {:ok, schema_map} <- Jason.decode(content) do
+      all_required = Map.get(schema_map, "required", [])
+      properties = Map.get(schema_map, "properties", %{}) |> Map.keys()
+
+      required = Enum.reject(all_required, &(&1 in @system_fields))
+      optional = (properties -- all_required) |> Enum.reject(&(&1 in @system_fields))
+
+      %{
+        type: type,
+        title: Map.get(schema_map, "title", type),
+        required: Enum.sort(required),
+        optional: Enum.sort(optional)
+      }
+    else
+      _ -> nil
+    end
+  end
+
   @doc """
   Lists available entity types by scanning the schemas directory.
 

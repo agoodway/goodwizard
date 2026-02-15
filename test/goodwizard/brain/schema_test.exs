@@ -87,7 +87,7 @@ defmodule Goodwizard.Brain.SchemaTest do
       data = %{"id" => "abcd1234"}
       assert {:error, errors} = Schema.validate(resolved, data)
       assert is_list(errors)
-      assert length(errors) > 0
+      assert errors != []
     end
 
     test "rejects data with wrong type", %{resolved: resolved} do
@@ -138,6 +138,84 @@ defmodule Goodwizard.Brain.SchemaTest do
       File.write!(Path.join(schemas_dir, "README.md"), "ignore me")
 
       assert {:ok, ["people"]} = Schema.list_types(workspace)
+    end
+  end
+
+  describe "summarize_types/1" do
+    @people_schema %{
+      "$schema" => "http://json-schema.org/draft-07/schema#",
+      "title" => "Person",
+      "type" => "object",
+      "required" => ["id", "name", "created_at"],
+      "properties" => %{
+        "id" => %{"type" => "string"},
+        "name" => %{"type" => "string"},
+        "email" => %{"type" => "string"},
+        "created_at" => %{"type" => "string"},
+        "updated_at" => %{"type" => "string"}
+      }
+    }
+
+    @companies_schema %{
+      "$schema" => "http://json-schema.org/draft-07/schema#",
+      "title" => "Company",
+      "type" => "object",
+      "required" => ["id", "name", "industry"],
+      "properties" => %{
+        "id" => %{"type" => "string"},
+        "name" => %{"type" => "string"},
+        "industry" => %{"type" => "string"},
+        "website" => %{"type" => "string"},
+        "updated_at" => %{"type" => "string"}
+      }
+    }
+
+    test "returns summaries with required/optional fields, system fields filtered", %{
+      workspace: workspace
+    } do
+      Schema.save(workspace, "people", @people_schema)
+      Schema.save(workspace, "companies", @companies_schema)
+
+      assert {:ok, summaries} = Schema.summarize_types(workspace)
+      assert length(summaries) == 2
+
+      people = Enum.find(summaries, &(&1.type == "people"))
+      assert people.title == "Person"
+      assert people.required == ["name"]
+      assert people.optional == ["email"]
+
+      companies = Enum.find(summaries, &(&1.type == "companies"))
+      assert companies.title == "Company"
+      assert companies.required == ["industry", "name"]
+      assert companies.optional == ["website"]
+    end
+
+    test "returns empty list when no schemas exist", %{
+      workspace: workspace,
+      schemas_dir: schemas_dir
+    } do
+      File.ls!(schemas_dir) |> Enum.each(&File.rm!(Path.join(schemas_dir, &1)))
+
+      assert {:ok, []} = Schema.summarize_types(workspace)
+    end
+
+    test "returns empty list when schemas dir doesn't exist" do
+      workspace = Path.join(System.tmp_dir!(), "no_schemas_summary_#{:rand.uniform(100_000)}")
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      assert {:ok, []} = Schema.summarize_types(workspace)
+    end
+
+    test "skips malformed schema files gracefully", %{
+      workspace: workspace,
+      schemas_dir: schemas_dir
+    } do
+      Schema.save(workspace, "people", @people_schema)
+      File.write!(Path.join(schemas_dir, "broken.json"), "not valid json{{{")
+
+      assert {:ok, summaries} = Schema.summarize_types(workspace)
+      assert length(summaries) == 1
+      assert hd(summaries).type == "people"
     end
   end
 end

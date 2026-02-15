@@ -2,6 +2,7 @@ defmodule Goodwizard.BrainCrudTest do
   use ExUnit.Case, async: true
 
   alias Goodwizard.Brain
+  alias Goodwizard.Brain.{Id, Paths}
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "brain_crud_test_#{:rand.uniform(100_000)}")
@@ -31,7 +32,7 @@ defmodule Goodwizard.BrainCrudTest do
     test "writes entity file to disk", %{workspace: workspace} do
       {:ok, {id, _data, _body}} = Brain.create(workspace, "people", %{"name" => "Charlie"})
 
-      {:ok, path} = Goodwizard.Brain.Paths.entity_path(workspace, "people", id)
+      {:ok, path} = Paths.entity_path(workspace, "people", id)
       assert File.exists?(path)
 
       content = File.read!(path)
@@ -173,7 +174,7 @@ defmodule Goodwizard.BrainCrudTest do
       Brain.create(workspace, "people", %{"name" => "Alice"})
 
       # Write a corrupt entity file directly
-      {:ok, type_dir} = Goodwizard.Brain.Paths.entity_type_dir(workspace, "people")
+      {:ok, type_dir} = Paths.entity_type_dir(workspace, "people")
       File.write!(Path.join(type_dir, "corrupt.md"), "not valid frontmatter at all")
 
       assert {:error, {:parse_error, "corrupt.md", :missing_frontmatter}} =
@@ -185,13 +186,13 @@ defmodule Goodwizard.BrainCrudTest do
     test "returns duplicate_id error when file already exists", %{workspace: workspace} do
       {:ok, {id, _data, _body}} = Brain.create(workspace, "people", %{"name" => "Alice"})
 
-      {:ok, path} = Goodwizard.Brain.Paths.entity_path(workspace, "people", id)
+      {:ok, path} = Paths.entity_path(workspace, "people", id)
       assert File.exists?(path)
 
       # Try to create another entity and manually place a file at the would-be path
       # We test the write_exclusive path by creating a file before Brain.create can
-      {:ok, next_id} = Goodwizard.Brain.Id.generate(workspace)
-      {:ok, next_path} = Goodwizard.Brain.Paths.entity_path(workspace, "people", next_id)
+      {:ok, next_id} = Id.generate(workspace)
+      {:ok, next_path} = Paths.entity_path(workspace, "people", next_id)
       File.write!(next_path, "occupied")
 
       # The next Brain.create will get a new ID (next after the one we stole),
@@ -258,7 +259,7 @@ defmodule Goodwizard.BrainCrudTest do
     test "create returns error when entity directory is read-only", %{workspace: workspace} do
       Brain.ensure_initialized(workspace)
 
-      {:ok, type_dir} = Goodwizard.Brain.Paths.entity_type_dir(workspace, "people")
+      {:ok, type_dir} = Paths.entity_type_dir(workspace, "people")
       File.mkdir_p!(type_dir)
       File.chmod!(type_dir, 0o444)
 
@@ -284,7 +285,7 @@ defmodule Goodwizard.BrainCrudTest do
 
       # Some updates may fail due to lock contention, which is correct behavior
       successes = Enum.filter(results, &match?({:ok, _}, &1))
-      assert length(successes) >= 1
+      assert successes != []
 
       # Final state should be valid and parseable regardless
       {:ok, {final_data, _body}} = Brain.read(workspace, "people", id)
@@ -315,7 +316,7 @@ defmodule Goodwizard.BrainCrudTest do
     test "read rejects symlink pointing outside workspace", %{workspace: workspace} do
       Brain.ensure_initialized(workspace)
 
-      {:ok, type_dir} = Goodwizard.Brain.Paths.entity_type_dir(workspace, "people")
+      {:ok, type_dir} = Paths.entity_type_dir(workspace, "people")
       File.mkdir_p!(type_dir)
 
       # Create a symlink pointing outside workspace
@@ -328,7 +329,7 @@ defmodule Goodwizard.BrainCrudTest do
     test "list rejects symlink pointing outside workspace", %{workspace: workspace} do
       Brain.ensure_initialized(workspace)
 
-      {:ok, type_dir} = Goodwizard.Brain.Paths.entity_type_dir(workspace, "people")
+      {:ok, type_dir} = Paths.entity_type_dir(workspace, "people")
       File.mkdir_p!(type_dir)
 
       symlink_path = Path.join(type_dir, "evil.md")
@@ -340,7 +341,7 @@ defmodule Goodwizard.BrainCrudTest do
     test "delete rejects symlink pointing outside workspace", %{workspace: workspace} do
       Brain.ensure_initialized(workspace)
 
-      {:ok, type_dir} = Goodwizard.Brain.Paths.entity_type_dir(workspace, "people")
+      {:ok, type_dir} = Paths.entity_type_dir(workspace, "people")
       File.mkdir_p!(type_dir)
 
       symlink_path = Path.join(type_dir, "evil.md")
@@ -461,7 +462,7 @@ defmodule Goodwizard.BrainCrudTest do
     test "list returns at most 1000 entities", %{workspace: workspace} do
       Brain.ensure_initialized(workspace)
 
-      {:ok, type_dir} = Goodwizard.Brain.Paths.entity_type_dir(workspace, "people")
+      {:ok, type_dir} = Paths.entity_type_dir(workspace, "people")
       File.mkdir_p!(type_dir)
 
       # Write 1005 minimal entity files directly

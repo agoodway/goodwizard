@@ -5,19 +5,23 @@ defmodule Goodwizard.Actions.Brain.UpdateEntity do
 
   use Jido.Action,
     name: "update_entity",
-    description: "Update an existing entity by type and ID in the brain knowledge base",
+    description:
+      "Update an existing entity by type and ID. Pass only the fields to change in data. " <>
+        "Example: entity_type=\"people\", id=\"abc123\", data={\"email\": \"new@example.com\"}",
     schema: [
       entity_type: [
         type: :string,
         required: true,
-        doc: "The entity type (e.g. \"notes\", \"contacts\")"
+        doc: "The entity type (e.g. \"people\", \"companies\", \"notes\")"
       ],
       id: [type: :string, required: true, doc: "The entity ID"],
-      data: [type: :map, required: true, doc: "Fields to update as a map"],
+      data: [
+        type: :map,
+        required: true,
+        doc: "JSON object with fields to update (e.g. {\"email\": \"new@example.com\"})"
+      ],
       body: [type: :string, doc: "Optional new markdown body content (nil preserves existing)"]
     ]
-
-  require Logger
 
   alias Goodwizard.Actions.Brain.Helpers
 
@@ -27,20 +31,11 @@ defmodule Goodwizard.Actions.Brain.UpdateEntity do
     workspace = Helpers.workspace(context)
     body = Map.get(params, :body)
 
-    Logger.info(
-      "[Brain.UpdateEntity] workspace=#{workspace} type=#{params.entity_type} id=#{params.id}"
-    )
-
     case Goodwizard.Brain.update(workspace, params.entity_type, params.id, params.data, body) do
       {:ok, {data, body}} ->
-        Logger.info("[Brain.UpdateEntity] updated id=#{params.id} type=#{params.entity_type}")
         {:ok, %{data: data, body: body}}
 
       {:error, reason} ->
-        Logger.error(fn ->
-          "[Brain.UpdateEntity] failed type=#{params.entity_type} id=#{params.id} reason=#{inspect(reason)}"
-        end)
-
         {:error, Helpers.format_error(reason)}
     end
   end
