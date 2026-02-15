@@ -18,7 +18,11 @@ defmodule Goodwizard.Brain.Schema do
     with {:ok, path} <- Paths.schema_path(workspace, type),
          {:ok, content} <- File.read(path),
          {:ok, schema_map} <- Jason.decode(content) do
-      {:ok, ExJsonSchema.Schema.resolve(schema_map)}
+      try do
+        {:ok, ExJsonSchema.Schema.resolve(schema_map)}
+      rescue
+        e -> {:error, {:schema_resolution_error, Exception.message(e)}}
+      end
     end
   end
 

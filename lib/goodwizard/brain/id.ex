@@ -30,7 +30,10 @@ defmodule Goodwizard.Brain.Id do
     end
   end
 
-  defp locked_generate(counter_file) do
+  @max_lock_retries 10
+  @base_backoff_ms 5
+
+  defp locked_generate(counter_file, retries \\ 0) do
     lock_file = counter_file <> ".lock"
 
     case :file.open(lock_file, [:write, :exclusive]) do
@@ -48,9 +51,14 @@ defmodule Goodwizard.Brain.Id do
           File.rm(lock_file)
         end
 
+      {:error, :eexist} when retries < @max_lock_retries ->
+        backoff = @base_backoff_ms * :math.pow(2, retries) |> trunc()
+        jitter = :rand.uniform(max(backoff, 1))
+        Process.sleep(backoff + jitter)
+        locked_generate(counter_file, retries + 1)
+
       {:error, :eexist} ->
-        Process.sleep(1)
-        locked_generate(counter_file)
+        {:error, :lock_timeout}
 
       {:error, reason} ->
         {:error, reason}
@@ -72,12 +80,61 @@ defmodule Goodwizard.Brain.Id do
             {:ok, n}
 
           _ ->
-            Logger.warning("Corrupted counter file at #{path}, resetting to 0: #{inspect(String.trim(content))}")
-            {:ok, 0}
+            Logger.warning("Corrupted counter file at #{path}: #{inspect(String.trim(content))}, recovering from existing entities")
+            recover_counter(path)
         end
 
       {:error, :enoent} ->
         {:ok, 0}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp recover_counter(counter_path) do
+    brain_dir = Path.dirname(counter_path)
+
+    case File.ls(brain_dir) do
+      {:ok, entries} ->
+        max_id =
+          entries
+          |> Enum.filter(&File.dir?(Path.join(brain_dir, &1)))
+          |> Enum.reject(&String.starts_with?(&1, "."))
+          |> Enum.reject(&(&1 == "schemas"))
+          |> Enum.flat_map(fn type_dir ->
+            type_path = Path.join(brain_dir, type_dir)
+
+            case File.ls(type_path) do
+              {:ok, files} ->
+                files
+                |> Enum.filter(&String.ends_with?(&1, ".md"))
+                |> Enum.map(&String.replace_suffix(&1, ".md", ""))
+
+              _ ->
+                []
+            end
+          end)
+          |> Enum.flat_map(fn id ->
+            case Sqids.new(alphabet: @alphabet, min_length: @min_length) do
+              {:ok, sqids} ->
+                try do
+                  case Sqids.decode!(sqids, id) do
+                    [n] -> [n]
+                    _ -> []
+                  end
+                rescue
+                  _ -> []
+                end
+
+              _ ->
+                []
+            end
+          end)
+          |> Enum.max(fn -> 0 end)
+
+        Logger.info("Counter recovered to #{max_id} from existing entities")
+        {:ok, max_id}
 
       {:error, reason} ->
         {:error, reason}

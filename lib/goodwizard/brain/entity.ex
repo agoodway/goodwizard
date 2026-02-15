@@ -7,6 +7,9 @@ defmodule Goodwizard.Brain.Entity do
   freeform notes.
   """
 
+  # 64 KB max frontmatter size to prevent memory exhaustion from large YAML
+  @max_frontmatter_bytes 65_536
+
   @doc """
   Parses a markdown string with YAML frontmatter into `{data_map, body_string}`.
 
@@ -15,6 +18,9 @@ defmodule Goodwizard.Brain.Entity do
   @spec parse(String.t()) :: {:ok, {map(), String.t()}} | {:error, term()}
   def parse(content) when is_binary(content) do
     case String.split(content, "---", parts: 3) do
+      ["", frontmatter, _body] when byte_size(frontmatter) > @max_frontmatter_bytes ->
+        {:error, :frontmatter_too_large}
+
       ["", frontmatter, body] ->
         case YamlElixir.read_from_string(frontmatter) do
           {:ok, data} when is_map(data) ->
@@ -68,6 +74,15 @@ defmodule Goodwizard.Brain.Entity do
   defp encode_yaml_value(value) when is_list(value) do
     items = Enum.map_join(value, ", ", &encode_yaml_value/1)
     "[#{items}]"
+  end
+
+  defp encode_yaml_value(value) when is_map(value) do
+    inner =
+      value
+      |> Enum.sort_by(fn {k, _} -> k end)
+      |> Enum.map_join(", ", fn {k, v} -> "#{k}: #{encode_yaml_value(v)}" end)
+
+    "{#{inner}}"
   end
 
   defp needs_quoting?(value) do

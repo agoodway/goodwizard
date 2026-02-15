@@ -52,6 +52,15 @@ defmodule Goodwizard.Brain.SchemaTest do
       File.write!(Path.join(schemas_dir, "broken.json"), "not valid json{{{")
       assert {:error, %Jason.DecodeError{}} = Schema.load(workspace, "broken")
     end
+
+    test "load returns error for invalid schema structure", %{
+      workspace: workspace,
+      schemas_dir: schemas_dir
+    } do
+      invalid_schema = %{"$ref" => "#/definitions/nonexistent"}
+      File.write!(Path.join(schemas_dir, "invalid.json"), Jason.encode!(invalid_schema))
+      assert {:error, {:schema_resolution_error, _}} = Schema.load(workspace, "invalid")
+    end
   end
 
   describe "validate/2" do
