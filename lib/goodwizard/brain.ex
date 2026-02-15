@@ -8,6 +8,8 @@ defmodule Goodwizard.Brain do
 
   alias Goodwizard.Brain.{Entity, Id, Paths, Schema, Seeds}
 
+  @system_fields ["id", "created_at", "updated_at"]
+
   @doc """
   Creates a new entity of the given type.
 
@@ -23,17 +25,17 @@ defmodule Goodwizard.Brain do
 
     with {:ok, _} <- ensure_initialized(workspace),
          {:ok, id} <- Id.generate(workspace),
-         data = Map.merge(data, %{"id" => id, "created_at" => now, "updated_at" => now}),
+         data = data |> Map.drop(@system_fields) |> Map.merge(%{"id" => id, "created_at" => now, "updated_at" => now}),
          {:ok, schema} <- Schema.load(workspace, entity_type),
          :ok <- Schema.validate(schema, data),
          {:ok, type_dir} <- Paths.entity_type_dir(workspace, entity_type),
          :ok <- File.mkdir_p(type_dir),
-         {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
-         :ok <- check_not_exists(path, id) do
+         {:ok, path} <- Paths.entity_path(workspace, entity_type, id) do
       content = Entity.serialize(data, body)
-      case File.write(path, content) do
+
+      case write_exclusive(path, content, id) do
         :ok -> {:ok, {id, data, body}}
-        {:error, reason} -> {:error, reason}
+        {:error, _} = error -> error
       end
     end
   end
@@ -67,7 +69,8 @@ defmodule Goodwizard.Brain do
     with {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
          {:ok, content} <- read_file(path),
          {:ok, {existing_data, existing_body}} <- Entity.parse(content),
-         merged = Map.merge(existing_data, new_data) |> Map.put("updated_at", now),
+         safe_data = Map.drop(new_data, ["id", "created_at", "updated_at"]),
+         merged = Map.merge(existing_data, safe_data) |> Map.put("updated_at", now),
          final_body = if(body != nil, do: body, else: existing_body),
          {:ok, schema} <- Schema.load(workspace, entity_type),
          :ok <- Schema.validate(schema, merged) do
@@ -114,11 +117,11 @@ defmodule Goodwizard.Brain do
           |> Enum.reduce_while({:ok, []}, fn file, {:ok, acc} ->
             path = Path.join(type_dir, file)
 
-            case File.read(path) do
+            case safe_read(path, workspace) do
               {:ok, content} ->
                 case Entity.parse(content) do
                   {:ok, entity} -> {:cont, {:ok, [entity | acc]}}
-                  {:error, reason} -> {:halt, {:error, reason}}
+                  {:error, reason} -> {:halt, {:error, {:parse_error, file, reason}}}
                 end
 
               {:error, reason} ->
@@ -171,11 +174,50 @@ defmodule Goodwizard.Brain do
     end
   end
 
-  defp check_not_exists(path, id) do
-    if File.exists?(path) do
-      {:error, {:duplicate_id, id}}
+  defp safe_read(path, workspace) do
+    real_path = resolve_symlinks(path)
+    real_workspace = resolve_symlinks(Path.expand(workspace))
+
+    if String.starts_with?(real_path, real_workspace <> "/") do
+      File.read(path)
     else
-      :ok
+      {:error, :path_traversal}
+    end
+  end
+
+  defp resolve_symlinks(path) do
+    case :file.read_link_all(path) do
+      {:ok, target} ->
+        target
+        |> List.to_string()
+        |> Path.expand(Path.dirname(path))
+        |> resolve_symlinks()
+
+      {:error, _} ->
+        parent = Path.dirname(path)
+
+        if parent == path do
+          path
+        else
+          Path.join(resolve_symlinks(parent), Path.basename(path))
+        end
+    end
+  end
+
+  defp write_exclusive(path, content, id) do
+    case :file.open(path, [:write, :exclusive]) do
+      {:ok, fd} ->
+        try do
+          :file.write(fd, content)
+        after
+          :file.close(fd)
+        end
+
+      {:error, :eexist} ->
+        {:error, {:duplicate_id, id}}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 end

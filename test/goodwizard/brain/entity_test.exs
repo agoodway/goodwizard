@@ -50,6 +50,22 @@ defmodule Goodwizard.Brain.EntityTest do
       assert {:error, :missing_frontmatter} = Entity.parse("---\nid: abc\n")
     end
 
+    test "returns error for non-map YAML frontmatter" do
+      content = "---\n- item1\n- item2\n---\n"
+      assert {:error, :invalid_frontmatter} = Entity.parse(content)
+    end
+
+    test "returns error for scalar YAML frontmatter" do
+      content = "---\njust a string\n---\n"
+      assert {:error, :invalid_frontmatter} = Entity.parse(content)
+    end
+
+    test "returns error for oversized frontmatter" do
+      large_value = String.duplicate("x", 70_000)
+      content = "---\nkey: #{large_value}\n---\n"
+      assert {:error, :frontmatter_too_large} = Entity.parse(content)
+    end
+
     test "ensures keys are strings" do
       content = "---\ncount: 42\n---\n"
 
@@ -122,6 +138,53 @@ defmodule Goodwizard.Brain.EntityTest do
 
       assert String.contains?(result, "count: 42")
       assert String.contains?(result, "score: 3.14")
+    end
+
+    test "serializes map values" do
+      data = %{"coords" => %{"lat" => 40.7, "lng" => -74.0}}
+      result = Entity.serialize(data)
+
+      assert String.contains?(result, "coords: {lat: 40.7, lng: -74.0}")
+    end
+
+    test "roundtrips map values through serialize and parse" do
+      data = %{"id" => "abc12345", "meta" => %{"source" => "import", "version" => 2}}
+      serialized = Entity.serialize(data)
+      assert {:ok, {parsed, _}} = Entity.parse(serialized)
+      assert parsed["meta"]["source"] == "import"
+      assert parsed["meta"]["version"] == 2
+    end
+
+    test "quotes strings containing each special character" do
+      special_chars = [
+        ":", "#", "\"", "'", "\n", "[", "]", "{", "}", ",",
+        "&", "*", "?", "|", "-", "<", ">", "=", "!", "%", "@", "`"
+      ]
+
+      for char <- special_chars do
+        value = "test#{char}value"
+        data = %{"field" => value}
+        result = Entity.serialize(data)
+
+        assert String.contains?(result, "field: \""),
+               "Expected quoting for char #{inspect(char)} but got: #{result}"
+      end
+    end
+
+    test "quotes YAML boolean-like strings" do
+      for word <- ["true", "false", "null", "yes", "no", "on", "off"] do
+        data = %{"field" => word}
+        result = Entity.serialize(data)
+
+        assert String.contains?(result, "field: \"#{word}\""),
+               "Expected quoting for #{word} but got: #{result}"
+      end
+    end
+
+    test "quotes strings starting with digits" do
+      data = %{"field" => "42things"}
+      result = Entity.serialize(data)
+      assert String.contains?(result, ~s(field: "42things"))
     end
   end
 
