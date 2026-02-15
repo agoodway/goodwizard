@@ -15,7 +15,9 @@ defmodule Goodwizard.Actions.Filesystem.ListDirTest do
     File.mkdir_p!(Path.join(tmp_dir, "beta"))
     File.write!(Path.join(tmp_dir, "gamma.ex"), "")
 
-    assert {:ok, %{entries: listing}} = ListDir.run(%{path: tmp_dir}, %{})
+    assert {:ok, %{entries: listing}} =
+             ListDir.run(%{path: tmp_dir}, %{})
+
     assert listing =~ "[FILE] alpha.txt"
     assert listing =~ "[DIR] beta"
     assert listing =~ "[FILE] gamma.ex"
@@ -31,7 +33,9 @@ defmodule Goodwizard.Actions.Filesystem.ListDirTest do
     empty = Path.join(tmp_dir, "empty")
     File.mkdir_p!(empty)
 
-    assert {:ok, %{entries: msg}} = ListDir.run(%{path: empty}, %{})
+    assert {:ok, %{entries: msg}} =
+             ListDir.run(%{path: empty}, %{})
+
     assert msg =~ "is empty"
   end
 
@@ -39,20 +43,15 @@ defmodule Goodwizard.Actions.Filesystem.ListDirTest do
     file = Path.join(tmp_dir, "file.txt")
     File.write!(file, "")
 
-    assert {:error, "Not a directory: " <> _} = ListDir.run(%{path: file}, %{})
+    assert {:error, "Not a directory: " <> _} =
+             ListDir.run(%{path: file}, %{})
   end
 
   test "directory not found", %{tmp_dir: tmp_dir} do
     missing = Path.join(tmp_dir, "nope")
 
-    assert {:error, "Directory not found: " <> _} = ListDir.run(%{path: missing}, %{})
-  end
-
-  test "enforces allowed_dir constraint", %{tmp_dir: tmp_dir} do
-    assert {:error, msg} =
-             ListDir.run(%{path: tmp_dir, allowed_dir: "/nonexistent"}, %{})
-
-    assert msg =~ "outside allowed directory"
+    assert {:error, "Directory not found: " <> _} =
+             ListDir.run(%{path: missing}, %{})
   end
 
   test "returns error for permission denied", %{tmp_dir: tmp_dir} do
@@ -60,7 +59,9 @@ defmodule Goodwizard.Actions.Filesystem.ListDirTest do
     File.mkdir_p!(noperm)
     File.chmod!(noperm, 0o000)
 
-    assert {:error, msg} = ListDir.run(%{path: noperm}, %{})
+    assert {:error, msg} =
+             ListDir.run(%{path: noperm}, %{})
+
     assert msg =~ "Failed to list directory"
   end
 end

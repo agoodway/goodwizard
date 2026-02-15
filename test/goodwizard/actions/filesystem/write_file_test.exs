@@ -13,7 +13,9 @@ defmodule Goodwizard.Actions.Filesystem.WriteFileTest do
   test "creates a new file", %{tmp_dir: tmp_dir} do
     path = Path.join(tmp_dir, "new.txt")
 
-    assert {:ok, %{message: msg}} = WriteFile.run(%{path: path, content: "hello"}, %{})
+    assert {:ok, %{message: msg}} =
+             WriteFile.run(%{path: path, content: "hello"}, %{})
+
     assert msg =~ "Successfully wrote 5 bytes"
     assert File.read!(path) == "hello"
   end
@@ -21,7 +23,9 @@ defmodule Goodwizard.Actions.Filesystem.WriteFileTest do
   test "creates parent directories", %{tmp_dir: tmp_dir} do
     path = Path.join([tmp_dir, "a", "b", "c", "deep.txt"])
 
-    assert {:ok, %{message: _}} = WriteFile.run(%{path: path, content: "deep"}, %{})
+    assert {:ok, %{message: _}} =
+             WriteFile.run(%{path: path, content: "deep"}, %{})
+
     assert File.read!(path) == "deep"
   end
 
@@ -29,18 +33,11 @@ defmodule Goodwizard.Actions.Filesystem.WriteFileTest do
     path = Path.join(tmp_dir, "existing.txt")
     File.write!(path, "old content")
 
-    assert {:ok, %{message: msg}} = WriteFile.run(%{path: path, content: "new content"}, %{})
+    assert {:ok, %{message: msg}} =
+             WriteFile.run(%{path: path, content: "new content"}, %{})
+
     assert msg =~ "Successfully wrote 11 bytes"
     assert File.read!(path) == "new content"
-  end
-
-  test "enforces allowed_dir constraint", %{tmp_dir: tmp_dir} do
-    path = Path.join(tmp_dir, "bad.txt")
-
-    assert {:error, msg} =
-             WriteFile.run(%{path: path, content: "x", allowed_dir: "/nonexistent"}, %{})
-
-    assert msg =~ "outside allowed directory"
   end
 
   test "returns error for write to read-only directory", %{tmp_dir: tmp_dir} do
@@ -49,7 +46,9 @@ defmodule Goodwizard.Actions.Filesystem.WriteFileTest do
     File.chmod!(readonly_dir, 0o555)
     path = Path.join(readonly_dir, "file.txt")
 
-    assert {:error, msg} = WriteFile.run(%{path: path, content: "x"}, %{})
+    assert {:error, msg} =
+             WriteFile.run(%{path: path, content: "x"}, %{})
+
     assert msg =~ "Failed to write file"
   end
 
@@ -60,7 +59,9 @@ defmodule Goodwizard.Actions.Filesystem.WriteFileTest do
 
     path = Path.join([blocker, "subdir", "file.txt"])
 
-    assert {:error, msg} = WriteFile.run(%{path: path, content: "x"}, %{})
+    assert {:error, msg} =
+             WriteFile.run(%{path: path, content: "x"}, %{})
+
     assert msg =~ "Failed to create directory"
   end
 end

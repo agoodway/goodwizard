@@ -12,12 +12,18 @@ defmodule Goodwizard.Actions.FilesystemTest do
 
   describe "resolve_path/2" do
     test "expands tilde in path" do
-      assert {:ok, resolved} = Filesystem.resolve_path("~/test.txt", nil)
+      assert {:ok, resolved} = Filesystem.resolve_path("~/test.txt", Path.expand("~"))
       assert resolved == Path.expand("~/test.txt")
     end
 
-    test "returns expanded path when allowed_dir is nil" do
-      assert {:ok, "/tmp/file.txt"} = Filesystem.resolve_path("/tmp/file.txt", nil)
+    test "allows path within explicit allowed_dir", %{tmp_dir: tmp_dir} do
+      test_path = Path.join(tmp_dir, "file.txt")
+      assert {:ok, ^test_path} = Filesystem.resolve_path(test_path, tmp_dir)
+    end
+
+    test "rejects paths outside explicit allowed_dir", %{tmp_dir: tmp_dir} do
+      assert {:error, msg} = Filesystem.resolve_path("/etc/passwd", tmp_dir)
+      assert msg =~ "outside allowed directory"
     end
 
     test "allows exact match of allowed_dir", %{tmp_dir: tmp_dir} do

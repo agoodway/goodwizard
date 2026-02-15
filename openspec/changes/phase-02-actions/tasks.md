@@ -2,7 +2,7 @@
 
 ## Backend
 
-- [x] 1.1 Create Goodwizard.Actions.Filesystem.ReadFile action (schema + run/2 with ~ expansion, allowed_dir, error handling)
+- [x] 1.1 Create Goodwizard.Actions.Filesystem.ReadFile action (schema + run/2 with ~ expansion, server-side workspace enforcement, error handling)
 - [x] 1.2 Create Goodwizard.Actions.Filesystem.WriteFile action (create parent dirs, write UTF-8, return byte count)
 - [x] 1.3 Create Goodwizard.Actions.Filesystem.EditFile action (find-and-replace, not-found error, ambiguous warning, first occurrence only)
 - [x] 1.4 Create Goodwizard.Actions.Filesystem.ListDir action (sorted entries, [DIR]/[FILE] prefixes, error handling)

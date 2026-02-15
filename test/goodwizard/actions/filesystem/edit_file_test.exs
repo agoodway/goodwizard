@@ -33,7 +33,10 @@ defmodule Goodwizard.Actions.Filesystem.EditFileTest do
     File.write!(path, "defmodule Foo do\nend")
 
     assert {:error, "old_text not found in file. Make sure it matches exactly."} =
-             EditFile.run(%{path: path, old_text: "nonexistent", new_text: "x"}, %{})
+             EditFile.run(
+               %{path: path, old_text: "nonexistent", new_text: "x"},
+               %{}
+             )
   end
 
   test "ambiguous match returns error with count", %{tmp_dir: tmp_dir} do
@@ -41,7 +44,10 @@ defmodule Goodwizard.Actions.Filesystem.EditFileTest do
     File.write!(path, "foo\nbar\nfoo\nbar\nfoo")
 
     assert {:error, msg} =
-             EditFile.run(%{path: path, old_text: "foo", new_text: "baz"}, %{})
+             EditFile.run(
+               %{path: path, old_text: "foo", new_text: "baz"},
+               %{}
+             )
 
     assert msg =~ "old_text appears 3 times"
   end
@@ -50,20 +56,10 @@ defmodule Goodwizard.Actions.Filesystem.EditFileTest do
     path = Path.join(tmp_dir, "missing.ex")
 
     assert {:error, "File not found: " <> _} =
-             EditFile.run(%{path: path, old_text: "x", new_text: "y"}, %{})
-  end
-
-  test "enforces allowed_dir constraint", %{tmp_dir: tmp_dir} do
-    path = Path.join(tmp_dir, "code.ex")
-    File.write!(path, "content")
-
-    assert {:error, msg} =
              EditFile.run(
-               %{path: path, old_text: "content", new_text: "x", allowed_dir: "/nonexistent"},
+               %{path: path, old_text: "x", new_text: "y"},
                %{}
              )
-
-    assert msg =~ "outside allowed directory"
   end
 
   test "returns error for read permission denied", %{tmp_dir: tmp_dir} do
@@ -71,7 +67,12 @@ defmodule Goodwizard.Actions.Filesystem.EditFileTest do
     File.write!(path, "content")
     File.chmod!(path, 0o000)
 
-    assert {:error, msg} = EditFile.run(%{path: path, old_text: "content", new_text: "x"}, %{})
+    assert {:error, msg} =
+             EditFile.run(
+               %{path: path, old_text: "content", new_text: "x"},
+               %{}
+             )
+
     assert msg =~ "Failed to read file"
   end
 
@@ -80,7 +81,12 @@ defmodule Goodwizard.Actions.Filesystem.EditFileTest do
     File.write!(path, "content")
     File.chmod!(path, 0o444)
 
-    assert {:error, msg} = EditFile.run(%{path: path, old_text: "content", new_text: "x"}, %{})
+    assert {:error, msg} =
+             EditFile.run(
+               %{path: path, old_text: "content", new_text: "x"},
+               %{}
+             )
+
     assert msg =~ "Failed to write file"
   end
 end

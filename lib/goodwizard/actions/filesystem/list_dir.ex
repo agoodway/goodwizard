@@ -7,15 +7,14 @@ defmodule Goodwizard.Actions.Filesystem.ListDir do
     name: "list_dir",
     description: "List files and directories in a directory",
     schema: [
-      path: [type: :string, required: true, doc: "Path to the directory to list"],
-      allowed_dir: [type: :string, doc: "Optional directory constraint"]
+      path: [type: :string, required: true, doc: "Path to the directory to list"]
     ]
 
   alias Goodwizard.Actions.Filesystem
 
   @impl true
   def run(params, _context) do
-    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)),
+    with {:ok, resolved} <- Filesystem.resolve_path(params.path),
          :ok <- check_directory(resolved) do
       case File.ls(resolved) do
         {:ok, entries} ->

@@ -9,15 +9,14 @@ defmodule Goodwizard.Actions.Filesystem.EditFile do
     schema: [
       path: [type: :string, required: true, doc: "Path to the file to edit"],
       old_text: [type: :string, required: true, doc: "Text to find"],
-      new_text: [type: :string, required: true, doc: "Text to replace with"],
-      allowed_dir: [type: :string, doc: "Optional directory constraint"]
+      new_text: [type: :string, required: true, doc: "Text to replace with"]
     ]
 
   alias Goodwizard.Actions.Filesystem
 
   @impl true
   def run(params, _context) do
-    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)),
+    with {:ok, resolved} <- Filesystem.resolve_path(params.path),
          :ok <- ensure_file_exists(resolved),
          {:ok, content} <- read_file(resolved) do
       do_replace(resolved, content, params.old_text, params.new_text)

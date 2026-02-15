@@ -10,7 +10,7 @@ Phase 1 must be complete (Mix project scaffold, Config GenServer) before these a
 - 5 Jido Actions: ReadFile, WriteFile, EditFile, ListDir, Exec
 - Each action uses `use Jido.Action` with a schema and `run/2` callback
 - Behaviour-preserving port from the Python originals
-- Configurable safety constraints (allowed_dir, deny patterns, timeout) via action params or context
+- Configurable safety constraints (workspace restriction via config, deny patterns, timeout)
 - Comprehensive error handling returning descriptive `{:error, reason}` tuples
 
 **Non-Goals:**
@@ -34,13 +34,13 @@ Phase 1 must be complete (Mix project scaffold, Config GenServer) before these a
 
 **Decision**: Extract `Goodwizard.Actions.Filesystem.resolve_path/2` as a shared function used by all filesystem actions.
 
-**Rationale**: All 4 filesystem actions need tilde expansion and optional allowed_dir enforcement. The Python code uses `_resolve_path()` the same way. Keeping it in the `Filesystem` namespace avoids a separate utility module for a single function.
+**Rationale**: All 4 filesystem actions need tilde expansion and workspace restriction enforcement. The Python code uses `_resolve_path()` the same way. Keeping it in the `Filesystem` namespace avoids a separate utility module for a single function.
 
-### 3. `allowed_dir` passed via action params, not hardcoded
+### 3. Workspace restriction enforced server-side, not via LLM params
 
-**Decision**: Each filesystem action accepts an optional `allowed_dir` parameter in its schema. If present, paths are validated against it.
+**Decision**: Workspace restriction is enforced server-side by `resolve_path/1` which reads `tools.restrict_to_workspace` from `Goodwizard.Config`. The LLM cannot specify or override the allowed directory.
 
-**Rationale**: The Python implementation takes `allowed_dir` in the constructor. In Jido, actions are stateless modules — configuration flows through params. This lets the ReAct strategy inject workspace restrictions at call time using config values from `Goodwizard.Config`.
+**Rationale**: Exposing `allowed_dir` as an action parameter would allow the LLM to bypass workspace restrictions by specifying a permissive directory. Security constraints must come from server-side configuration, not from LLM-controlled inputs. The `resolve_path/2` variant with an explicit directory argument is kept as an internal API (`@doc false`) for tests and programmatic use.
 
 ### 4. Error returns as `{:error, String.t()}` not exception raising
 

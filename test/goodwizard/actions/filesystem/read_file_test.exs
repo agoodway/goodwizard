@@ -14,35 +14,20 @@ defmodule Goodwizard.Actions.Filesystem.ReadFileTest do
     path = Path.join(tmp_dir, "hello.txt")
     File.write!(path, "hello world")
 
-    assert {:ok, %{content: "hello world"}} = ReadFile.run(%{path: path}, %{})
+    assert {:ok, %{content: "hello world"}} =
+             ReadFile.run(%{path: path}, %{})
   end
 
   test "returns error for missing file", %{tmp_dir: tmp_dir} do
     path = Path.join(tmp_dir, "nope.txt")
 
-    assert {:error, "File not found: " <> _} = ReadFile.run(%{path: path}, %{})
+    assert {:error, "File not found: " <> _} =
+             ReadFile.run(%{path: path}, %{})
   end
 
   test "returns error for directory path", %{tmp_dir: tmp_dir} do
-    assert {:error, "Not a file: " <> _} = ReadFile.run(%{path: tmp_dir}, %{})
-  end
-
-  test "enforces allowed_dir constraint", %{tmp_dir: tmp_dir} do
-    path = Path.join(tmp_dir, "secret.txt")
-    File.write!(path, "secret")
-
-    assert {:error, msg} =
-             ReadFile.run(%{path: path, allowed_dir: "/nonexistent/allowed"}, %{})
-
-    assert msg =~ "outside allowed directory"
-  end
-
-  test "allows path within allowed_dir", %{tmp_dir: tmp_dir} do
-    path = Path.join(tmp_dir, "ok.txt")
-    File.write!(path, "ok")
-
-    assert {:ok, %{content: "ok"}} =
-             ReadFile.run(%{path: path, allowed_dir: tmp_dir}, %{})
+    assert {:error, "Not a file: " <> _} =
+             ReadFile.run(%{path: tmp_dir}, %{})
   end
 
   test "returns error for permission denied", %{tmp_dir: tmp_dir} do
@@ -58,7 +43,9 @@ defmodule Goodwizard.Actions.Filesystem.ReadFileTest do
     path = Path.join(tmp_dir, "big.txt")
     File.write!(path, String.duplicate("x", 1000))
 
-    assert {:error, msg} = ReadFile.run(%{path: path, max_file_size: 100}, %{})
+    assert {:error, msg} =
+             ReadFile.run(%{path: path, max_file_size: 100}, %{})
+
     assert msg =~ "File too large"
     assert msg =~ "exceeds limit"
   end

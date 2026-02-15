@@ -8,15 +8,14 @@ defmodule Goodwizard.Actions.Filesystem.WriteFile do
     description: "Write content to a file, creating parent directories if needed",
     schema: [
       path: [type: :string, required: true, doc: "Path to the file to write"],
-      content: [type: :string, required: true, doc: "Content to write to the file"],
-      allowed_dir: [type: :string, doc: "Optional directory constraint"]
+      content: [type: :string, required: true, doc: "Content to write to the file"]
     ]
 
   alias Goodwizard.Actions.Filesystem
 
   @impl true
   def run(params, _context) do
-    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)),
+    with {:ok, resolved} <- Filesystem.resolve_path(params.path),
          :ok <- resolved |> Path.dirname() |> File.mkdir_p() do
       case File.write(resolved, params.content) do
         :ok ->

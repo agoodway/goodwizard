@@ -8,11 +8,16 @@ defmodule Goodwizard.Actions.Filesystem do
 
   Returns `{:ok, expanded_path}` or `{:error, reason}`.
   """
+  @spec resolve_path(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def resolve_path(path), do: resolve_path(path, nil)
+
+  @doc false
   @spec resolve_path(String.t(), String.t() | nil) :: {:ok, String.t()} | {:error, String.t()}
   def resolve_path(path, allowed_dir) do
     expanded = Path.expand(path)
+    effective_dir = allowed_dir || default_allowed_dir()
 
-    case allowed_dir do
+    case effective_dir do
       nil ->
         {:ok, expanded}
 
@@ -27,6 +32,26 @@ defmodule Goodwizard.Actions.Filesystem do
           {:error, "Path #{expanded} is outside allowed directory #{expanded_dir}"}
         end
     end
+  end
+
+  defp default_allowed_dir do
+    restrict? =
+      Application.get_env(:goodwizard, :restrict_to_workspace, :from_config)
+
+    case restrict? do
+      false ->
+        nil
+
+      _ ->
+        if Goodwizard.Config.get(["tools", "restrict_to_workspace"]) do
+          Goodwizard.Config.workspace()
+        else
+          nil
+        end
+    end
+  rescue
+    # Config server may not be running (e.g., in tests)
+    _ -> nil
   end
 
   defp resolve_symlinks(path) do

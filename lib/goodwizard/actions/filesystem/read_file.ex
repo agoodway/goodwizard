@@ -10,7 +10,6 @@ defmodule Goodwizard.Actions.Filesystem.ReadFile do
     description: "Read the contents of a file",
     schema: [
       path: [type: :string, required: true, doc: "Path to the file to read"],
-      allowed_dir: [type: :string, doc: "Optional directory constraint"],
       max_file_size: [type: :integer, default: 10_000_000, doc: "Maximum file size in bytes"]
     ]
 
@@ -20,7 +19,7 @@ defmodule Goodwizard.Actions.Filesystem.ReadFile do
   def run(params, _context) do
     max_size = Map.get(params, :max_file_size, @default_max_file_size)
 
-    with {:ok, resolved} <- Filesystem.resolve_path(params.path, Map.get(params, :allowed_dir)),
+    with {:ok, resolved} <- Filesystem.resolve_path(params.path),
          :ok <- check_file_exists(resolved),
          :ok <- check_file_size(resolved, max_size) do
       case File.read(resolved) do

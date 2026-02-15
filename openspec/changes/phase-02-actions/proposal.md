@@ -12,7 +12,7 @@ Implement 5 Jido Actions with `use Jido.Action`, each with a schema and `run/2` 
 
 **ReadFile** — Port from `nanobot/agent/tools/filesystem.py:ReadFileTool` (lines 17-57):
 - Expand `~` in path
-- Optional `allowed_dir` enforcement via context
+- Workspace restriction enforced server-side via `Goodwizard.Config`
 - Handle: file not found, not a file, permission error, encoding error
 
 **WriteFile** — Port from `WriteFileTool` (lines 60-100):
