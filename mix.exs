@@ -49,7 +49,9 @@ defmodule Goodwizard.MixProject do
       # Code Quality (dev/test only)
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:doctor, "~> 0.21", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:mimic, "~> 1.0", only: :test},
+      {:faker, "~> 0.18", only: :test}
     ]
   end
 

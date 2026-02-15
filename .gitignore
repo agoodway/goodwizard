@@ -14,8 +14,20 @@ erl_crash.dump
 .env
 .env.*
 
+# Workie (git worktrees)
+.branch
+
 # OS
 .DS_Store
+
+# Test coverage
+/cover/
+
+# Dialyzer
+/priv/plts/
+
+# Agent workspace
+/priv/workspace/
 
 # Generated on host
 *.ez

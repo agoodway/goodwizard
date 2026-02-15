@@ -1,0 +1,23 @@
+# Workie Configuration
+# Each worktree gets its own directory
+
+files_to_copy:
+  - .env
+  - priv/workspace
+
+hooks:
+  post_create:
+    - "echo 'Setting up new worktree...'"
+    - "branch_name=$(git branch --show-current); echo \"${branch_name//[^a-zA-Z0-9]/_}\" | cut -c1-12 > .branch"
+    - "mix deps.get"
+    - "mix compile"
+
+default_provider: github
+
+providers:
+  github:
+    enabled: true
+    settings:
+      token_env: WORKIE_GITHUB_TOKEN
+      owner: agoodway
+      repo: goodwizard
