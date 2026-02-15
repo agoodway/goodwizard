@@ -6,7 +6,7 @@ defmodule Goodwizard.Brain.Seeds do
   to disk on first use via `seed/1`.
   """
 
-  alias Goodwizard.Brain.Schema
+  alias Goodwizard.Brain.{Id, Schema}
 
   @entity_types ~w(people places events notes tasks companies)
 
@@ -44,7 +44,7 @@ defmodule Goodwizard.Brain.Seeds do
     end
   end
 
-  @id_pattern "^[a-z0-9]{8,}$"
+  @id_pattern Id.id_pattern()
 
   @doc "Returns the schema map for a given entity type."
   @spec schema_for(String.t()) :: map()

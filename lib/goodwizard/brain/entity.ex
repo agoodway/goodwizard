@@ -21,20 +21,28 @@ defmodule Goodwizard.Brain.Entity do
       ["", frontmatter, _body] when byte_size(frontmatter) > @max_frontmatter_bytes ->
         {:error, :frontmatter_too_large}
 
-      ["", frontmatter, body] ->
-        case YamlElixir.read_from_string(frontmatter) do
-          {:ok, data} when is_map(data) ->
-            {:ok, {stringify_keys(data), String.trim(body)}}
-
-          {:ok, _} ->
-            {:error, :invalid_frontmatter}
-
-          {:error, reason} ->
-            {:error, {:yaml_parse_error, reason}}
+      ["", frontmatter, body] when is_binary(frontmatter) ->
+        if Regex.match?(~r/[&*][a-zA-Z_]/, frontmatter) do
+          {:error, :yaml_anchors_not_allowed}
+        else
+          parse_frontmatter(frontmatter, body)
         end
 
       _ ->
         {:error, :missing_frontmatter}
+    end
+  end
+
+  defp parse_frontmatter(frontmatter, body) do
+    case YamlElixir.read_from_string(frontmatter) do
+      {:ok, data} when is_map(data) ->
+        {:ok, {stringify_keys(data), String.trim(body)}}
+
+      {:ok, _} ->
+        {:error, :invalid_frontmatter}
+
+      {:error, reason} ->
+        {:error, {:yaml_parse_error, reason}}
     end
   end
 
@@ -92,6 +100,10 @@ defmodule Goodwizard.Brain.Entity do
       "\"",
       "'",
       "\n",
+      "\r",
+      "\t",
+      "\b",
+      "\f",
       "[",
       "]",
       "{",
@@ -119,6 +131,10 @@ defmodule Goodwizard.Brain.Entity do
     |> String.replace("\\", "\\\\")
     |> String.replace("\"", "\\\"")
     |> String.replace("\n", "\\n")
+    |> String.replace("\r", "\\r")
+    |> String.replace("\t", "\\t")
+    |> String.replace("\b", "\\b")
+    |> String.replace("\f", "\\f")
   end
 
   defp stringify_keys(map) when is_map(map) do

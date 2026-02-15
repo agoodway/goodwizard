@@ -21,7 +21,13 @@ defmodule Goodwizard.Brain.Schema do
       try do
         {:ok, ExJsonSchema.Schema.resolve(schema_map)}
       rescue
-        e -> {:error, {:schema_resolution_error, Exception.message(e)}}
+        e in [
+          ExJsonSchema.Schema.InvalidSchemaError,
+          ExJsonSchema.Schema.UnsupportedSchemaVersionError,
+          ExJsonSchema.Schema.InvalidReferenceError,
+          ExJsonSchema.Schema.UndefinedRemoteSchemaResolverError
+        ] ->
+          {:error, {:schema_resolution_error, Exception.message(e)}}
       end
     end
   end
