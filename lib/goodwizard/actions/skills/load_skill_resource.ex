@@ -18,16 +18,25 @@ defmodule Goodwizard.Actions.Skills.LoadSkillResource do
   # 1 MB max for resource files
   @max_resource_file_bytes 1_024 * 1_024
 
+  alias Goodwizard.Plugins.PromptSkills
+
   @impl true
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(%{skill_name: skill_name, resource: resource} = _params, context) do
-    skills = get_in(context, [:state, :prompt_skills, :skills]) || []
+    skills = resolve_skills(context)
 
     with {:ok, skill} <- find_skill(skills, skill_name),
          :ok <- check_resource_listed(skill, resource),
          {:ok, path} <- validate_resource_path(skill, resource),
          :ok <- check_resource_size(path) do
       read_resource(path, resource)
+    end
+  end
+
+  defp resolve_skills(context) do
+    case get_in(context, [:state, :prompt_skills, :skills]) do
+      [_ | _] = skills -> skills
+      _ -> PromptSkills.scan_skills(Goodwizard.Config.workspace())
     end
   end
 

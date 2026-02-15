@@ -16,7 +16,7 @@ defmodule Goodwizard.Actions.Brain.ListEntityTypes do
   @impl true
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(_params, context) do
-    workspace = get_in(context, [:state, :workspace]) || "."
+    workspace = Helpers.workspace(context)
 
     Logger.info("[Brain.ListEntityTypes] workspace=#{workspace}")
 

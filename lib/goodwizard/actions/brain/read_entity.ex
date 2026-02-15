@@ -22,7 +22,7 @@ defmodule Goodwizard.Actions.Brain.ReadEntity do
   @impl true
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(params, context) do
-    workspace = get_in(context, [:state, :workspace]) || "."
+    workspace = Helpers.workspace(context)
 
     Logger.info(
       "[Brain.ReadEntity] workspace=#{workspace} type=#{params.entity_type} id=#{params.id}"

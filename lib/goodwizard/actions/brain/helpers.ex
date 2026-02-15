@@ -4,6 +4,17 @@ defmodule Goodwizard.Actions.Brain.Helpers do
   """
 
   @doc """
+  Resolves the workspace path from action context, falling back to Config.
+
+  Prefers `context.state.workspace` when available (e.g. set by the agent),
+  otherwise reads the configured workspace via `Goodwizard.Config.workspace/0`.
+  """
+  @spec workspace(map()) :: String.t()
+  def workspace(context) do
+    get_in(context, [:state, :workspace]) || Goodwizard.Config.workspace()
+  end
+
+  @doc """
   Formats error reasons into safe, user-friendly messages.
 
   Returns specific messages for known error atoms and a generic

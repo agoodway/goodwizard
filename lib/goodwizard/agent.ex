@@ -63,7 +63,7 @@ defmodule Goodwizard.Agent do
       agent = maybe_consolidate(agent)
 
       # Build dynamic system prompt from workspace state
-      workspace = Map.get(agent.state, :workspace, ".")
+      workspace = Map.get(agent.state, :workspace) || Goodwizard.Config.workspace()
       character_overrides = Map.get(agent.state, :character_overrides)
       memory_content = get_in(agent.state, [:memory, :long_term_content]) || ""
 

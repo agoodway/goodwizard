@@ -23,7 +23,7 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
   @impl true
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(params, context) do
-    workspace = get_in(context, [:state, :workspace]) || "."
+    workspace = Helpers.workspace(context)
     body = Map.get(params, :body, "")
 
     Logger.info(fn ->

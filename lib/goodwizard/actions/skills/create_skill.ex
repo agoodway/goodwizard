@@ -122,7 +122,7 @@ defmodule Goodwizard.Actions.Skills.CreateSkill do
 
   defp resolve_workspace(context) do
     case get_in(context, [:state, :workspace]) do
-      nil -> {:error, "workspace not found in context"}
+      nil -> {:ok, Goodwizard.Config.workspace()}
       workspace -> {:ok, workspace}
     end
   end

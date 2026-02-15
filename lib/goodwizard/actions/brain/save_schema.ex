@@ -23,11 +23,9 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
   @impl true
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(params, context) do
-    workspace = get_in(context, [:state, :workspace]) || "."
+    workspace = Helpers.workspace(context)
 
-    Logger.info(
-      "[Brain.SaveSchema] workspace=#{workspace} type=#{params.entity_type}"
-    )
+    Logger.info("[Brain.SaveSchema] workspace=#{workspace} type=#{params.entity_type}")
 
     with :ok <- validate_schema_structure(params.schema) do
       case Schema.save(workspace, params.entity_type, params.schema) do

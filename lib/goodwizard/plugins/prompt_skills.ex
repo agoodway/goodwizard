@@ -41,7 +41,8 @@ defmodule Goodwizard.Plugins.PromptSkills do
   def mount(agent, config) do
     workspace =
       Map.get(config, :workspace) ||
-        get_in(agent, [Access.key(:state, %{}), :workspace]) || "."
+        get_in(agent, [Access.key(:state, %{}), :workspace]) ||
+        Goodwizard.Config.workspace()
 
     skills = scan_skills(workspace)
     summary = build_skills_summary(skills)

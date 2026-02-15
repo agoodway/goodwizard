@@ -475,11 +475,17 @@ defmodule Goodwizard.Actions.Skills.CreateSkillTest do
   end
 
   describe "run/2 — workspace resolution" do
-    test "returns error when workspace not in context" do
+    test "falls back to Config.workspace when workspace not in context" do
       context = %{state: %{}}
-      params = valid_params()
+      params = %{valid_params() | name: "fallback-test-skill-#{System.unique_integer([:positive])}"}
 
-      assert {:error, "workspace not found in context"} = CreateSkill.run(params, context)
+      config_workspace = Goodwizard.Config.workspace()
+      skill_dir = Path.join([config_workspace, "skills", params.name])
+
+      on_exit(fn -> File.rm_rf!(skill_dir) end)
+
+      assert {:ok, %{path: path}} = CreateSkill.run(params, context)
+      assert String.starts_with?(path, config_workspace)
     end
   end
 

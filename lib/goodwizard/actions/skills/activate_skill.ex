@@ -14,14 +14,23 @@ defmodule Goodwizard.Actions.Skills.ActivateSkill do
       name: [type: :string, required: true, doc: "The skill name to activate"]
     ]
 
+  alias Goodwizard.Plugins.PromptSkills
+
   @impl true
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(%{name: name} = _params, context) do
-    skills = get_in(context, [:state, :prompt_skills, :skills]) || []
+    skills = resolve_skills(context)
 
     case Enum.find(skills, &(&1.name == name)) do
       nil -> {:error, "skill not found: #{name}"}
       skill -> {:ok, %{content: skill.content}}
+    end
+  end
+
+  defp resolve_skills(context) do
+    case get_in(context, [:state, :prompt_skills, :skills]) do
+      [_ | _] = skills -> skills
+      _ -> PromptSkills.scan_skills(Goodwizard.Config.workspace())
     end
   end
 end
