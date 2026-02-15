@@ -1,0 +1,120 @@
+defmodule Goodwizard.Brain.PathsTest do
+  use ExUnit.Case, async: true
+
+  alias Goodwizard.Brain.Paths
+
+  @workspace "/tmp/test_workspace"
+
+  describe "brain_dir/1" do
+    test "returns brain directory under workspace" do
+      assert Paths.brain_dir(@workspace) == "/tmp/test_workspace/brain"
+    end
+  end
+
+  describe "schemas_dir/1" do
+    test "returns schemas directory under brain" do
+      assert Paths.schemas_dir(@workspace) == "/tmp/test_workspace/brain/schemas"
+    end
+  end
+
+  describe "counter_path/1" do
+    test "returns .counter file path" do
+      assert Paths.counter_path(@workspace) == "/tmp/test_workspace/brain/.counter"
+    end
+  end
+
+  describe "entity_type_dir/2" do
+    test "returns entity type directory" do
+      assert {:ok, "/tmp/test_workspace/brain/people"} =
+               Paths.entity_type_dir(@workspace, "people")
+    end
+
+    test "rejects path traversal with .." do
+      assert {:error, "entity type contains path traversal"} =
+               Paths.entity_type_dir(@workspace, "..")
+    end
+
+    test "rejects absolute paths" do
+      assert {:error, "entity type must be relative"} =
+               Paths.entity_type_dir(@workspace, "/etc/passwd")
+    end
+
+    test "rejects null bytes" do
+      assert {:error, "entity type contains null bytes"} =
+               Paths.entity_type_dir(@workspace, "people\0evil")
+    end
+
+    test "rejects forward slashes in segment" do
+      assert {:error, "entity type contains path separator"} =
+               Paths.entity_type_dir(@workspace, "people/evil")
+    end
+
+    test "rejects backslashes in segment" do
+      assert {:error, "entity type contains path separator"} =
+               Paths.entity_type_dir(@workspace, "people\\evil")
+    end
+  end
+
+  describe "entity_path/3" do
+    test "returns entity file path with .md extension" do
+      assert {:ok, "/tmp/test_workspace/brain/people/abc12345.md"} =
+               Paths.entity_path(@workspace, "people", "abc12345")
+    end
+
+    test "rejects traversal in type" do
+      assert {:error, "entity type contains path traversal"} =
+               Paths.entity_path(@workspace, "..", "abc12345")
+    end
+
+    test "rejects traversal in id" do
+      assert {:error, "entity id contains path traversal"} =
+               Paths.entity_path(@workspace, "people", "..")
+    end
+  end
+
+  describe "schema_path/2" do
+    test "returns schema file path with .json extension" do
+      assert {:ok, "/tmp/test_workspace/brain/schemas/people.json"} =
+               Paths.schema_path(@workspace, "people")
+    end
+
+    test "rejects traversal in schema type" do
+      assert {:error, "schema type contains path traversal"} =
+               Paths.schema_path(@workspace, "../evil")
+    end
+  end
+
+  describe "validate_segment/2" do
+    test "accepts valid segment" do
+      assert :ok = Paths.validate_segment("people", "test")
+    end
+
+    test "accepts underscored segments" do
+      assert :ok = Paths.validate_segment("my_type", "test")
+    end
+
+    test "rejects .." do
+      assert {:error, _} = Paths.validate_segment("..", "test")
+    end
+
+    test "rejects embedded .." do
+      assert {:error, _} = Paths.validate_segment("foo..bar", "test")
+    end
+
+    test "rejects null bytes" do
+      assert {:error, _} = Paths.validate_segment("foo\0bar", "test")
+    end
+
+    test "rejects leading slash" do
+      assert {:error, _} = Paths.validate_segment("/foo", "test")
+    end
+
+    test "rejects embedded slash" do
+      assert {:error, _} = Paths.validate_segment("foo/bar", "test")
+    end
+
+    test "rejects backslash" do
+      assert {:error, _} = Paths.validate_segment("foo\\bar", "test")
+    end
+  end
+end

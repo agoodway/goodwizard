@@ -45,6 +45,8 @@ defmodule Goodwizard.MixProject do
       {:jason, "~> 1.4"},
       {:yaml_elixir, "~> 2.9"},
       {:dotenvy, "~> 1.1"},
+      {:ex_json_schema, "~> 0.10"},
+      {:sqids, "~> 0.2.1"},
 
       # Code Quality (dev/test only)
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
