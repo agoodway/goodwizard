@@ -119,12 +119,16 @@ defmodule Goodwizard.Channels.CLI.Server do
   end
 
   defp handle_input(input, state) do
+    Logger.debug(fn -> "[CLI] Input received, length=#{String.length(input)}" end)
+
     # Save user message to room
     save_message_with_warning(state.room_id, @user_sender_id, :user, input)
 
     # Dispatch to agent
     case GoodwizardAgent.ask_sync(state.agent_pid, input, timeout: @ask_timeout) do
       {:ok, response} ->
+        Logger.debug(fn -> "[CLI] Response received, length=#{String.length(response)}" end)
+
         # Save assistant message to room
         save_message_with_warning(state.room_id, @assistant_sender_id, :assistant, response)
 

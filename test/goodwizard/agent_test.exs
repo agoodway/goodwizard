@@ -209,13 +209,13 @@ defmodule Goodwizard.AgentTest do
       assert messages == []
     end
 
-    test "catch-all on_after_cmd/3 delegates to super for non-react_start actions" do
+    test "on_after_cmd/3 delegates to super and skips session recording for non-completing actions" do
       agent = GoodwizardAgent.new()
       {:ok, returned_agent, []} = GoodwizardAgent.on_after_cmd(agent, :some_action, [])
       assert returned_agent == agent
     end
 
-    test "stores empty string for missing query and nil result" do
+    test "falls back to empty string for nil result" do
       workspace = Path.join(System.tmp_dir!(), "gw_test_#{System.unique_integer([:positive])}")
       File.mkdir_p!(workspace)
       on_exit(fn -> File.rm_rf!(workspace) end)
@@ -235,14 +235,14 @@ defmodule Goodwizard.AgentTest do
 
       agent = StratState.put(agent, strat_state)
 
-      # Call on_after_cmd with params missing the :query key
+      # Call on_after_cmd — query comes from agent.state[:last_query], answer from [:last_answer]
       action = {:react_start, %{request_id: "req_1"}}
       {:ok, updated_agent, _directives} = GoodwizardAgent.on_after_cmd(agent, action, [])
 
       messages = Session.get_history(updated_agent.state)
       assert length(messages) == 2
-      # Missing query defaults to ""
-      assert Enum.at(messages, 0).content == ""
+      # Query comes from state[:last_query] set by on_before_cmd
+      assert Enum.at(messages, 0).content == "test"
       # nil result defaults to ""
       assert Enum.at(messages, 1).content == ""
     end

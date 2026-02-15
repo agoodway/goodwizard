@@ -43,6 +43,10 @@ defmodule Goodwizard.Plugins.Session do
   """
   @spec add_message(map(), String.t(), String.t(), String.t()) :: map()
   def add_message(state, role, content, timestamp) when role in @valid_roles do
+    Logger.debug(fn ->
+      "[Session] add_message role=#{role} content_length=#{String.length(content)}"
+    end)
+
     message = %{role: role, content: content, timestamp: timestamp}
     session = Map.get(state, :session, %{messages: []})
     messages = Map.get(session, :messages, [])

@@ -8,6 +8,8 @@ defmodule Goodwizard.Character.Hydrator do
 
   require Logger
 
+  alias Goodwizard.Brain.Schema
+
   @bootstrap_files ~w(AGENTS.md SOUL.md USER.md TOOLS.md IDENTITY.md)
   @max_bootstrap_file_bytes 1_048_576
 
@@ -36,6 +38,7 @@ defmodule Goodwizard.Character.Hydrator do
       character
       |> apply_config_overrides(config_overrides)
       |> inject_bootstrap_files(workspace)
+      |> inject_brain_awareness(workspace)
       |> maybe_inject_memory(Keyword.get(opts, :memory))
       |> maybe_inject_skills(Keyword.get(opts, :skills))
 
@@ -95,6 +98,67 @@ defmodule Goodwizard.Character.Hydrator do
 
       _other ->
         character
+    end
+  end
+
+  @doc """
+  Injects brain awareness instructions based on available entity types.
+
+  Reads schema summaries (cached with 5-minute TTL), builds an instruction
+  describing available entity types and when to create entities, and adds
+  it to the character. Returns character unchanged if no types exist.
+  """
+  @spec inject_brain_awareness(Jido.Character.t(), String.t()) :: Jido.Character.t()
+  def inject_brain_awareness(character, workspace) do
+    case cached_schema_summaries(workspace) do
+      [] ->
+        character
+
+      summaries ->
+        instruction = build_brain_instruction(summaries)
+        {:ok, character} = Jido.Character.add_instruction(character, instruction)
+        character
+    end
+  end
+
+  defp build_brain_instruction(summaries) do
+    type_lines =
+      Enum.map_join(summaries, "\n", fn s ->
+        fields = Enum.join(s.required ++ s.optional, ", ")
+        "- **#{s.title}** (`#{s.type}`): #{fields}"
+      end)
+
+    """
+    ## Brain — Proactive Entity Extraction
+
+    When the user mentions people, companies, events, or other notable entities \
+    in conversation, proactively extract and save them using `create_entity`. \
+    Do not wait for the user to explicitly ask you to save information.
+
+    Available entity types:
+    #{type_lines}
+
+    For each recognized entity, call `create_entity` with the matching type and \
+    fill in as many fields as you can infer from context.\
+    """
+  end
+
+  defp cached_schema_summaries(workspace) do
+    cache_key = "brain:schema_summaries:#{workspace}"
+
+    case Goodwizard.Cache.get(cache_key) do
+      nil ->
+        case Schema.summarize_types(workspace) do
+          {:ok, summaries} ->
+            Goodwizard.Cache.put(cache_key, summaries, ttl: :timer.minutes(5))
+            summaries
+
+          {:error, _} ->
+            []
+        end
+
+      summaries ->
+        summaries
     end
   end
 

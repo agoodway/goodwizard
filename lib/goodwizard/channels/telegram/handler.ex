@@ -106,10 +106,18 @@ defmodule Goodwizard.Channels.Telegram.Handler do
   end
 
   defp dispatch_to_agent(agent_pid, text, chat_id, room_id) do
+    Logger.debug(fn ->
+      "[Telegram] Message received, chat_id=#{chat_id} length=#{String.length(text)}"
+    end)
+
     save_message(room_id, @user_sender_id, :user, text)
 
     case GoodwizardAgent.ask_sync(agent_pid, text, timeout: @ask_timeout) do
       {:ok, answer} ->
+        Logger.debug(fn ->
+          "[Telegram] Response sent, chat_id=#{chat_id} length=#{String.length(answer)}"
+        end)
+
         save_message(room_id, @assistant_sender_id, :assistant, answer)
         send_reply(answer, chat_id)
 

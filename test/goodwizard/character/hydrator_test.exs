@@ -1,6 +1,8 @@
 defmodule Goodwizard.Character.HydratorTest do
   use ExUnit.Case, async: true
 
+  alias Goodwizard.Brain.Schema
+  alias Goodwizard.Cache
   alias Goodwizard.Character.Hydrator
 
   setup do
@@ -196,6 +198,102 @@ defmodule Goodwizard.Character.HydratorTest do
 
       # Both should be the same (empty memory not injected)
       assert prompt1 == prompt2
+    end
+  end
+
+  describe "inject_brain_awareness/2" do
+    setup %{workspace: workspace} do
+      schemas_dir = Path.join([workspace, "brain", "schemas"])
+      File.mkdir_p!(schemas_dir)
+      %{schemas_dir: schemas_dir}
+    end
+
+    test "adds instruction with entity types when schemas exist", %{workspace: workspace} do
+      schema = %{
+        "$schema" => "http://json-schema.org/draft-07/schema#",
+        "title" => "Person",
+        "type" => "object",
+        "required" => ["id", "name"],
+        "properties" => %{
+          "id" => %{"type" => "string"},
+          "name" => %{"type" => "string"},
+          "email" => %{"type" => "string"}
+        }
+      }
+
+      Schema.save(workspace, "people", schema)
+      # Clear any cached value from prior tests
+      Cache.delete("brain:schema_summaries:#{workspace}")
+
+      {:ok, character} = Goodwizard.Character.new()
+      character = Hydrator.inject_brain_awareness(character, workspace)
+
+      instruction = List.last(character.instructions)
+      assert instruction =~ "Proactive Entity Extraction"
+      assert instruction =~ "Person"
+      assert instruction =~ "people"
+      assert instruction =~ "name"
+      assert instruction =~ "create_entity"
+    end
+
+    test "returns character unchanged when no schemas exist", %{workspace: workspace} do
+      # schemas dir exists but is empty — clear cache
+      Cache.delete("brain:schema_summaries:#{workspace}")
+
+      {:ok, character} = Goodwizard.Character.new()
+      original_instructions = character.instructions
+      character = Hydrator.inject_brain_awareness(character, workspace)
+
+      assert character.instructions == original_instructions
+    end
+
+    test "returns character unchanged when brain dir missing" do
+      workspace = Path.join(System.tmp_dir!(), "no_brain_#{:rand.uniform(100_000)}")
+      on_cleanup(fn -> File.rm_rf!(workspace) end)
+      Cache.delete("brain:schema_summaries:#{workspace}")
+
+      {:ok, character} = Goodwizard.Character.new()
+      original_instructions = character.instructions
+      character = Hydrator.inject_brain_awareness(character, workspace)
+
+      assert character.instructions == original_instructions
+    end
+  end
+
+  describe "hydrate/2 with brain awareness" do
+    test "includes entity types in system prompt when schemas exist", %{workspace: workspace} do
+      schemas_dir = Path.join([workspace, "brain", "schemas"])
+      File.mkdir_p!(schemas_dir)
+
+      schema = %{
+        "$schema" => "http://json-schema.org/draft-07/schema#",
+        "title" => "Meeting",
+        "type" => "object",
+        "required" => ["id", "title", "date"],
+        "properties" => %{
+          "id" => %{"type" => "string"},
+          "title" => %{"type" => "string"},
+          "date" => %{"type" => "string"},
+          "notes" => %{"type" => "string"}
+        }
+      }
+
+      Schema.save(workspace, "meetings", schema)
+      Cache.delete("brain:schema_summaries:#{workspace}")
+
+      {:ok, prompt} = Hydrator.hydrate(workspace)
+
+      assert prompt =~ "Proactive Entity Extraction"
+      assert prompt =~ "Meeting"
+      assert prompt =~ "meetings"
+    end
+
+    test "omits brain awareness section when no brain dir exists", %{workspace: workspace} do
+      Cache.delete("brain:schema_summaries:#{workspace}")
+
+      {:ok, prompt} = Hydrator.hydrate(workspace)
+
+      refute prompt =~ "Proactive Entity Extraction"
     end
   end
 

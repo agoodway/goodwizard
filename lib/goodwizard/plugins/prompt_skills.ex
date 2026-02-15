@@ -60,8 +60,12 @@ defmodule Goodwizard.Plugins.PromptSkills do
   def scan_skills(workspace) do
     workspace_dir = Path.join(workspace, "skills")
 
-    scan_directory(workspace_dir)
-    |> Enum.sort_by(& &1.name)
+    skills =
+      scan_directory(workspace_dir)
+      |> Enum.sort_by(& &1.name)
+
+    Logger.debug(fn -> "[PromptSkills] Scan complete, skills=#{length(skills)}" end)
+    skills
   end
 
   @doc """

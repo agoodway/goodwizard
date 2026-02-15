@@ -58,6 +58,11 @@ defmodule Goodwizard.Agent do
     # First let the parent macro handle request tracking
     {:ok, agent, action} = super(agent, action)
 
+    Logger.debug(fn ->
+      {:react_start, %{query: q}} = action
+      "[Agent] Query received, length=#{String.length(q)}"
+    end)
+
     try do
       # Check if consolidation is needed before building the prompt
       agent = maybe_consolidate(agent)
@@ -82,6 +87,10 @@ defmodule Goodwizard.Agent do
             Logger.warning("Hydration failed: #{inspect(e)}, using default system prompt")
             "You are a helpful AI assistant."
         end
+
+      Logger.debug(fn ->
+        "[Agent] Hydration complete, prompt_length=#{String.length(system_prompt)}"
+      end)
 
       # Capture user message timestamp for session recording in on_after_cmd
       agent = %{
@@ -119,44 +128,41 @@ defmodule Goodwizard.Agent do
   def on_before_cmd(agent, action), do: super(agent, action)
 
   @impl true
-  def on_after_cmd(agent, {:react_start, %{request_id: _} = params} = action, directives) do
-    # Let parent macro handle request completion tracking
+  def on_after_cmd(agent, action, directives) do
+    was_completed = agent.state[:completed] == true
+
     {:ok, agent, directives} = super(agent, action, directives)
 
     try do
-      # Update session with the conversation turn
-      snap = strategy_snapshot(agent)
+      if not was_completed and agent.state[:completed] == true do
+        query = agent.state[:last_query] || ""
+        answer = agent.state[:last_answer] || ""
 
-      agent =
-        if snap.done? do
-          query = Map.get(params, :query) || ""
-          answer = snap.result || ""
+        user_timestamp =
+          Map.get(
+            agent.state,
+            :query_received_at,
+            DateTime.utc_now() |> DateTime.to_iso8601()
+          )
 
-          user_timestamp =
-            Map.get(
-              agent.state,
-              :query_received_at,
-              DateTime.utc_now() |> DateTime.to_iso8601()
-            )
+        assistant_timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
 
-          assistant_timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
+        state =
+          agent.state
+          |> Session.add_message("user", query, user_timestamp)
+          |> Session.add_message("assistant", answer, assistant_timestamp)
 
-          state =
-            agent.state
-            |> Session.add_message("user", query, user_timestamp)
-            |> Session.add_message("assistant", answer, assistant_timestamp)
+        agent = %{agent | state: state}
+        persist_session(agent)
 
-          agent = %{agent | state: state}
+        Logger.debug(fn ->
+          "[Agent] Session recorded, query_length=#{String.length(query)} answer_length=#{String.length(answer)}"
+        end)
 
-          # Persist session to JSONL
-          persist_session(agent)
-
-          agent
-        else
-          agent
-        end
-
-      {:ok, agent, directives}
+        {:ok, agent, directives}
+      else
+        {:ok, agent, directives}
+      end
     rescue
       e ->
         Logger.error(
@@ -167,14 +173,15 @@ defmodule Goodwizard.Agent do
     end
   end
 
-  @impl true
-  def on_after_cmd(agent, action, directives), do: super(agent, action, directives)
-
   defp maybe_consolidate(agent) do
     messages = get_in(agent.state, [:session, :messages]) || []
     memory_window = get_memory_window()
 
     if length(messages) > memory_window do
+      Logger.debug(fn ->
+        "[Agent] Consolidation triggered, messages=#{length(messages)} window=#{memory_window}"
+      end)
+
       memory_dir = get_in(agent.state, [:memory, :memory_dir])
       current_memory = get_in(agent.state, [:memory, :long_term_content]) || ""
 
