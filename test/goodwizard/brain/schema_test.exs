@@ -10,7 +10,7 @@ defmodule Goodwizard.Brain.SchemaTest do
     "type" => "object",
     "required" => ["id", "name"],
     "properties" => %{
-      "id" => %{"type" => "string", "pattern" => "^[a-z0-9]{6,}$"},
+      "id" => %{"type" => "string", "pattern" => "^[a-z0-9]{8,}$"},
       "name" => %{"type" => "string"},
       "tags" => %{"type" => "array", "items" => %{"type" => "string"}}
     },
@@ -46,6 +46,11 @@ defmodule Goodwizard.Brain.SchemaTest do
 
     test "load returns error for non-existent schema", %{workspace: workspace} do
       assert {:error, :enoent} = Schema.load(workspace, "nonexistent")
+    end
+
+    test "load returns error for corrupted JSON", %{workspace: workspace, schemas_dir: schemas_dir} do
+      File.write!(Path.join(schemas_dir, "broken.json"), "not valid json{{{")
+      assert {:error, %Jason.DecodeError{}} = Schema.load(workspace, "broken")
     end
   end
 

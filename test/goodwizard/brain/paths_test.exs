@@ -116,5 +116,19 @@ defmodule Goodwizard.Brain.PathsTest do
     test "rejects backslash" do
       assert {:error, _} = Paths.validate_segment("foo\\bar", "test")
     end
+
+    test "rejects empty string" do
+      assert {:error, "test must not be empty"} = Paths.validate_segment("", "test")
+    end
+
+    test "rejects strings exceeding 255 bytes" do
+      long = String.duplicate("a", 256)
+      assert {:error, "test exceeds maximum length of 255"} = Paths.validate_segment(long, "test")
+    end
+
+    test "accepts string at exactly 255 bytes" do
+      exact = String.duplicate("a", 255)
+      assert :ok = Paths.validate_segment(exact, "test")
+    end
   end
 end

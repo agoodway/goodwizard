@@ -24,15 +24,17 @@ defmodule Goodwizard.Brain.Seeds do
   def seed(workspace) do
     results =
       Enum.reduce_while(@entity_types, {:ok, []}, fn type, {:ok, seeded} ->
-        {:ok, path} = Goodwizard.Brain.Paths.schema_path(workspace, type)
-
-        if File.exists?(path) do
-          {:cont, {:ok, seeded}}
-        else
-          case Schema.save(workspace, type, schema_for(type)) do
-            :ok -> {:cont, {:ok, [type | seeded]}}
-            {:error, reason} -> {:halt, {:error, reason}}
+        with {:ok, path} <- Goodwizard.Brain.Paths.schema_path(workspace, type) do
+          if File.exists?(path) do
+            {:cont, {:ok, seeded}}
+          else
+            case Schema.save(workspace, type, schema_for(type)) do
+              :ok -> {:cont, {:ok, [type | seeded]}}
+              {:error, reason} -> {:halt, {:error, reason}}
+            end
           end
+        else
+          {:error, reason} -> {:halt, {:error, reason}}
         end
       end)
 
@@ -42,200 +44,121 @@ defmodule Goodwizard.Brain.Seeds do
     end
   end
 
+  @id_pattern "^[a-z0-9]{8,}$"
+
   @doc "Returns the schema map for a given entity type."
   @spec schema_for(String.t()) :: map()
   def schema_for("people") do
-    %{
-      "$schema" => "http://json-schema.org/draft-07/schema#",
-      "title" => "Person",
-      "version" => 1,
-      "type" => "object",
-      "required" => ["id", "name"],
-      "properties" => %{
-        "id" => %{"type" => "string", "pattern" => "^[a-z0-9]{6,}$"},
-        "name" => %{"type" => "string"},
-        "email" => %{"type" => "string", "format" => "email"},
-        "phone" => %{"type" => "string"},
-        "company" => %{
-          "type" => "string",
-          "pattern" => "^companies/[a-z0-9]{6,}$",
-          "description" => "Entity reference to companies"
-        },
-        "role" => %{"type" => "string"},
-        "notes" => %{
-          "type" => "array",
-          "items" => %{"type" => "string", "pattern" => "^notes/[a-z0-9]{6,}$"},
-          "description" => "Entity references to notes"
-        },
-        "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
-        "created_at" => %{"type" => "string", "format" => "date-time"},
-        "updated_at" => %{"type" => "string", "format" => "date-time"}
-      },
-      "additionalProperties" => false
-    }
+    build_schema("Person", ["id", "name"], %{
+      "email" => %{"type" => "string", "format" => "email"},
+      "phone" => %{"type" => "string"},
+      "company" => entity_ref("companies"),
+      "role" => %{"type" => "string"}
+    })
   end
 
   def schema_for("places") do
-    %{
-      "$schema" => "http://json-schema.org/draft-07/schema#",
-      "title" => "Place",
-      "version" => 1,
-      "type" => "object",
-      "required" => ["id", "name"],
-      "properties" => %{
-        "id" => %{"type" => "string", "pattern" => "^[a-z0-9]{6,}$"},
-        "name" => %{"type" => "string"},
-        "address" => %{"type" => "string"},
-        "city" => %{"type" => "string"},
-        "state" => %{"type" => "string"},
-        "country" => %{"type" => "string"},
-        "coordinates" => %{
-          "type" => "object",
-          "properties" => %{
-            "lat" => %{"type" => "number"},
-            "lng" => %{"type" => "number"}
-          },
-          "required" => ["lat", "lng"],
-          "additionalProperties" => false
+    build_schema("Place", ["id", "name"], %{
+      "address" => %{"type" => "string"},
+      "city" => %{"type" => "string"},
+      "state" => %{"type" => "string"},
+      "country" => %{"type" => "string"},
+      "coordinates" => %{
+        "type" => "object",
+        "properties" => %{
+          "lat" => %{"type" => "number"},
+          "lng" => %{"type" => "number"}
         },
-        "notes" => %{
-          "type" => "array",
-          "items" => %{"type" => "string", "pattern" => "^notes/[a-z0-9]{6,}$"},
-          "description" => "Entity references to notes"
-        },
-        "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
-        "created_at" => %{"type" => "string", "format" => "date-time"},
-        "updated_at" => %{"type" => "string", "format" => "date-time"}
-      },
-      "additionalProperties" => false
-    }
+        "required" => ["lat", "lng"],
+        "additionalProperties" => false
+      }
+    })
   end
 
   def schema_for("events") do
-    %{
-      "$schema" => "http://json-schema.org/draft-07/schema#",
-      "title" => "Event",
-      "version" => 1,
-      "type" => "object",
-      "required" => ["id", "title", "date"],
-      "properties" => %{
-        "id" => %{"type" => "string", "pattern" => "^[a-z0-9]{6,}$"},
-        "title" => %{"type" => "string"},
-        "date" => %{"type" => "string", "format" => "date-time"},
-        "location" => %{
-          "type" => "string",
-          "pattern" => "^places/[a-z0-9]{6,}$",
-          "description" => "Entity reference to places"
-        },
-        "attendees" => %{
-          "type" => "array",
-          "items" => %{"type" => "string", "pattern" => "^people/[a-z0-9]{6,}$"},
-          "description" => "Entity references to people"
-        },
-        "description" => %{"type" => "string"},
-        "notes" => %{
-          "type" => "array",
-          "items" => %{"type" => "string", "pattern" => "^notes/[a-z0-9]{6,}$"},
-          "description" => "Entity references to notes"
-        },
-        "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
-        "created_at" => %{"type" => "string", "format" => "date-time"},
-        "updated_at" => %{"type" => "string", "format" => "date-time"}
-      },
-      "additionalProperties" => false
-    }
+    build_schema("Event", ["id", "title", "date"], %{
+      "title" => %{"type" => "string"},
+      "date" => %{"type" => "string", "format" => "date-time"},
+      "location" => entity_ref("places"),
+      "attendees" => entity_ref_list("people"),
+      "description" => %{"type" => "string"}
+    })
   end
 
   def schema_for("notes") do
-    %{
-      "$schema" => "http://json-schema.org/draft-07/schema#",
-      "title" => "Note",
-      "version" => 1,
-      "type" => "object",
-      "required" => ["id", "title"],
-      "properties" => %{
-        "id" => %{"type" => "string", "pattern" => "^[a-z0-9]{6,}$"},
-        "title" => %{"type" => "string"},
-        "topic" => %{"type" => "string"},
-        "related_to" => %{
-          "type" => "array",
-          "items" => %{"type" => "string", "pattern" => "^[a-z_]+/[a-z0-9]{6,}$"},
-          "description" => "Polymorphic entity references (any entity type)"
-        },
-        "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
-        "created_at" => %{"type" => "string", "format" => "date-time"},
-        "updated_at" => %{"type" => "string", "format" => "date-time"}
-      },
-      "additionalProperties" => false
-    }
+    build_schema("Note", ["id", "title"], %{
+      "title" => %{"type" => "string"},
+      "topic" => %{"type" => "string"},
+      "related_to" => %{
+        "type" => "array",
+        "items" => %{"type" => "string", "pattern" => "^[a-z_]+/[a-z0-9]{8,}$"},
+        "description" => "Polymorphic entity references (any entity type)"
+      }
+    })
   end
 
   def schema_for("tasks") do
+    build_schema("Task", ["id", "title"], %{
+      "title" => %{"type" => "string"},
+      "status" => %{
+        "type" => "string",
+        "enum" => ["pending", "in_progress", "done", "cancelled"]
+      },
+      "priority" => %{
+        "type" => "string",
+        "enum" => ["low", "medium", "high"]
+      },
+      "due_date" => %{"type" => "string", "format" => "date-time"},
+      "assignee" => entity_ref("people")
+    })
+  end
+
+  def schema_for("companies") do
+    build_schema("Company", ["id", "name"], %{
+      "domain" => %{"type" => "string"},
+      "industry" => %{"type" => "string"},
+      "size" => %{"type" => "string"},
+      "location" => %{"type" => "string"},
+      "contacts" => entity_ref_list("people")
+    })
+  end
+
+  defp build_schema(title, required, custom_properties) do
     %{
       "$schema" => "http://json-schema.org/draft-07/schema#",
-      "title" => "Task",
+      "title" => title,
       "version" => 1,
       "type" => "object",
-      "required" => ["id", "title"],
-      "properties" => %{
-        "id" => %{"type" => "string", "pattern" => "^[a-z0-9]{6,}$"},
-        "title" => %{"type" => "string"},
-        "status" => %{
-          "type" => "string",
-          "enum" => ["pending", "in_progress", "done", "cancelled"]
-        },
-        "priority" => %{
-          "type" => "string",
-          "enum" => ["low", "medium", "high"]
-        },
-        "due_date" => %{"type" => "string", "format" => "date-time"},
-        "assignee" => %{
-          "type" => "string",
-          "pattern" => "^people/[a-z0-9]{6,}$",
-          "description" => "Entity reference to people"
-        },
-        "notes" => %{
-          "type" => "array",
-          "items" => %{"type" => "string", "pattern" => "^notes/[a-z0-9]{6,}$"},
-          "description" => "Entity references to notes"
-        },
-        "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
-        "created_at" => %{"type" => "string", "format" => "date-time"},
-        "updated_at" => %{"type" => "string", "format" => "date-time"}
-      },
+      "required" => required,
+      "properties" => Map.merge(base_properties(), custom_properties),
       "additionalProperties" => false
     }
   end
 
-  def schema_for("companies") do
+  defp base_properties do
     %{
-      "$schema" => "http://json-schema.org/draft-07/schema#",
-      "title" => "Company",
-      "version" => 1,
-      "type" => "object",
-      "required" => ["id", "name"],
-      "properties" => %{
-        "id" => %{"type" => "string", "pattern" => "^[a-z0-9]{6,}$"},
-        "name" => %{"type" => "string"},
-        "domain" => %{"type" => "string"},
-        "industry" => %{"type" => "string"},
-        "size" => %{"type" => "string"},
-        "location" => %{"type" => "string"},
-        "contacts" => %{
-          "type" => "array",
-          "items" => %{"type" => "string", "pattern" => "^people/[a-z0-9]{6,}$"},
-          "description" => "Entity references to people"
-        },
-        "notes" => %{
-          "type" => "array",
-          "items" => %{"type" => "string", "pattern" => "^notes/[a-z0-9]{6,}$"},
-          "description" => "Entity references to notes"
-        },
-        "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
-        "created_at" => %{"type" => "string", "format" => "date-time"},
-        "updated_at" => %{"type" => "string", "format" => "date-time"}
-      },
-      "additionalProperties" => false
+      "id" => %{"type" => "string", "pattern" => @id_pattern},
+      "name" => %{"type" => "string"},
+      "notes" => entity_ref_list("notes"),
+      "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
+      "created_at" => %{"type" => "string", "format" => "date-time"},
+      "updated_at" => %{"type" => "string", "format" => "date-time"}
+    }
+  end
+
+  defp entity_ref(type) do
+    %{
+      "type" => "string",
+      "pattern" => "^#{type}/[a-z0-9]{8,}$",
+      "description" => "Entity reference to #{type}"
+    }
+  end
+
+  defp entity_ref_list(type) do
+    %{
+      "type" => "array",
+      "items" => %{"type" => "string", "pattern" => "^#{type}/[a-z0-9]{8,}$"},
+      "description" => "Entity references to #{type}"
     }
   end
 end
