@@ -1,16 +1,11 @@
 defmodule Goodwizard.Plugins.PromptSkills do
   @moduledoc """
-  Plugin that scans workspace skill directories for SKILL.md files,
-  parses Claude Code-compatible frontmatter, indexes resource files,
-  and builds a plain-text summary for system prompt injection.
-
-  Scans both `workspace/skills/` and `.claude/skills/` directories.
-  Workspace takes precedence on name collision.
+  Plugin that scans the workspace `skills/` directory for SKILL.md files,
+  parses frontmatter, indexes resource files, and builds a plain-text
+  summary for system prompt injection.
 
   Resource indexing is non-recursive: only files directly inside a skill's
-  directory are indexed (subdirectories are ignored). This matches the
-  Claude Code SKILL.md convention where resources are flat files alongside
-  SKILL.md.
+  directory are indexed (subdirectories are ignored).
   """
 
   use Jido.Plugin,
@@ -55,29 +50,17 @@ defmodule Goodwizard.Plugins.PromptSkills do
   end
 
   @doc """
-  Scan both skill directories for SKILL.md files.
+  Scan the workspace `skills/` directory for SKILL.md files.
 
   Returns a list of skill maps with keys: `:name`, `:description`, `:path`,
   `:dir`, `:content` (body), `:resources`, `:meta`.
-  Workspace skills take precedence on name collision.
   """
   @spec scan_skills(String.t()) :: [skill()]
   def scan_skills(workspace) do
     workspace_dir = Path.join(workspace, "skills")
-    claude_dir = Path.join([workspace, ".claude", "skills"])
 
-    # Scan claude dir first, then workspace (so workspace overwrites on collision)
-    claude_skills = scan_directory(claude_dir)
-    workspace_skills = scan_directory(workspace_dir)
-
-    # Merge: workspace takes precedence by name
-    merged =
-      (claude_skills ++ workspace_skills)
-      |> Enum.reduce(%{}, fn skill, acc -> Map.put(acc, skill.name, skill) end)
-      |> Map.values()
-      |> Enum.sort_by(& &1.name)
-
-    merged
+    scan_directory(workspace_dir)
+    |> Enum.sort_by(& &1.name)
   end
 
   @doc """

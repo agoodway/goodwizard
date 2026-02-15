@@ -11,7 +11,7 @@ defmodule Goodwizard.Config do
 
   @defaults %{
     "agent" => %{
-      "workspace" => "~/.goodwizard/workspace",
+      "workspace" => "priv/workspace",
       "model" => "anthropic:claude-sonnet-4-5",
       "max_tokens" => 8192,
       "temperature" => 0.7,
@@ -74,7 +74,7 @@ defmodule Goodwizard.Config do
   @spec workspace() :: String.t()
   def workspace do
     case get(["agent", "workspace"]) do
-      nil -> Path.expand("~/.goodwizard/workspace")
+      nil -> Path.expand("priv/workspace")
       path -> Path.expand(path)
     end
   end
