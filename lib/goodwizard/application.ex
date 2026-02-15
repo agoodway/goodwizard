@@ -10,10 +10,15 @@ defmodule Goodwizard.Application do
 
   @impl true
   def start(_type, _args) do
+    maybe_add_file_logger()
+
     Logger.info("Starting Goodwizard application")
+
+    Goodwizard.Telemetry.attach()
 
     children = [
       Goodwizard.Config,
+      Goodwizard.Cache,
       Goodwizard.Jido,
       Goodwizard.Messaging,
       Goodwizard.ShutdownHandler,
@@ -22,6 +27,20 @@ defmodule Goodwizard.Application do
 
     opts = [strategy: :rest_for_one, name: Goodwizard.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  if Mix.env() == :dev do
+    defp maybe_add_file_logger do
+      log_dir = Path.join(File.cwd!(), "log")
+      File.mkdir_p!(log_dir)
+
+      :logger.add_handler(:file_log, :logger_std_h, %{
+        config: %{file: String.to_charlist(Path.join(log_dir, "dev.log"))},
+        formatter: Logger.Formatter.new()
+      })
+    end
+  else
+    defp maybe_add_file_logger, do: :ok
   end
 
   defp start_optional_channels do

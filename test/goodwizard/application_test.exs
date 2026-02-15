@@ -22,6 +22,15 @@ defmodule Goodwizard.ApplicationTest do
     end
   end
 
+  describe "Cache module" do
+    test "Cache process is running after application start" do
+      Application.ensure_all_started(:goodwizard)
+
+      assert Process.whereis(Goodwizard.Cache) != nil
+      assert Process.alive?(Process.whereis(Goodwizard.Cache))
+    end
+  end
+
   describe "Jido module" do
     test "Jido process is accessible after application start" do
       Application.ensure_all_started(:goodwizard)

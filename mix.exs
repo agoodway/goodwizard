@@ -47,6 +47,7 @@ defmodule Goodwizard.MixProject do
       {:dotenvy, "~> 1.1"},
       {:ex_json_schema, "~> 0.10"},
       {:sqids, "~> 0.2.1"},
+      {:nebulex, "~> 2.6"},
 
       # Code Quality (dev/test only)
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
