@@ -82,6 +82,52 @@ defmodule Goodwizard.Brain.IdTest do
       assert length(ids) == 50
       assert length(Enum.uniq(ids)) == 50
     end
+
+    test "cleans up stale lock file and succeeds", %{workspace: workspace} do
+      counter_file = Path.join([workspace, "brain", ".counter"])
+      lock_file = counter_file <> ".lock"
+
+      # Create a stale lock file with old mtime
+      File.write!(lock_file, "")
+      # Set mtime to 60 seconds ago
+      past = NaiveDateTime.add(NaiveDateTime.utc_now(), -60)
+      File.touch!(lock_file, NaiveDateTime.to_erl(past))
+
+      assert {:ok, id} = Id.generate(workspace)
+      assert Id.valid?(id)
+      refute File.exists?(lock_file)
+    end
+
+    test "recovers counter from existing entities across type directories", %{workspace: workspace} do
+      counter_file = Path.join([workspace, "brain", ".counter"])
+      brain_dir = Path.join(workspace, "brain")
+
+      # Create some entity files in different type directories
+      people_dir = Path.join(brain_dir, "people")
+      tasks_dir = Path.join(brain_dir, "tasks")
+      File.mkdir_p!(people_dir)
+      File.mkdir_p!(tasks_dir)
+
+      # Generate some IDs to get entity filenames
+      {:ok, sqids} = Sqids.new(alphabet: "abcdefghijklmnopqrstuvwxyz0123456789", min_length: 8)
+      id_5 = Sqids.encode!(sqids, [5])
+      id_10 = Sqids.encode!(sqids, [10])
+      id_15 = Sqids.encode!(sqids, [15])
+
+      File.write!(Path.join(people_dir, "#{id_5}.md"), "---\nid: #{id_5}\nname: A\n---\n")
+      File.write!(Path.join(people_dir, "#{id_10}.md"), "---\nid: #{id_10}\nname: B\n---\n")
+      File.write!(Path.join(tasks_dir, "#{id_15}.md"), "---\nid: #{id_15}\ntitle: C\n---\n")
+
+      # Corrupt the counter
+      File.write!(counter_file, "garbage")
+
+      # Generate should recover and continue from max (15)
+      assert {:ok, id} = Id.generate(workspace)
+      assert Id.valid?(id)
+
+      # Counter should now be 16
+      assert File.read!(counter_file) == "16"
+    end
   end
 
   describe "valid?/1" do

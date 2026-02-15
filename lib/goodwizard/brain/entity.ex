@@ -22,7 +22,7 @@ defmodule Goodwizard.Brain.Entity do
         {:error, :frontmatter_too_large}
 
       ["", frontmatter, body] when is_binary(frontmatter) ->
-        if Regex.match?(~r/[&*][a-zA-Z_]/, frontmatter) do
+        if Regex.match?(~r/[&*]\S/, frontmatter) do
           {:error, :yaml_anchors_not_allowed}
         else
           parse_frontmatter(frontmatter, body)
