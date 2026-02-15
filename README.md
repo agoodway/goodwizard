@@ -2,6 +2,28 @@
 
 An AI agent built in Elixir on Jido v2.
 
+## Prerequisites
+
+### Install Just
+
+[Just](https://github.com/casey/just) is a command runner used for project tasks.
+
+```bash
+# macOS
+brew install just
+
+# Arch Linux
+pacman -S just
+
+# Cargo (any platform)
+cargo install just
+
+# npm
+npm install -g just-install
+```
+
+See the [Just installation docs](https://github.com/casey/just#installation) for more options.
+
 ## Setup
 
 ```bash
