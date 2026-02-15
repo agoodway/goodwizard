@@ -36,9 +36,9 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
           {:ok, %{message: "Schema saved for type: #{params.entity_type}"}}
 
         {:error, reason} ->
-          Logger.error(
+          Logger.error(fn ->
             "[Brain.SaveSchema] failed type=#{params.entity_type} reason=#{inspect(reason)}"
-          )
+          end)
 
           {:error, Helpers.format_error(reason)}
       end

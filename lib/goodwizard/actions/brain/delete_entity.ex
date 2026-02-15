@@ -34,9 +34,9 @@ defmodule Goodwizard.Actions.Brain.DeleteEntity do
         {:ok, %{message: "Entity #{params.id} deleted from #{params.entity_type}"}}
 
       {:error, reason} ->
-        Logger.error(
+        Logger.error(fn ->
           "[Brain.DeleteEntity] failed type=#{params.entity_type} id=#{params.id} reason=#{inspect(reason)}"
-        )
+        end)
 
         {:error, Helpers.format_error(reason)}
     end

@@ -26,9 +26,9 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
     workspace = get_in(context, [:state, :workspace]) || "."
     body = Map.get(params, :body, "")
 
-    Logger.info(
-      "[Brain.CreateEntity] workspace=#{workspace} type=#{params.entity_type} data=#{inspect(params.data)}"
-    )
+    Logger.info(fn ->
+      "[Brain.CreateEntity] workspace=#{workspace} type=#{params.entity_type} keys=#{inspect(Map.keys(params.data))}"
+    end)
 
     case Goodwizard.Brain.create(workspace, params.entity_type, params.data, body) do
       {:ok, {id, data, body}} ->
@@ -36,9 +36,9 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
         {:ok, %{id: id, data: data, body: body}}
 
       {:error, reason} ->
-        Logger.error(
+        Logger.error(fn ->
           "[Brain.CreateEntity] failed type=#{params.entity_type} reason=#{inspect(reason)}"
-        )
+        end)
 
         {:error, Helpers.format_error(reason)}
     end

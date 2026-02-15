@@ -11,8 +11,7 @@ defmodule Goodwizard.Actions.Shell.Exec do
       working_dir: [type: :string, doc: "Working directory for the command"],
       timeout: [type: :integer, default: 60, doc: "Timeout in seconds"],
       deny_patterns: [type: {:list, :string}, doc: "Regex patterns to block"],
-      allow_patterns: [type: {:list, :string}, doc: "Regex patterns to allow"],
-      restrict_to_workspace: [type: :boolean, default: false, doc: "Block path traversal"]
+      allow_patterns: [type: {:list, :string}, doc: "Regex patterns to allow"]
     ]
 
   @max_output 10_000
@@ -45,14 +44,12 @@ defmodule Goodwizard.Actions.Shell.Exec do
     command = params.command
     working_dir = Map.get(params, :working_dir)
     timeout = Map.get(params, :timeout, 60)
-    restrict = Map.get(params, :restrict_to_workspace, false)
-
     with {:ok, deny_patterns} <-
            compile_patterns(Map.get(params, :deny_patterns), @default_deny_patterns),
          {:ok, allow_patterns} <- compile_patterns(Map.get(params, :allow_patterns), nil),
          :ok <- check_deny_patterns(command, deny_patterns),
          :ok <- check_allow_patterns(command, allow_patterns),
-         :ok <- check_workspace_restriction(command, working_dir, restrict) do
+         :ok <- check_workspace_restriction(command, working_dir) do
       execute(command, working_dir, timeout)
     end
   end
@@ -75,9 +72,15 @@ defmodule Goodwizard.Actions.Shell.Exec do
     end
   end
 
-  defp check_workspace_restriction(_command, _working_dir, false), do: :ok
+  defp check_workspace_restriction(command, working_dir) do
+    if restrict_to_workspace?() do
+      check_workspace_paths(command, working_dir)
+    else
+      :ok
+    end
+  end
 
-  defp check_workspace_restriction(command, working_dir, true) do
+  defp check_workspace_paths(command, working_dir) do
     cond do
       String.contains?(command, "../") ->
         {:error, "Command blocked by safety guard (path traversal detected)"}
@@ -117,6 +120,12 @@ defmodule Goodwizard.Actions.Shell.Exec do
   end
 
   defp has_outside_absolute_path?(_command, _working_dir), do: false
+
+  defp restrict_to_workspace? do
+    Goodwizard.Config.get(["tools", "restrict_to_workspace"]) != false
+  catch
+    :exit, _ -> true
+  end
 
   defp execute(command, working_dir, timeout) do
     opts = [stderr_to_stdout: true]

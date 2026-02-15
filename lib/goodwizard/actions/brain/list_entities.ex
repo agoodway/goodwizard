@@ -38,9 +38,9 @@ defmodule Goodwizard.Actions.Brain.ListEntities do
         {:ok, %{entities: items}}
 
       {:error, reason} ->
-        Logger.error(
+        Logger.error(fn ->
           "[Brain.ListEntities] failed type=#{params.entity_type} reason=#{inspect(reason)}"
-        )
+        end)
 
         {:error, Helpers.format_error(reason)}
     end

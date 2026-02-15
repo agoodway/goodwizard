@@ -37,9 +37,9 @@ defmodule Goodwizard.Actions.Brain.UpdateEntity do
         {:ok, %{data: data, body: body}}
 
       {:error, reason} ->
-        Logger.error(
+        Logger.error(fn ->
           "[Brain.UpdateEntity] failed type=#{params.entity_type} id=#{params.id} reason=#{inspect(reason)}"
-        )
+        end)
 
         {:error, Helpers.format_error(reason)}
     end

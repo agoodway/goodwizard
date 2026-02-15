@@ -12,7 +12,8 @@ defmodule Goodwizard.Brain.Id do
 
   @alphabet "abcdefghijklmnopqrstuvwxyz0123456789"
   @min_length 8
-  @id_pattern_string "^[a-z0-9]{#{@min_length},}$"
+  @max_length 64
+  @id_pattern_string "^[a-z0-9]{#{@min_length},#{@max_length}}$"
   @id_pattern Regex.compile!(@id_pattern_string)
 
   @doc "Returns the ID pattern string for use in JSON Schema definitions."

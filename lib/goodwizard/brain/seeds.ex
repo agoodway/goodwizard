@@ -91,7 +91,7 @@ defmodule Goodwizard.Brain.Seeds do
       "topic" => %{"type" => "string"},
       "related_to" => %{
         "type" => "array",
-        "items" => %{"type" => "string", "pattern" => "^[a-z_]+/[a-z0-9]{8,}$"},
+        "items" => %{"type" => "string", "pattern" => "^[a-z_]+/[a-z0-9]{8,64}$"},
         "description" => "Polymorphic entity references (any entity type)"
       }
     })
@@ -161,7 +161,7 @@ defmodule Goodwizard.Brain.Seeds do
   defp entity_ref(type) do
     %{
       "type" => "string",
-      "pattern" => "^#{type}/[a-z0-9]{8,}$",
+      "pattern" => "^#{type}/[a-z0-9]{8,64}$",
       "description" => "Entity reference to #{type}"
     }
   end
@@ -169,7 +169,7 @@ defmodule Goodwizard.Brain.Seeds do
   defp entity_ref_list(type) do
     %{
       "type" => "array",
-      "items" => %{"type" => "string", "pattern" => "^#{type}/[a-z0-9]{8,}$"},
+      "items" => %{"type" => "string", "pattern" => "^#{type}/[a-z0-9]{8,64}$"},
       "description" => "Entity references to #{type}"
     }
   end
