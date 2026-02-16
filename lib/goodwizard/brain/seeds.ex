@@ -2,8 +2,15 @@ defmodule Goodwizard.Brain.Seeds do
   @moduledoc """
   Default schema definitions for the brain knowledge base.
 
-  Ships 8 initial entity type schemas as Elixir maps and writes them
+  Ships initial entity type schemas as Elixir maps and writes them
   to disk on first use via `seed/1`.
+
+  ## Security: SSRF considerations for webpages URLs
+
+  The webpages entity stores user-provided URLs restricted to http/https schemes.
+  If future features fetch webpage content (e.g., scraping, link previews), implementers
+  must guard against SSRF by filtering private/internal IP ranges (RFC 1918, loopback,
+  link-local), enforcing request timeouts, and considering a domain allowlist.
   """
 
   alias Goodwizard.Brain.{Id, Paths, Schema}
@@ -139,8 +146,13 @@ defmodule Goodwizard.Brain.Seeds do
     schema =
       build_schema("Webpage", ["id", "title", "url"], %{
         "title" => %{"type" => "string"},
-        "url" => %{"type" => "string", "format" => "uri"},
-        "description" => %{"type" => "string"}
+        "url" => %{
+          "type" => "string",
+          "format" => "uri",
+          "pattern" => "^https?://",
+          "maxLength" => 2048
+        },
+        "description" => %{"type" => "string", "maxLength" => 10_000}
       })
 
     Map.update!(schema, "properties", &Map.delete(&1, "webpages"))

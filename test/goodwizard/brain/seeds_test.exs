@@ -14,9 +14,9 @@ defmodule Goodwizard.Brain.SeedsTest do
   end
 
   describe "seed/1" do
-    test "creates all 8 schema files", %{workspace: workspace} do
+    test "creates all schema files", %{workspace: workspace} do
       assert {:ok, seeded} = Seeds.seed(workspace)
-      assert length(seeded) == 8
+      assert length(seeded) == length(@expected_types)
       assert Enum.sort(seeded) == @expected_types
     end
 
@@ -52,7 +52,7 @@ defmodule Goodwizard.Brain.SeedsTest do
 
     test "is idempotent — skips existing schemas", %{workspace: workspace} do
       {:ok, first_seeded} = Seeds.seed(workspace)
-      assert length(first_seeded) == 8
+      assert length(first_seeded) == length(@expected_types)
 
       {:ok, second_seeded} = Seeds.seed(workspace)
       assert second_seeded == []
@@ -64,7 +64,7 @@ defmodule Goodwizard.Brain.SeedsTest do
 
       {:ok, seeded} = Seeds.seed(workspace)
       assert "people" not in seeded
-      assert length(seeded) == 7
+      assert length(seeded) == length(@expected_types) - 1
 
       # Verify people.json was not overwritten
       content = File.read!(Path.join(schemas_dir, "people.json"))
@@ -142,7 +142,10 @@ defmodule Goodwizard.Brain.SeedsTest do
       schema = Seeds.schema_for("webpages")
       assert schema["required"] == ["id", "title", "url"]
       assert schema["properties"]["url"]["format"] == "uri"
+      assert schema["properties"]["url"]["pattern"] == "^https?://"
+      assert schema["properties"]["url"]["maxLength"] == 2048
       assert Map.has_key?(schema["properties"], "description")
+      assert schema["properties"]["description"]["maxLength"] == 10_000
     end
 
     test "webpages schema does not include a webpages self-reference" do
@@ -164,8 +167,8 @@ defmodule Goodwizard.Brain.SeedsTest do
   end
 
   describe "entity_types/0" do
-    test "returns 8 types" do
-      assert length(Seeds.entity_types()) == 8
+    test "returns all expected types" do
+      assert length(Seeds.entity_types()) == length(@expected_types)
     end
   end
 end
@@ -174,7 +177,7 @@ defmodule Goodwizard.BrainTest do
   use ExUnit.Case, async: true
 
   alias Goodwizard.Brain
-  alias Goodwizard.Brain.{Id, Paths, Schema}
+  alias Goodwizard.Brain.{Id, Paths, Schema, Seeds}
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "brain_init_test_#{:rand.uniform(100_000)}")
@@ -187,7 +190,7 @@ defmodule Goodwizard.BrainTest do
       refute File.exists?(Path.join(workspace, "brain"))
 
       assert {:ok, seeded} = Brain.ensure_initialized(workspace)
-      assert length(seeded) == 8
+      assert length(seeded) == length(Seeds.entity_types())
 
       assert File.dir?(Path.join(workspace, "brain"))
       assert File.dir?(Path.join([workspace, "brain", "schemas"]))
@@ -195,7 +198,7 @@ defmodule Goodwizard.BrainTest do
 
     test "is idempotent — second call returns empty list", %{workspace: workspace} do
       {:ok, first} = Brain.ensure_initialized(workspace)
-      assert length(first) == 8
+      assert length(first) == length(Seeds.entity_types())
 
       {:ok, second} = Brain.ensure_initialized(workspace)
       assert second == []
@@ -220,7 +223,7 @@ defmodule Goodwizard.BrainTest do
     test "initialize -> generate ID -> load schema -> validate", %{workspace: workspace} do
       # 1. Initialize brain (seeds schemas)
       assert {:ok, seeded} = Brain.ensure_initialized(workspace)
-      assert length(seeded) == 8
+      assert length(seeded) == length(Seeds.entity_types())
 
       # 2. Generate an ID
       assert {:ok, id} = Id.generate()
