@@ -54,7 +54,8 @@ defmodule Goodwizard.MixProject do
       {:doctor, "~> 0.21", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:mimic, "~> 1.0", only: :test},
-      {:faker, "~> 0.18", only: :test}
+      {:faker, "~> 0.18", only: :test},
+      {:benchee, "~> 1.3", only: :dev, runtime: false}
     ]
   end
 
