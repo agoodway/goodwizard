@@ -16,7 +16,7 @@ defmodule Goodwizard.Actions.Brain.UpdateEntity do
       ],
       id: [type: :string, required: true, doc: "The entity ID"],
       data: [
-        type: :map,
+        type: {:map, :string, :any},
         required: true,
         doc: "JSON object with fields to update (e.g. {\"email\": \"new@example.com\"})"
       ],

@@ -13,7 +13,7 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
         doc: "The entity type (e.g. \"people\", \"companies\", \"notes\")"
       ],
       schema: [
-        type: :map,
+        type: {:map, :string, :any},
         required: true,
         doc: "A valid JSON Schema object defining the entity structure"
       ]

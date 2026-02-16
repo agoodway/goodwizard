@@ -16,7 +16,7 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
         doc: "The entity type (e.g. \"people\", \"companies\", \"notes\")"
       ],
       data: [
-        type: :map,
+        type: {:map, :string, :any},
         required: true,
         doc:
           "JSON object with fields matching the entity type schema (e.g. {\"name\": \"Alice\", \"email\": \"alice@example.com\"} for people)"
