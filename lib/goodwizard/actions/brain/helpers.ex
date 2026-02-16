@@ -97,7 +97,8 @@ defmodule Goodwizard.Actions.Brain.Helpers do
     case Goodwizard.Messaging.get_or_create_room_by_external_binding(
            channel,
            instance_id,
-           external_id
+           external_id,
+           %{type: :direct, name: "Scheduled Task"}
          ) do
       {:ok, room} -> {:ok, room.id}
       {:error, reason} -> {:error, "Failed to resolve room: #{inspect(reason)}"}
