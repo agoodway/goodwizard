@@ -2,9 +2,9 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
   @moduledoc """
   Schedules a recurring task on a cron expression.
 
-  Validates the cron expression and emits a `Directive.Cron` for Jido's
-  scheduler to pick up. The action stays stateless — it transforms input
-  into a scheduling instruction.
+  Validates the cron expression and registers the job directly with
+  `Jido.Scheduler.run_every`, bypassing the executor's directive pipeline.
+  The scheduler pid is tracked in `CronRegistry` for later cancellation.
 
   ## Execution Modes
 
@@ -46,8 +46,7 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
 
   require Logger
 
-  alias Jido.Agent.Directive
-  alias Goodwizard.Scheduling.CronStore
+  alias Goodwizard.Scheduling.{CronStore, CronRegistry}
 
   @valid_modes ~w(main isolated)
   @known_model_prefixes ~w(anthropic: openai: google: ollama: mistral:)
@@ -64,6 +63,7 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
     %{schedule: schedule, task: task} = params
     mode = Map.get(params, :mode) || "isolated"
     model = Map.get(params, :model)
+    agent_id = context[:agent_id]
 
     with {:ok, room_id} <- resolve_room(params, context),
          :ok <- validate_mode(mode),
@@ -80,27 +80,47 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
         |> binary_part(0, 16)
 
       job_id = :"cron_#{hash}"
-      directive = Directive.cron(schedule, message, job_id: job_id)
 
-      CronStore.save(%{
-        job_id: job_id,
-        schedule: schedule,
-        task: task,
-        room_id: room_id,
-        mode: mode,
-        model: model,
-        created_at: DateTime.utc_now() |> DateTime.to_iso8601()
-      })
+      signal = build_cron_tick_signal(message, job_id, agent_id)
 
-      {:ok,
-       %{
-         scheduled: true,
-         schedule: schedule,
-         task: task,
-         room_id: room_id,
-         mode: mode,
-         job_id: job_id
-       }, [directive]}
+      case Jido.Scheduler.run_every(
+             fn ->
+               case Goodwizard.Jido.whereis(agent_id) do
+                 pid when is_pid(pid) -> Jido.AgentServer.cast(pid, signal)
+                 nil -> Logger.warning("Cron tick: agent #{agent_id} not found, skipping")
+               end
+
+               :ok
+             end,
+             schedule,
+             []
+           ) do
+        {:ok, sched_pid} ->
+          CronRegistry.register(job_id, sched_pid)
+
+          CronStore.save(%{
+            job_id: job_id,
+            schedule: schedule,
+            task: task,
+            room_id: room_id,
+            mode: mode,
+            model: model,
+            created_at: DateTime.utc_now() |> DateTime.to_iso8601()
+          })
+
+          {:ok,
+           %{
+             scheduled: true,
+             schedule: schedule,
+             task: task,
+             room_id: room_id,
+             mode: mode,
+             job_id: job_id
+           }}
+
+        {:error, reason} ->
+          {:error, "Failed to register cron job: #{inspect(reason)}"}
+      end
     end
   end
 
@@ -162,5 +182,12 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
       {:ok, _} -> :ok
       {:error, reason} -> {:error, "Invalid cron expression: #{expr} — #{inspect(reason)}"}
     end
+  end
+
+  defp build_cron_tick_signal(message, job_id, agent_id) do
+    Jido.AgentServer.Signal.CronTick.new!(
+      %{job_id: job_id, message: message},
+      source: "/agent/#{agent_id}"
+    )
   end
 end

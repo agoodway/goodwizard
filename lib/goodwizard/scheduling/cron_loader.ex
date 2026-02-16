@@ -13,7 +13,7 @@ defmodule Goodwizard.Scheduling.CronLoader do
   require Logger
 
   alias Goodwizard.Agent, as: GoodwizardAgent
-  alias Goodwizard.Scheduling.CronStore
+  alias Goodwizard.Scheduling.{CronStore, CronRegistry}
   alias Jido.Agent.Directive
 
   @doc """
@@ -88,13 +88,18 @@ defmodule Goodwizard.Scheduling.CronLoader do
 
       case Jido.Scheduler.run_every(
              fn ->
-               _ = Jido.AgentServer.cast(agent_id, signal)
+               case Goodwizard.Jido.whereis(agent_id) do
+                 pid when is_pid(pid) -> Jido.AgentServer.cast(pid, signal)
+                 nil -> Logger.warning("CronLoader: agent #{agent_id} not found, skipping tick")
+               end
+
                :ok
              end,
              directive.cron,
              []
            ) do
-        {:ok, _sched_pid} ->
+        {:ok, sched_pid} ->
+          CronRegistry.register(job_id, sched_pid)
           Logger.debug("CronLoader: registered #{job_id} (#{schedule})")
           :ok
 

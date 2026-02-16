@@ -28,7 +28,7 @@ defmodule Goodwizard.Actions.Scheduling.CronPersistenceTest do
   describe "persistence on schedule" do
     test "file is written after successful scheduling", %{cron_dir: cron_dir} do
       params = %{schedule: "0 9 * * *", task: "daily report", room_id: "cli:heartbeat"}
-      assert {:ok, result, [_directive]} = Cron.run(params, %{})
+      assert {:ok, result} = Cron.run(params, %{})
 
       job_id_str = to_string(result.job_id)
       path = Path.join(cron_dir, "#{job_id_str}.json")

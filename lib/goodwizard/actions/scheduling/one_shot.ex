@@ -3,9 +3,9 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   Schedules a one-shot task by delay or wall-clock time.
 
   Accepts either `delay_minutes` (relative) or `at` (absolute ISO 8601 UTC),
-  but not both. Emits a `Directive.Schedule` with a CronTick-compatible
-  message payload so the existing signal pipeline processes it identically
-  to recurring cron tasks.
+  but not both. Uses `:timer.apply_after` to dispatch a CronTick-compatible
+  signal so the existing signal pipeline processes it identically to recurring
+  cron tasks.
 
   Note: one-shot tasks cannot be cancelled after scheduling. The returned
   `job_id` is informational only — there is no corresponding cancel action.
@@ -28,8 +28,6 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
       room_id: [type: :string, required: false, doc: "Target Messaging room identifier. Auto-resolved from agent context when omitted."]
     ]
 
-  alias Jido.Agent.Directive
-
   alias Goodwizard.Actions.Brain.Helpers
 
   @impl true
@@ -37,8 +35,9 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
     task = params.task
     delay_minutes = Map.get(params, :delay_minutes)
     at = Map.get(params, :at)
+    agent_id = context[:agent_id]
 
-    Logger.debug("[OneShot] params=#{inspect(params)} agent_id=#{inspect(context[:agent_id])}")
+    Logger.debug("[OneShot] params=#{inspect(params)} agent_id=#{inspect(agent_id)}")
 
     with {:ok, room_id} <- resolve_room(params, context),
          :ok <- validate_exclusivity(delay_minutes, at),
@@ -46,7 +45,10 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
       message = %{type: "cron.task", task: task, room_id: room_id}
       hash_input = if delay_minutes, do: {delay_minutes, task, room_id}, else: {at, task, room_id}
       job_id = :"oneshot_#{:erlang.phash2(hash_input)}"
-      directive = Directive.schedule(delay_ms, message)
+
+      signal = build_cron_tick_signal(message, job_id, agent_id)
+
+      :timer.apply_after(delay_ms, __MODULE__, :deliver, [agent_id, signal])
 
       {:ok,
        %{
@@ -56,7 +58,15 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
          job_id: job_id,
          fires_at: fires_at,
          mode: mode
-       }, [directive]}
+       }}
+    end
+  end
+
+  @doc false
+  def deliver(agent_id, signal) do
+    case Goodwizard.Jido.whereis(agent_id) do
+      pid when is_pid(pid) -> Jido.AgentServer.cast(pid, signal)
+      nil -> Logger.warning("OneShot: agent #{agent_id} not found, signal dropped")
     end
   end
 
@@ -68,6 +78,11 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
 
   defp validate_exclusivity(_, _),
     do: {:error, "Exactly one of delay_minutes or at must be provided — got both"}
+
+  defp resolve_room(%{room_id: room_id}, _context) when is_binary(room_id) and room_id != "",
+    do: {:ok, room_id}
+
+  defp resolve_room(_params, context), do: Helpers.resolve_room_id(context)
 
   defp compute_delay(delay_minutes, nil) when is_integer(delay_minutes) do
     cond do
@@ -83,11 +98,6 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
         {:ok, delay_ms, fires_at, "delay"}
     end
   end
-
-  defp resolve_room(%{room_id: room_id}, _context) when is_binary(room_id) and room_id != "",
-    do: {:ok, room_id}
-
-  defp resolve_room(_params, context), do: Helpers.resolve_room_id(context)
 
   defp compute_delay(nil, at_string) when is_binary(at_string) do
     case DateTime.from_iso8601(at_string) do
@@ -107,5 +117,12 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
       {:error, _reason} ->
         {:error, "Invalid ISO 8601 datetime: #{inspect(at_string)}"}
     end
+  end
+
+  defp build_cron_tick_signal(message, job_id, agent_id) do
+    Jido.AgentServer.Signal.CronTick.new!(
+      %{job_id: job_id, message: message},
+      source: "/agent/#{agent_id}"
+    )
   end
 end

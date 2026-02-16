@@ -10,10 +10,11 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
   require Logger
 
   alias Goodwizard.Messaging
+  alias Goodwizard.Messaging.Delivery
   alias Goodwizard.SubAgent
 
   @default_ask_timeout 120_000
-  @default_max_concurrent 3
+  @default_max_concurrent 50
 
   defp ask_timeout do
     Goodwizard.Config.get(["cron", "ask_timeout"]) || @default_ask_timeout
@@ -43,14 +44,16 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
   end
 
   defp try_spawn(task, room_id, opts) do
-    active_count = Goodwizard.Jido.agent_count()
+    active_count = count_isolated_cron_agents()
 
     if active_count >= max_concurrent_cron_agents() do
       Logger.warning(
         "Isolated cron skipped: concurrent agent limit reached (#{active_count}/#{max_concurrent_cron_agents()})"
       )
 
+      error_text = "[Cron Error] Cron task skipped: too many concurrent tasks running."
       save_error_message(room_id, "Cron task skipped: too many concurrent tasks running.")
+      deliver(room_id, error_text)
       {:error, :at_capacity}
     else
       do_spawn(task, room_id, opts)
@@ -73,7 +76,9 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
 
       {:error, reason} ->
         Logger.error("Failed to start isolated cron agent: #{inspect(reason)}")
+        error_text = "[Cron Error] Cron task could not start. Check server logs for details."
         save_error_message(room_id, "Cron task could not start. Check server logs for details.")
+        deliver(room_id, error_text)
         {:error, reason}
     end
   end
@@ -88,26 +93,43 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
       case Task.await(task_ref, ask_timeout() + 5_000) do
         {:ok, response} ->
           save_response(room_id, response)
+          deliver(room_id, response)
           {:ok, response}
 
         {:error, reason} ->
           Logger.error("Isolated cron task failed: #{inspect(reason)}")
+          error_text = "[Cron Error] Cron task failed. Check server logs for details."
           save_error_message(room_id, "Cron task failed. Check server logs for details.")
+          deliver(room_id, error_text)
           {:error, reason}
       end
     rescue
       e ->
         Logger.error("Isolated cron task crashed: #{Exception.message(e)}")
+        error_text = "[Cron Error] Cron task encountered an unexpected error. Check server logs for details."
 
         save_error_message(
           room_id,
           "Cron task encountered an unexpected error. Check server logs for details."
         )
 
+        deliver(room_id, error_text)
         {:error, e}
     after
       Goodwizard.Jido.stop_agent(pid)
     end
+  end
+
+  defp deliver(room_id, content) do
+    results = Delivery.deliver_to_bindings(room_id, content)
+
+    Enum.each(results, fn
+      {:ok, channel} ->
+        Logger.info("Cron delivery to #{channel} for room #{room_id} succeeded")
+
+      {:error, channel, reason} ->
+        Logger.warning("Cron delivery to #{channel} for room #{room_id} failed: #{inspect(reason)}")
+    end)
   end
 
   defp save_response(room_id, response) do
@@ -148,6 +170,11 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
           "Failed to save message to room #{room_id} after #{@max_save_retries} attempts: #{inspect(reason)}"
         )
     end
+  end
+
+  defp count_isolated_cron_agents do
+    Goodwizard.Jido.list_agents()
+    |> Enum.count(fn {id, _pid} -> String.starts_with?(id, "cron:isolated:") end)
   end
 
   defp maybe_add_model(opts, nil), do: opts

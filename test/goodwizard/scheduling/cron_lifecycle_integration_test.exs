@@ -32,7 +32,7 @@ defmodule Goodwizard.Scheduling.CronLifecycleIntegrationTest do
   test "full lifecycle: schedule, persist, list, reload, cancel", %{cron_dir: cron_dir} do
     # 1. Schedule a cron job
     params = %{schedule: "0 9 * * *", task: "lifecycle test", room_id: "room_lifecycle"}
-    assert {:ok, result, [_directive]} = Cron.run(params, %{})
+    assert {:ok, result} = Cron.run(params, %{})
     assert result.scheduled == true
     job_id = result.job_id
     job_id_str = to_string(job_id)
@@ -51,9 +51,8 @@ defmodule Goodwizard.Scheduling.CronLifecycleIntegrationTest do
     assert count == 1
 
     # 5. Cancel the job
-    assert {:ok, cancel_result, [cancel_directive]} = CancelCron.run(%{job_id: job_id_str}, %{})
+    assert {:ok, cancel_result} = CancelCron.run(%{job_id: job_id_str}, %{})
     assert cancel_result.cancelled == true
-    assert %Jido.Agent.Directive.CronCancel{} = cancel_directive
 
     # 6. Verify file deleted
     refute File.exists?(path)
@@ -64,8 +63,8 @@ defmodule Goodwizard.Scheduling.CronLifecycleIntegrationTest do
 
   test "scheduling multiple jobs and cancelling one preserves others" do
     # Schedule two jobs
-    assert {:ok, r1, _} = Cron.run(%{schedule: "0 9 * * *", task: "job one", room_id: "room_1"}, %{})
-    assert {:ok, r2, _} = Cron.run(%{schedule: "0 10 * * *", task: "job two", room_id: "room_1"}, %{})
+    assert {:ok, r1} = Cron.run(%{schedule: "0 9 * * *", task: "job one", room_id: "room_1"}, %{})
+    assert {:ok, r2} = Cron.run(%{schedule: "0 10 * * *", task: "job two", room_id: "room_1"}, %{})
 
     assert {:ok, jobs} = CronStore.list()
     assert length(jobs) == 2

@@ -65,8 +65,8 @@ defmodule Goodwizard.Plugins.CronScheduler do
     {:ok, {:override, {:strategy_cmd, :react_start}, new_signal}}
   end
 
-  # Isolated mode: spawn a child agent in a background task. Returns
-  # :continue so the main agent is not blocked.
+  # Isolated mode: spawn a child agent in a background task. Overrides
+  # the signal with a Noop action to prevent "No route for signal" errors.
   defp dispatch_isolated(task, room_id, model) do
     opts = if model, do: [model: model], else: []
 
@@ -80,7 +80,7 @@ defmodule Goodwizard.Plugins.CronScheduler do
       end
     end)
 
-    {:ok, :continue}
+    {:ok, {:override, Jido.Actions.Control.Noop}}
   end
 
   defp save_cron_task_message(room_id, task) do

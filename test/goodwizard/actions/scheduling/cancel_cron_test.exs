@@ -27,7 +27,7 @@ defmodule Goodwizard.Actions.Scheduling.CancelCronTest do
   end
 
   describe "run/2" do
-    test "cancels existing job: deletes file and emits CronCancel directive", %{cron_dir: cron_dir} do
+    test "cancels existing job: deletes file and returns success", %{cron_dir: cron_dir} do
       # Persist a job first
       CronStore.save(%{
         job_id: :cron_cancel_me,
@@ -40,18 +40,15 @@ defmodule Goodwizard.Actions.Scheduling.CancelCronTest do
       assert File.exists?(Path.join(cron_dir, "cron_cancel_me.json"))
 
       params = %{job_id: "cron_cancel_me"}
-      assert {:ok, result, [directive]} = CancelCron.run(params, %{})
-      assert %Jido.Agent.Directive.CronCancel{} = directive
-      assert directive.job_id == :cron_cancel_me
+      assert {:ok, result} = CancelCron.run(params, %{})
       assert result.cancelled == true
 
       refute File.exists?(Path.join(cron_dir, "cron_cancel_me.json"))
     end
 
-    test "unknown job_id still emits cancel directive and returns success" do
+    test "unknown job_id still returns success (idempotent)" do
       params = %{job_id: "cron_does_not_exist_at_all"}
-      assert {:ok, result, [directive]} = CancelCron.run(params, %{})
-      assert %Jido.Agent.Directive.CronCancel{} = directive
+      assert {:ok, result} = CancelCron.run(params, %{})
       assert result.cancelled == true
     end
 
@@ -59,12 +56,12 @@ defmodule Goodwizard.Actions.Scheduling.CancelCronTest do
       # This atom exists because it was created via the Cron action or test setup
       _ = :cron_existing_test_atom
       params = %{job_id: "cron_existing_test_atom"}
-      assert {:ok, result, [_directive]} = CancelCron.run(params, %{})
+      assert {:ok, result} = CancelCron.run(params, %{})
       assert result.job_id == :cron_existing_test_atom
 
       # For a never-seen job_id, falls back to string (no atom leak)
       params2 = %{job_id: "cron_never_seen_before_xyz"}
-      assert {:ok, result2, [_directive2]} = CancelCron.run(params2, %{})
+      assert {:ok, result2} = CancelCron.run(params2, %{})
       assert is_binary(result2.job_id)
     end
   end

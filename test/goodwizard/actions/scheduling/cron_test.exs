@@ -1,37 +1,54 @@
 defmodule Goodwizard.Actions.Scheduling.CronTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Goodwizard.Actions.Scheduling.Cron
 
+  @test_workspace Path.join(
+                    System.tmp_dir!(),
+                    "cron_test_#{System.unique_integer([:positive])}"
+                  )
+
+  setup do
+    cron_dir = Path.join(@test_workspace, "scheduling/cron")
+    File.rm_rf!(@test_workspace)
+    File.mkdir_p!(cron_dir)
+
+    original_workspace = Goodwizard.Config.workspace()
+    Goodwizard.Config.put(["agent", "workspace"], @test_workspace)
+
+    on_exit(fn ->
+      File.rm_rf!(@test_workspace)
+      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+    end)
+
+    :ok
+  end
+
   describe "run/2" do
-    test "valid cron schedule returns directive" do
+    test "valid cron schedule returns success" do
       params = %{schedule: "0 9 * * *", task: "check email", room_id: "room_abc123"}
-      assert {:ok, result, [directive]} = Cron.run(params, %{})
+      assert {:ok, result} = Cron.run(params, %{})
       assert result.scheduled == true
       assert result.schedule == "0 9 * * *"
       assert result.task == "check email"
       assert result.room_id == "room_abc123"
       assert result.job_id != nil
-      assert %Jido.Agent.Directive.Cron{} = directive
-      assert directive.cron == "0 9 * * *"
     end
 
     test "every-5-minutes cron expression works" do
       params = %{schedule: "*/5 * * * *", task: "poll status", room_id: "room_1"}
-      assert {:ok, result, [directive]} = Cron.run(params, %{})
+      assert {:ok, result} = Cron.run(params, %{})
       assert result.scheduled == true
-      assert directive.cron == "*/5 * * * *"
     end
 
     test "cron alias @daily works" do
       params = %{schedule: "@daily", task: "daily report", room_id: "room_1"}
-      assert {:ok, _result, [directive]} = Cron.run(params, %{})
-      assert directive.cron == "@daily"
+      assert {:ok, _result} = Cron.run(params, %{})
     end
 
     test "cron alias @hourly works" do
       params = %{schedule: "@hourly", task: "check metrics", room_id: "room_1"}
-      assert {:ok, _result, [_directive]} = Cron.run(params, %{})
+      assert {:ok, _result} = Cron.run(params, %{})
     end
 
     test "invalid cron expression returns error" do
@@ -46,72 +63,33 @@ defmodule Goodwizard.Actions.Scheduling.CronTest do
       assert msg =~ "Invalid cron expression"
     end
 
-    test "directive message contains task and room_id" do
-      params = %{schedule: "0 0 * * *", task: "midnight cleanup", room_id: "room_xyz"}
-      assert {:ok, _result, [directive]} = Cron.run(params, %{})
-      assert directive.message.task == "midnight cleanup"
-      assert directive.message.room_id == "room_xyz"
-      assert directive.message.type == "cron.task"
-    end
-
     test "same params produce same job_id" do
       params = %{schedule: "0 9 * * *", task: "check", room_id: "room_1"}
-      assert {:ok, r1, _} = Cron.run(params, %{})
-      assert {:ok, r2, _} = Cron.run(params, %{})
+      assert {:ok, r1} = Cron.run(params, %{})
+      assert {:ok, r2} = Cron.run(params, %{})
       assert r1.job_id == r2.job_id
     end
 
     test "different params produce different job_ids" do
       params1 = %{schedule: "0 9 * * *", task: "check", room_id: "room_1"}
       params2 = %{schedule: "0 10 * * *", task: "check", room_id: "room_1"}
-      assert {:ok, r1, _} = Cron.run(params1, %{})
-      assert {:ok, r2, _} = Cron.run(params2, %{})
+      assert {:ok, r1} = Cron.run(params1, %{})
+      assert {:ok, r2} = Cron.run(params2, %{})
       assert r1.job_id != r2.job_id
     end
   end
 
   describe "mode parameter" do
-    test "mode:main produces correct payload" do
+    test "mode:main produces correct result" do
       params = %{schedule: "0 9 * * *", task: "check", room_id: "room_1", mode: "main"}
-      assert {:ok, result, [directive]} = Cron.run(params, %{})
+      assert {:ok, result} = Cron.run(params, %{})
       assert result.mode == "main"
-      assert directive.message.mode == "main"
-      refute Map.has_key?(directive.message, :model)
     end
 
-    test "mode:isolated includes mode in payload" do
+    test "mode:isolated includes mode in result" do
       params = %{schedule: "0 9 * * *", task: "check", room_id: "room_1", mode: "isolated"}
-      assert {:ok, result, [directive]} = Cron.run(params, %{})
+      assert {:ok, result} = Cron.run(params, %{})
       assert result.mode == "isolated"
-      assert directive.message.mode == "isolated"
-    end
-
-    test "isolated+model includes model in payload" do
-      params = %{
-        schedule: "0 9 * * *",
-        task: "check",
-        room_id: "room_1",
-        mode: "isolated",
-        model: "anthropic:claude-haiku-4-5"
-      }
-
-      assert {:ok, _result, [directive]} = Cron.run(params, %{})
-      assert directive.message.model == "anthropic:claude-haiku-4-5"
-      assert directive.message.mode == "isolated"
-    end
-
-    test "main+model excludes model from payload" do
-      params = %{
-        schedule: "0 9 * * *",
-        task: "check",
-        room_id: "room_1",
-        mode: "main",
-        model: "anthropic:claude-haiku-4-5"
-      }
-
-      assert {:ok, _result, [directive]} = Cron.run(params, %{})
-      assert directive.message.mode == "main"
-      refute Map.has_key?(directive.message, :model)
     end
 
     test "rejects invalid mode value" do
@@ -123,17 +101,16 @@ defmodule Goodwizard.Actions.Scheduling.CronTest do
 
     test "without mode defaults to isolated" do
       params = %{schedule: "0 9 * * *", task: "check", room_id: "room_1"}
-      assert {:ok, result, [directive]} = Cron.run(params, %{})
+      assert {:ok, result} = Cron.run(params, %{})
       assert result.mode == "isolated"
-      assert directive.message.mode == "isolated"
     end
   end
 
   describe "mode affects job_id" do
     test "same task in different modes gets distinct job IDs" do
       base = %{schedule: "0 9 * * *", task: "check", room_id: "room_1"}
-      assert {:ok, r_main, _} = Cron.run(Map.put(base, :mode, "main"), %{})
-      assert {:ok, r_isolated, _} = Cron.run(Map.put(base, :mode, "isolated"), %{})
+      assert {:ok, r_main} = Cron.run(Map.put(base, :mode, "main"), %{})
+      assert {:ok, r_isolated} = Cron.run(Map.put(base, :mode, "isolated"), %{})
       assert r_main.job_id != r_isolated.job_id
     end
   end
@@ -148,7 +125,7 @@ defmodule Goodwizard.Actions.Scheduling.CronTest do
         model: "anthropic:claude-haiku-4-5"
       }
 
-      assert {:ok, _result, _directives} = Cron.run(params, %{})
+      assert {:ok, _result} = Cron.run(params, %{})
     end
 
     test "rejects model with unknown provider prefix" do
@@ -167,7 +144,7 @@ defmodule Goodwizard.Actions.Scheduling.CronTest do
 
     test "accepts nil model (no model override)" do
       params = %{schedule: "0 9 * * *", task: "check", room_id: "room_1", mode: "isolated"}
-      assert {:ok, _result, _directives} = Cron.run(params, %{})
+      assert {:ok, _result} = Cron.run(params, %{})
     end
   end
 end
