@@ -69,4 +69,72 @@ defmodule Goodwizard.Actions.Scheduling.CronTest do
       assert r1.job_id != r2.job_id
     end
   end
+
+  describe "mode parameter" do
+    test "mode:main produces correct payload" do
+      params = %{schedule: "0 9 * * *", task: "check", room_id: "room_1", mode: "main"}
+      assert {:ok, result, [directive]} = Cron.run(params, %{})
+      assert result.mode == "main"
+      assert directive.message.mode == "main"
+      refute Map.has_key?(directive.message, :model)
+    end
+
+    test "mode:isolated includes mode in payload" do
+      params = %{schedule: "0 9 * * *", task: "check", room_id: "room_1", mode: "isolated"}
+      assert {:ok, result, [directive]} = Cron.run(params, %{})
+      assert result.mode == "isolated"
+      assert directive.message.mode == "isolated"
+    end
+
+    test "isolated+model includes model in payload" do
+      params = %{
+        schedule: "0 9 * * *",
+        task: "check",
+        room_id: "room_1",
+        mode: "isolated",
+        model: "anthropic:claude-haiku-4-5"
+      }
+
+      assert {:ok, _result, [directive]} = Cron.run(params, %{})
+      assert directive.message.model == "anthropic:claude-haiku-4-5"
+      assert directive.message.mode == "isolated"
+    end
+
+    test "main+model excludes model from payload" do
+      params = %{
+        schedule: "0 9 * * *",
+        task: "check",
+        room_id: "room_1",
+        mode: "main",
+        model: "anthropic:claude-haiku-4-5"
+      }
+
+      assert {:ok, _result, [directive]} = Cron.run(params, %{})
+      assert directive.message.mode == "main"
+      refute Map.has_key?(directive.message, :model)
+    end
+
+    test "rejects invalid mode value" do
+      params = %{schedule: "0 9 * * *", task: "check", room_id: "room_1", mode: "turbo"}
+      assert {:error, msg} = Cron.run(params, %{})
+      assert msg =~ "Invalid mode"
+      assert msg =~ "turbo"
+    end
+
+    test "without mode defaults to isolated" do
+      params = %{schedule: "0 9 * * *", task: "check", room_id: "room_1"}
+      assert {:ok, result, [directive]} = Cron.run(params, %{})
+      assert result.mode == "isolated"
+      assert directive.message.mode == "isolated"
+    end
+  end
+
+  describe "mode affects job_id" do
+    test "same task in different modes gets distinct job IDs" do
+      base = %{schedule: "0 9 * * *", task: "check", room_id: "room_1"}
+      assert {:ok, r_main, _} = Cron.run(Map.put(base, :mode, "main"), %{})
+      assert {:ok, r_isolated, _} = Cron.run(Map.put(base, :mode, "isolated"), %{})
+      assert r_main.job_id != r_isolated.job_id
+    end
+  end
 end
