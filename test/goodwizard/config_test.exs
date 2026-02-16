@@ -168,6 +168,7 @@ defmodule Goodwizard.ConfigTest do
       assert get_in(config, ["browser", "adapter"]) == "vibium"
       assert get_in(config, ["browser", "timeout"]) == 30_000
       assert get_in(config, ["browser", "search", "brave_api_key"]) == ""
+      assert get_in(config, ["session", "max_cli_sessions"]) == 50
     end
   end
 

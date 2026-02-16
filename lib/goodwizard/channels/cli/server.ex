@@ -54,7 +54,7 @@ defmodule Goodwizard.Channels.CLI.Server do
     case start_cli_agent(workspace) do
       {:ok, agent_pid} ->
         Logger.info("CLI channel started, room=#{room.id}", channel: :cli)
-        Goodwizard.Plugins.Session.cleanup_old_sessions()
+        Task.start(fn -> Goodwizard.Plugins.Session.cleanup_old_sessions() end)
 
         state = %{room_id: room.id, agent_pid: agent_pid, workspace: workspace}
         maybe_start_repl(opts, state)
@@ -81,7 +81,7 @@ defmodule Goodwizard.Channels.CLI.Server do
   end
 
   defp start_cli_agent(workspace) do
-    session_key = "cli-direct-#{System.os_time(:second)}"
+    session_key = "cli-direct-#{System.os_time(:millisecond)}-#{System.unique_integer([:positive, :monotonic])}"
 
     Goodwizard.Jido.start_agent(GoodwizardAgent,
       id: "cli:direct:#{System.unique_integer([:positive])}",

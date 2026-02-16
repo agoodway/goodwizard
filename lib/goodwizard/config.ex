@@ -381,7 +381,9 @@ defmodule Goodwizard.Config do
   defp ensure_workspace(config) do
     workspace = get_in(config, ["agent", "workspace"]) |> Path.expand()
 
-    for dir <- [workspace, Path.join(workspace, "memory"), Path.join(workspace, "sessions")] do
+    sessions_dir = Path.join(workspace, "sessions")
+
+    for dir <- [workspace, Path.join(workspace, "memory"), sessions_dir] do
       case File.mkdir_p(dir) do
         :ok ->
           :ok
@@ -389,6 +391,11 @@ defmodule Goodwizard.Config do
         {:error, reason} ->
           Logger.warning("Could not create directory #{dir}: #{inspect(reason)}")
       end
+    end
+
+    case File.chmod(sessions_dir, 0o700) do
+      :ok -> :ok
+      {:error, reason} -> Logger.warning("Could not chmod sessions directory: #{inspect(reason)}")
     end
   end
 
