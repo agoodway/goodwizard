@@ -30,6 +30,9 @@ erl_crash.dump
 /priv/workspace/
 config.toml
 
+# Scratchpad
+/scratchpad/
+
 # Generated on host
 *.ez
 *.log

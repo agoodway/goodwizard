@@ -38,14 +38,14 @@ defmodule Goodwizard.AgentTest do
       agent = GoodwizardAgent.new()
       tools = ReAct.list_tools(agent)
 
-      assert Goodwizard.Actions.Brain.CreateEntity in tools
+      # Static brain tools (typed create/update tools are registered dynamically)
       assert Goodwizard.Actions.Brain.ReadEntity in tools
-      assert Goodwizard.Actions.Brain.UpdateEntity in tools
       assert Goodwizard.Actions.Brain.DeleteEntity in tools
       assert Goodwizard.Actions.Brain.ListEntities in tools
       assert Goodwizard.Actions.Brain.GetSchema in tools
       assert Goodwizard.Actions.Brain.SaveSchema in tools
       assert Goodwizard.Actions.Brain.ListEntityTypes in tools
+      assert Goodwizard.Actions.Brain.RefreshTools in tools
     end
 
     test "uses correct model" do

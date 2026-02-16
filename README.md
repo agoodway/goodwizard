@@ -52,6 +52,91 @@ TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 | `just clean` | Clean build artifacts |
 | `just deploy` | Deploy to production |
 
+## Scheduling
+
+Goodwizard can run tasks on a schedule using two mechanisms: **cron scheduling** for recurring tasks and **heartbeat monitoring** for periodic agent check-ins.
+
+### Cron Scheduling
+
+The agent exposes a `schedule_cron_task` action that registers recurring tasks with Jido's built-in scheduler. You can ask the agent to schedule tasks in natural language, and it will create the appropriate cron job.
+
+**Supported cron formats:**
+
+| Format | Example | Meaning |
+|--------|---------|---------|
+| Standard 5-field | `0 9 * * *` | Daily at 9:00 AM |
+| Day of week | `0 9 * * MON` | Every Monday at 9:00 AM |
+| Interval | `*/15 * * * *` | Every 15 minutes |
+| Alias | `@daily` | Once a day (midnight) |
+| Alias | `@hourly` | Once an hour |
+| Alias | `@weekly` | Once a week (Sunday midnight) |
+| Alias | `@monthly` | First of each month |
+| Alias | `@yearly` | January 1st |
+
+**How it works:**
+
+1. Tell the agent what you want scheduled and when (e.g. "Remind me to check analytics every Monday at 9am")
+2. The agent calls `schedule_cron_task` with the cron expression, task description, and target room
+3. Jido's scheduler picks up the directive and fires the task on each matching tick
+4. The task message is delivered to the specified Messaging room
+
+Cron jobs persist for the lifetime of the running agent process. High-frequency schedules (every minute) will trigger a warning.
+
+### Heartbeat Monitoring
+
+The heartbeat is a GenServer that wakes the agent at a regular interval to check a `HEARTBEAT.md` file in the workspace. When the file has changed since the last check, its contents are dispatched as a message through the agent pipeline.
+
+**Enable the heartbeat** in `config.toml`:
+
+```toml
+[heartbeat]
+enabled = true
+interval_minutes = 5    # how often to check (default: 5)
+timeout_seconds = 120   # max time for the agent to respond (default: 120)
+channel = "cli"         # which channel to bind the room to ("cli" or "telegram")
+chat_id = "heartbeat"   # external room identifier (see below)
+```
+
+**Setting `chat_id` for Telegram delivery:**
+
+To have heartbeat responses delivered to a Telegram chat, you need your Telegram chat ID:
+
+1. Start your bot by sending it `/start` in Telegram
+2. Check the application logs — the handler logs `chat_id=<your_id>` for each incoming message
+3. Or message [@userinfobot](https://t.me/userinfobot) on Telegram to get your user ID (same as your DM chat ID)
+
+Then configure the heartbeat to target that chat:
+
+```toml
+[heartbeat]
+enabled = true
+channel = "telegram"
+chat_id = "123456789"   # your Telegram chat ID
+```
+
+For CLI, `chat_id` is just an arbitrary label (the default `"heartbeat"` is fine). Messages are persisted but not pushed anywhere since the CLI has no outbound delivery.
+
+**Trigger a heartbeat** by writing to the file:
+
+```bash
+echo "What's the status of my projects?" > priv/workspace/HEARTBEAT.md
+```
+
+On the next tick, the agent reads the file, processes it, and saves both the prompt and response to a Messaging room. The file is only processed when its modification time changes, so the same content won't be processed twice.
+
+**Use cases:**
+
+Since `HEARTBEAT.md` is just a file, anything that can write to the filesystem can trigger the agent — scripts, cron jobs, CI pipelines, other services, or you. Some examples:
+
+- **Reminders and check-ins** — Write a daily prompt like "What tasks are due today?" and let a system cron job update the file each morning.
+- **External event triggers** — A deploy script writes "Production deploy completed for v1.4.2 — summarize what changed" after a release, and the agent generates a changelog.
+- **Monitoring and alerting** — A shell script watches disk usage or error logs and writes "Disk usage on /data is at 92% — what should I do?" when a threshold is crossed.
+- **Automated reporting** — A nightly job writes "Generate a summary of this week's brain activity" to produce periodic digests.
+- **CI/CD integration** — A GitHub Action writes test results or build failures to the file, and the agent triages or summarizes them.
+- **Cross-system orchestration** — Another service or agent writes instructions to `HEARTBEAT.md` to delegate work, turning the file into a simple inter-process message queue.
+
+The pattern is always the same: write a prompt to the file, and the agent picks it up on the next heartbeat tick. Pair this with a lower `interval_minutes` value for near-real-time responsiveness, or a higher value for background batch processing.
+
 ## Telegram Bot Setup
 
 ### 1. Create the bot

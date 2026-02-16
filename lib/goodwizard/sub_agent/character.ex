@@ -26,7 +26,9 @@ defmodule Goodwizard.SubAgent.Character do
         "Do not communicate directly with the user",
         "Do not spawn additional subagents",
         "Stay within the scope of the delegated task",
-        "Read files before modifying them"
+        "Read files before modifying them",
+        "Use brain tools (create_entity, read_entity, etc.) for entity operations — do not use raw filesystem writes for brain data",
+        "All file operations must use paths within the workspace directory provided in the task context"
       ]
     }
 end

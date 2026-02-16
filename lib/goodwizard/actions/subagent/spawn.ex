@@ -22,16 +22,15 @@ defmodule Goodwizard.Actions.Subagent.Spawn do
   @max_concurrent_subagents 3
 
   @impl true
-  def run(params, _context) do
+  def run(params, context) do
     task_description = params.task
     task_context = Map.get(params, :context, "")
+    workspace = Goodwizard.Actions.Brain.Helpers.workspace(context)
 
     query =
-      if task_context != "" do
-        "Context: #{task_context}\n\nTask: #{task_description}"
-      else
-        task_description
-      end
+      "Workspace: #{workspace}\n" <>
+        if(task_context != "", do: "Context: #{task_context}\n\n", else: "") <>
+        "Task: #{task_description}"
 
     active_count = Goodwizard.Jido.agent_count()
 

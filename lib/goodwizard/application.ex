@@ -19,6 +19,7 @@ defmodule Goodwizard.Application do
     children = [
       Goodwizard.Config,
       Goodwizard.Cache,
+      Supervisor.child_spec({Task, &generate_brain_tools/0}, id: :brain_tools),
       Goodwizard.Jido,
       Goodwizard.Messaging,
       Goodwizard.ShutdownHandler,
@@ -41,6 +42,16 @@ defmodule Goodwizard.Application do
     end
   else
     defp maybe_add_file_logger, do: :ok
+  end
+
+  defp generate_brain_tools do
+    workspace = Goodwizard.Config.workspace()
+    alias Goodwizard.Brain.ToolGenerator
+    {:ok, modules} = ToolGenerator.generate_all(workspace)
+    Logger.info("Generated #{length(modules)} brain tools at startup")
+  rescue
+    e ->
+      Logger.warning("Brain tool generation error: #{Exception.message(e)}")
   end
 
   defp start_optional_channels do
