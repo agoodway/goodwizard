@@ -27,7 +27,11 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
     schema: [
       schedule: [type: :string, required: true, doc: "Cron expression (e.g. \"0 9 * * *\")"],
       task: [type: :string, required: true, doc: "Description of the task to execute"],
-      room_id: [type: :string, required: false, doc: "Target Messaging room identifier. Auto-resolved from agent context when omitted."],
+      room_id: [
+        type: :string,
+        required: false,
+        doc: "Target Messaging room identifier. Auto-resolved from agent context when omitted."
+      ],
       mode: [
         type: :string,
         required: false,
@@ -67,7 +71,12 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
       warn_high_frequency(schedule)
 
       message = build_message(task, room_id, mode, model)
-      hash = :crypto.hash(:sha256, "#{schedule}:#{task}:#{room_id}:#{mode}") |> Base.encode16(case: :lower) |> binary_part(0, 16)
+
+      hash =
+        :crypto.hash(:sha256, "#{schedule}:#{task}:#{room_id}:#{mode}")
+        |> Base.encode16(case: :lower)
+        |> binary_part(0, 16)
+
       job_id = :"cron_#{hash}"
       directive = Directive.cron(schedule, message, job_id: job_id)
 

@@ -63,8 +63,25 @@ defmodule Goodwizard.Application do
         Logger.warning("Config validation failed: #{Exception.message(e)} — continuing startup")
     end
 
+    reload_cron_jobs()
     maybe_start_telegram()
     maybe_start_heartbeat()
+  end
+
+  defp reload_cron_jobs do
+    case Goodwizard.Scheduling.CronLoader.reload() do
+      {:ok, count} when count > 0 ->
+        Logger.info("Reloaded #{count} persisted cron job(s)")
+
+      {:ok, 0} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Cron job reload failed: #{inspect(reason)} — continuing startup")
+    end
+  rescue
+    e ->
+      Logger.warning("Cron job reload error: #{Exception.message(e)} — continuing startup")
   end
 
   defp maybe_start_telegram do

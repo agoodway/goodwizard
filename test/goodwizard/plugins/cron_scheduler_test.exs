@@ -10,6 +10,7 @@ defmodule Goodwizard.Plugins.CronSchedulerTest do
   describe "handle_signal/2 with main mode" do
     test "routes to react.input signal override" do
       signal = make_signal(%{task: "check email", room_id: "room_1", mode: "main"})
+
       assert {:ok, {:override, {:strategy_cmd, :react_start}, new_signal}} =
                CronScheduler.handle_signal(signal, %{})
 
@@ -33,6 +34,7 @@ defmodule Goodwizard.Plugins.CronSchedulerTest do
   describe "handle_signal/2 with string keys" do
     test "reads fields from string keys" do
       signal = make_signal(%{"task" => "check email", "room_id" => "room_1", "mode" => "main"})
+
       assert {:ok, {:override, {:strategy_cmd, :react_start}, new_signal}} =
                CronScheduler.handle_signal(signal, %{})
 
@@ -43,6 +45,7 @@ defmodule Goodwizard.Plugins.CronSchedulerTest do
   describe "handle_signal/2 with nil fields" do
     test "handles nil task gracefully" do
       signal = make_signal(%{room_id: "room_1", mode: "main"})
+
       assert {:ok, {:override, {:strategy_cmd, :react_start}, new_signal}} =
                CronScheduler.handle_signal(signal, %{})
 
