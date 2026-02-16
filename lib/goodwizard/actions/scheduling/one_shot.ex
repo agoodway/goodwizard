@@ -6,7 +6,14 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   but not both. Emits a `Directive.Schedule` with a CronTick-compatible
   message payload so the existing signal pipeline processes it identically
   to recurring cron tasks.
+
+  Note: one-shot tasks cannot be cancelled after scheduling. The returned
+  `job_id` is informational only — there is no corresponding cancel action.
   """
+
+  require Logger
+
+  @max_delay_minutes 525_600
 
   use Jido.Action,
     name: "schedule_oneshot_task",
@@ -32,7 +39,8 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
     with :ok <- validate_exclusivity(delay_minutes, at),
          {:ok, delay_ms, fires_at, mode} <- compute_delay(delay_minutes, at) do
       message = %{type: "cron.task", task: task, room_id: room_id}
-      job_id = :"oneshot_#{:erlang.phash2({task, room_id, fires_at})}"
+      hash_input = if delay_minutes, do: {delay_minutes, task, room_id}, else: {at, task, room_id}
+      job_id = :"oneshot_#{:erlang.phash2(hash_input)}"
       directive = Directive.schedule(delay_ms, message)
 
       {:ok,
@@ -57,17 +65,25 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
     do: {:error, "Exactly one of delay_minutes or at must be provided — got both"}
 
   defp compute_delay(delay_minutes, nil) when is_integer(delay_minutes) do
-    if delay_minutes > 0 do
-      delay_ms = delay_minutes * 60_000
-      fires_at = DateTime.add(DateTime.utc_now(), delay_minutes, :minute)
-      {:ok, delay_ms, fires_at, "delay"}
-    else
-      {:error, "delay_minutes must be a positive integer, got: #{delay_minutes}"}
+    cond do
+      delay_minutes <= 0 ->
+        {:error, "delay_minutes must be a positive integer, got: #{inspect(delay_minutes)}"}
+
+      delay_minutes > @max_delay_minutes ->
+        {:error, "delay_minutes exceeds maximum of #{@max_delay_minutes} (1 year), got: #{inspect(delay_minutes)}"}
+
+      true ->
+        delay_ms = delay_minutes * 60_000
+        fires_at = DateTime.add(DateTime.utc_now(), delay_minutes, :minute)
+        {:ok, delay_ms, fires_at, "delay"}
     end
   end
 
   defp compute_delay(nil, at_string) when is_binary(at_string) do
     case DateTime.from_iso8601(at_string) do
+      {:ok, _at_dt, offset} when offset != 0 ->
+        {:error, "Only UTC datetimes are supported (use Z suffix), got offset: #{inspect(at_string)}"}
+
       {:ok, at_dt, _offset} ->
         now = DateTime.utc_now()
         delay_ms = DateTime.diff(at_dt, now, :millisecond)
@@ -75,11 +91,11 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
         if delay_ms > 0 do
           {:ok, delay_ms, at_dt, "at"}
         else
-          {:error, "Scheduled time is in the past: #{at_string}"}
+          {:error, "Scheduled time is in the past: #{inspect(at_string)}"}
         end
 
       {:error, _reason} ->
-        {:error, "Invalid ISO 8601 datetime: #{at_string}"}
+        {:error, "Invalid ISO 8601 datetime: #{inspect(at_string)}"}
     end
   end
 end
