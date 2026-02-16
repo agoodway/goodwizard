@@ -277,25 +277,19 @@ defmodule Goodwizard.AgentTest do
   end
 
   describe "on_before_cmd/2 rescue path" do
-    test "hydration failure uses fallback system prompt via inner rescue" do
-      import ExUnit.CaptureLog
-
-      # Create agent with nil workspace — causes hydration to fail
+    test "nil workspace still produces valid system prompt with preamble" do
+      # Hydration gracefully handles nil workspace (bootstrap files silently skip),
+      # so a valid prompt with the preamble is still produced
       agent = GoodwizardAgent.new(state: %{workspace: nil})
       agent = %{agent | state: Map.put(agent.state, :workspace, nil)}
 
       action = {:react_start, %{query: "Hello", request_id: "req_rescue"}}
 
-      log =
-        capture_log(fn ->
-          {:ok, _updated_agent, {:react_start, params}} =
-            GoodwizardAgent.on_before_cmd(agent, action)
+      {:ok, _updated_agent, {:react_start, params}} =
+        GoodwizardAgent.on_before_cmd(agent, action)
 
-          # Inner rescue catches hydration failure and uses fallback prompt
-          assert params.system_prompt == "You are a helpful AI assistant."
-        end)
-
-      assert log =~ "Hydration failed"
+      assert params.system_prompt =~ "System Orientation"
+      assert params.system_prompt =~ "Goodwizard"
     end
 
     test "outer rescue catches non-hydration errors and injects safe default prompt" do

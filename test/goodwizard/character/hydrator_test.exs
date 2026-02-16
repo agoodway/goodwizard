@@ -50,6 +50,36 @@ defmodule Goodwizard.Character.HydratorTest do
     end
   end
 
+  describe "hydrate/2 preamble" do
+    test "system prompt starts with preamble content", %{workspace: workspace} do
+      {:ok, prompt} = Hydrator.hydrate(workspace)
+      preamble = Goodwizard.Character.Preamble.generate()
+
+      assert String.starts_with?(prompt, preamble)
+    end
+
+    test "preamble is separated from character content by a blank line", %{workspace: workspace} do
+      {:ok, prompt} = Hydrator.hydrate(workspace)
+      preamble = Goodwizard.Character.Preamble.generate()
+
+      # After removing the preamble, the remaining content should start with "\n\n"
+      rest = String.replace_prefix(prompt, preamble, "")
+      assert String.starts_with?(rest, "\n\n")
+    end
+
+    test "character content follows the preamble", %{workspace: workspace} do
+      {:ok, prompt} = Hydrator.hydrate(workspace)
+
+      assert prompt =~ "System Orientation"
+      assert prompt =~ "Goodwizard"
+
+      # Preamble comes before character name
+      preamble_pos = :binary.match(prompt, "System Orientation") |> elem(0)
+      character_pos = :binary.match(prompt, "Goodwizard") |> elem(0)
+      assert preamble_pos < character_pos
+    end
+  end
+
   describe "hydrate/2 config overrides" do
     test "applies name override", %{workspace: workspace} do
       {:ok, prompt} =
