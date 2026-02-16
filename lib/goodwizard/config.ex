@@ -34,6 +34,9 @@ defmodule Goodwizard.Config do
       "enabled" => false,
       "interval_minutes" => 5
     },
+    "session" => %{
+      "max_cli_sessions" => 50
+    },
     "browser" => %{
       "headless" => true,
       "adapter" => "vibium",

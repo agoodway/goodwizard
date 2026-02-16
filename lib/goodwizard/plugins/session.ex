@@ -32,8 +32,36 @@ defmodule Goodwizard.Plugins.Session do
   require Logger
 
   @impl Jido.Plugin
-  def mount(_agent, _config) do
-    {:ok, %{created_at: DateTime.utc_now() |> DateTime.to_iso8601()}}
+  def mount(agent, _config) do
+    session_key = get_in_state(agent, :session_key)
+    workspace = get_in_state(agent, :workspace)
+
+    case load_existing_session(workspace, session_key) do
+      {:ok, loaded} ->
+        {:ok, loaded}
+
+      :skip ->
+        {:ok, %{created_at: DateTime.utc_now() |> DateTime.to_iso8601()}}
+    end
+  end
+
+  defp get_in_state(%{state: state}, key) when is_map(state), do: Map.get(state, key)
+  defp get_in_state(_, _), do: nil
+
+  defp load_existing_session(nil, _session_key), do: :skip
+  defp load_existing_session(_workspace, nil), do: :skip
+
+  defp load_existing_session(workspace, session_key) do
+    sessions_dir = Path.join(Path.expand(workspace), "sessions")
+
+    case load_session(sessions_dir, session_key) do
+      {:ok, %{messages: messages, created_at: created_at, metadata: metadata}} ->
+        Logger.info("Loaded existing session: #{session_key} (#{length(messages)} messages)")
+        {:ok, %{messages: messages, created_at: created_at, metadata: metadata}}
+
+      {:error, _} ->
+        :skip
+    end
   end
 
   @doc """
@@ -88,6 +116,47 @@ defmodule Goodwizard.Plugins.Session do
     session = Map.get(state, :session, %{})
     updated_session = Map.put(session, :messages, [])
     Map.put(state, :session, updated_session)
+  end
+
+  @doc """
+  Clean up old CLI session files beyond the configured retention limit.
+
+  Lists all `cli-direct-*.jsonl` files in the sessions directory, sorts by
+  modification time (newest first), and deletes files beyond the limit.
+  Non-CLI session files are never touched. Deletion errors are logged as
+  warnings and do not prevent the function from continuing.
+  """
+  @spec cleanup_old_sessions() :: :ok
+  def cleanup_old_sessions do
+    sessions_dir = Goodwizard.Config.sessions_dir()
+    max = Goodwizard.Config.get(["session", "max_cli_sessions"]) || 50
+
+    cli_pattern = Path.join(sessions_dir, "cli-direct-*.jsonl")
+
+    files =
+      Path.wildcard(cli_pattern)
+      |> Enum.map(fn path ->
+        case File.stat(path) do
+          {:ok, %{mtime: mtime}} -> {path, mtime}
+          _ -> nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.sort_by(fn {_path, mtime} -> mtime end, :desc)
+
+    excess = Enum.drop(files, max)
+
+    Enum.each(excess, fn {path, _mtime} ->
+      case File.rm(path) do
+        :ok ->
+          Logger.debug("Cleaned up old session: #{Path.basename(path)}")
+
+        {:error, reason} ->
+          Logger.warning("Failed to delete session file #{path}: #{inspect(reason)}")
+      end
+    end)
+
+    :ok
   end
 
   @doc """

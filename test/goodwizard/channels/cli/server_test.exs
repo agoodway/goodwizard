@@ -51,6 +51,22 @@ defmodule Goodwizard.Channels.CLI.ServerTest do
 
       assert state.workspace == workspace
     end
+
+    test "sets timestamped session_key in agent initial state", %{workspace: workspace} do
+      before_ts = System.os_time(:second)
+      {:ok, pid} = Server.start_link(workspace: workspace, start_repl: false)
+      after_ts = System.os_time(:second)
+      state = Server.get_state(pid)
+
+      {:ok, server_state} = Jido.AgentServer.state(state.agent_pid)
+      session_key = server_state.agent.state.session_key
+
+      assert String.starts_with?(session_key, "cli-direct-")
+      ts_str = String.replace_prefix(session_key, "cli-direct-", "")
+      {ts, ""} = Integer.parse(ts_str)
+      assert ts >= before_ts
+      assert ts <= after_ts
+    end
   end
 
   describe "send_input/2" do

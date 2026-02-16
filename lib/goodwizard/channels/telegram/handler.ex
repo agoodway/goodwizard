@@ -163,6 +163,7 @@ defmodule Goodwizard.Channels.Telegram.Handler do
              workspace: workspace,
              channel: "telegram",
              chat_id: "#{chat_id}",
+             session_key: "telegram-#{chat_id}",
              character_overrides: overrides
            }
          ) do
