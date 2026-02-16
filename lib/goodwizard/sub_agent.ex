@@ -51,7 +51,7 @@ defmodule Goodwizard.SubAgent do
 
     system_prompt = Jido.Character.to_system_prompt(character)
     action = {:react_start, Map.put(params, :system_prompt, system_prompt)}
-    {:ok, agent, action}
+    super(agent, action)
   end
 
   @impl true

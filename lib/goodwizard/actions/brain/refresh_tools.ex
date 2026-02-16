@@ -17,17 +17,11 @@ defmodule Goodwizard.Actions.Brain.RefreshTools do
   alias Goodwizard.Brain.ToolGenerator
 
   @impl true
-  @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
+  @spec run(map(), map()) :: {:ok, map()}
   def run(_params, context) do
     workspace = Helpers.workspace(context)
-
-    case ToolGenerator.generate_all(workspace) do
-      {:ok, modules} ->
-        tool_names = Enum.map(modules, & &1.name())
-        {:ok, %{message: "Regenerated #{length(modules)} brain tools", tools: tool_names}}
-
-      {:error, reason} ->
-        {:error, "Failed to regenerate brain tools: #{inspect(reason)}"}
-    end
+    {:ok, modules} = ToolGenerator.generate_all(workspace)
+    tool_names = Enum.map(modules, & &1.name())
+    {:ok, %{message: "Regenerated #{length(modules)} brain tools", tools: tool_names}}
   end
 end

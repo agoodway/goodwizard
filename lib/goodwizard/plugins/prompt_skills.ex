@@ -90,7 +90,7 @@ defmodule Goodwizard.Plugins.PromptSkills do
     """
     ## Available Skills
 
-    Skills can be activated with the activate_skill tool when relevant.
+    IMPORTANT: Before using browser tools or shell commands for a task, check if a skill below already handles it. Skills are faster, more reliable, and use fewer iterations than browser scraping. Activate a matching skill first with the activate_skill tool, then follow its instructions.
 
     #{Enum.join(entries, "\n")}\
     """

@@ -19,7 +19,7 @@ defmodule Goodwizard.Actions.Subagent.Spawn do
   alias Goodwizard.SubAgent
 
   @ask_timeout 120_000
-  @max_concurrent_subagents 3
+  @max_concurrent_subagents 50
 
   @impl true
   def run(params, context) do
