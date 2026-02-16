@@ -113,5 +113,35 @@ defmodule Goodwizard.Plugins.SessionCleanupTest do
       # Clean up the directory we created
       File.rm_rf!(oldest)
     end
+
+    test "returns :ok for empty sessions directory", %{sessions_dir: sessions_dir} do
+      # sessions_dir exists but has no files
+      assert [] = Path.wildcard(Path.join(sessions_dir, "cli-direct-*.jsonl"))
+      assert :ok = Session.cleanup_old_sessions()
+    end
+
+    test "returns :ok when sessions directory does not exist" do
+      # Point Config at a nonexistent workspace
+      nonexistent = Path.join(System.tmp_dir!(), "gw_nonexistent_#{System.unique_integer([:positive])}")
+      Goodwizard.Config.put(["agent", "workspace"], nonexistent)
+
+      refute File.exists?(Path.join(nonexistent, "sessions"))
+      assert :ok = Session.cleanup_old_sessions()
+    end
+
+    test "keeps all files when exactly at limit", %{sessions_dir: sessions_dir} do
+      Goodwizard.Config.put(["session", "max_cli_sessions"], 3)
+
+      for i <- 1..3 do
+        path = Path.join(sessions_dir, "cli-direct-500000#{i}.jsonl")
+        File.write!(path, "{\"key\":\"test\"}\n")
+        File.touch!(path, {{2026, 1, 1}, {0, i, 0}})
+      end
+
+      Session.cleanup_old_sessions()
+
+      remaining = Path.wildcard(Path.join(sessions_dir, "cli-direct-*.jsonl"))
+      assert length(remaining) == 3
+    end
   end
 end

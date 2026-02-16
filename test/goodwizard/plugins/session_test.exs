@@ -65,6 +65,23 @@ defmodule Goodwizard.Plugins.SessionTest do
       assert is_binary(plugin_state.created_at)
       refute Map.has_key?(plugin_state, :messages)
     end
+
+    test "starts fresh when session file is corrupted" do
+      workspace = Path.join(System.tmp_dir!(), "gw_mount_corrupt_#{System.unique_integer([:positive])}")
+      sessions_dir = Path.join(workspace, "sessions")
+      File.mkdir_p!(sessions_dir)
+
+      session_key = "cli-direct-corrupted"
+      File.write!(Path.join(sessions_dir, "cli-direct-corrupted.jsonl"), "this is not json at all\ngarbage\n")
+
+      agent = %{state: %{session_key: session_key, workspace: workspace}}
+      {:ok, plugin_state} = Session.mount(agent, %{})
+
+      assert is_binary(plugin_state.created_at)
+      assert {:ok, _, _} = DateTime.from_iso8601(plugin_state.created_at)
+
+      File.rm_rf!(workspace)
+    end
   end
 
   describe "add_message/4" do

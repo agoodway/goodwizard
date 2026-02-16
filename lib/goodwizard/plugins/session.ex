@@ -7,6 +7,7 @@ defmodule Goodwizard.Plugins.Session do
   """
 
   @max_messages 200
+  @max_file_size 10 * 1024 * 1024
   @valid_roles ~w(user assistant system tool)
 
   use Jido.Plugin,
@@ -41,7 +42,7 @@ defmodule Goodwizard.Plugins.Session do
         {:ok, loaded}
 
       :skip ->
-        {:ok, %{created_at: DateTime.utc_now() |> DateTime.to_iso8601()}}
+        {:ok, %{created_at: DateTime.utc_now() |> DateTime.to_iso8601(), metadata: %{}}}
     end
   end
 
@@ -52,7 +53,7 @@ defmodule Goodwizard.Plugins.Session do
   defp load_existing_session(_workspace, nil), do: :skip
 
   defp load_existing_session(workspace, session_key) do
-    sessions_dir = Path.join(Path.expand(workspace), "sessions")
+    sessions_dir = Path.join(workspace, "sessions")
 
     case load_session(sessions_dir, session_key) do
       {:ok, %{messages: messages, created_at: created_at, metadata: metadata}} ->
@@ -131,6 +132,8 @@ defmodule Goodwizard.Plugins.Session do
     sessions_dir = Goodwizard.Config.sessions_dir()
     max = Goodwizard.Config.get(["session", "max_cli_sessions"]) || 50
 
+    # Only CLI sessions are cleaned up. Telegram sessions use stable chat-based keys
+    # (one file per chat) and don't accumulate unbounded files like CLI sessions do.
     cli_pattern = Path.join(sessions_dir, "cli-direct-*.jsonl")
 
     files =
@@ -146,13 +149,22 @@ defmodule Goodwizard.Plugins.Session do
 
     excess = Enum.drop(files, max)
 
-    Enum.each(excess, fn {path, _mtime} ->
-      case File.rm(path) do
-        :ok ->
-          Logger.debug("Cleaned up old session: #{Path.basename(path)}")
+    Enum.each(excess, fn {path, original_mtime} ->
+      case File.stat(path) do
+        {:ok, %{mtime: ^original_mtime}} ->
+          case File.rm(path) do
+            :ok ->
+              Logger.debug("Cleaned up old session: #{Path.basename(path)}")
 
-        {:error, reason} ->
-          Logger.warning("Failed to delete session file #{path}: #{inspect(reason)}")
+            {:error, reason} ->
+              Logger.warning("Failed to delete session file #{path}: #{inspect(reason)}")
+          end
+
+        {:ok, _} ->
+          Logger.debug("Skipping #{Path.basename(path)}: modified since listing")
+
+        {:error, _} ->
+          :ok
       end
     end)
 
@@ -197,15 +209,24 @@ defmodule Goodwizard.Plugins.Session do
 
       content = Enum.join([metadata_line | message_lines], "\n") <> "\n"
 
-      case File.write(path, content) do
-        :ok ->
-          File.chmod(path, 0o600)
-          Logger.debug("Session saved: #{session_key} (#{length(messages)} messages)")
-          :ok
+      if byte_size(content) > @max_file_size do
+        Logger.warning("Session file too large (#{byte_size(content)} bytes), skipping save for #{session_key}")
+        {:error, :file_too_large}
+      else
+        case File.write(path, content) do
+          :ok ->
+            case File.chmod(path, 0o600) do
+              :ok -> :ok
+              {:error, reason} -> Logger.warning("Failed to chmod session file #{path}: #{inspect(reason)}")
+            end
 
-        error ->
-          Logger.error("Failed to write session file #{path}: #{inspect(error)}")
-          error
+            Logger.debug("Session saved: #{session_key} (#{length(messages)} messages)")
+            :ok
+
+          error ->
+            Logger.error("Failed to write session file #{path}: #{inspect(error)}")
+            error
+        end
       end
     end
   end
@@ -219,17 +240,24 @@ defmodule Goodwizard.Plugins.Session do
   """
   @spec load_session(String.t(), String.t()) ::
           {:ok, %{messages: [map()], created_at: String.t(), metadata: map()}}
-          | {:error, :not_found | :corrupted}
+          | {:error, :not_found | :corrupted | :file_too_large}
   def load_session(sessions_dir, session_key) do
     with {:ok, filename} <- safe_filename(sessions_dir, session_key) do
       path = Path.join(sessions_dir, filename)
 
-      case File.read(path) do
-        {:ok, content} ->
-          parse_session_file(content)
+      case File.stat(path) do
+        {:ok, %{size: size}} when size > @max_file_size ->
+          Logger.warning("Session file too large (#{size} bytes), skipping load for #{session_key}")
+          {:error, :file_too_large}
 
-        {:error, _reason} ->
-          {:error, :not_found}
+        _ ->
+          case File.read(path) do
+            {:ok, content} ->
+              parse_session_file(content)
+
+            {:error, _reason} ->
+              {:error, :not_found}
+          end
       end
     end
   end
@@ -289,7 +317,7 @@ defmodule Goodwizard.Plugins.Session do
     sanitized = sanitize_key(session_key)
 
     if sanitized == "" do
-      {:error, "Invalid session key"}
+      {:error, :invalid_session_key}
     else
       filename = sanitized <> ".jsonl"
       full_path = Path.expand(Path.join(sessions_dir, filename))
@@ -298,7 +326,7 @@ defmodule Goodwizard.Plugins.Session do
       if String.starts_with?(full_path, expanded_dir <> "/") do
         {:ok, filename}
       else
-        {:error, "Session key resolves outside sessions directory"}
+        {:error, :path_traversal}
       end
     end
   end
