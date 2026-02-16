@@ -213,6 +213,9 @@ defmodule Goodwizard.Agent do
         {agent, session}
 
       _ ->
+        # Stop any stale vibium daemon before creating a new session
+        stop_stale_daemon()
+
         case JidoBrowser.start_session(headless: true) do
           {:ok, session} ->
             agent = %{agent | state: put_in(agent.state, [:browser, :session], session)}
@@ -224,6 +227,32 @@ defmodule Goodwizard.Agent do
             {agent, nil}
         end
     end
+  end
+
+  defp stop_stale_daemon do
+    vibium_config = Application.get_env(:jido_browser, :vibium, [])
+    wrapper_path = Keyword.get(vibium_config, :binary_path)
+
+    if wrapper_path && File.exists?(wrapper_path) do
+      # The wrapper adds --oneshot which bypasses the daemon entirely,
+      # but stop any lingering daemon from previous non-oneshot runs.
+      # Read the wrapper to find the real binary path.
+      case File.read(wrapper_path) do
+        {:ok, content} ->
+          case Regex.run(~r/exec "(.+)" --oneshot/, content) do
+            [_, real_binary] ->
+              System.cmd(real_binary, ["daemon", "stop"], stderr_to_stdout: true)
+
+            _ ->
+              :ok
+          end
+
+        _ ->
+          :ok
+      end
+    end
+  rescue
+    _ -> :ok
   end
 
   defp maybe_consolidate(agent) do

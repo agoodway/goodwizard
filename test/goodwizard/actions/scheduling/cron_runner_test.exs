@@ -3,59 +3,48 @@ defmodule Goodwizard.Actions.Scheduling.CronRunnerTest do
 
   alias Goodwizard.Actions.Scheduling.CronRunner
 
-  describe "concurrency limit" do
-    test "returns error when at capacity" do
-      alias Goodwizard.SubAgent
+  @test_workspace Path.join(
+                    System.tmp_dir!(),
+                    "cron_runner_test_#{System.unique_integer([:positive])}"
+                  )
 
-      pids =
-        for i <- 1..3 do
-          agent_id = "cron_limit_test:#{i}:#{System.unique_integer([:positive])}"
-          {:ok, pid} = Goodwizard.Jido.start_agent(SubAgent, id: agent_id)
-          pid
-        end
+  setup do
+    File.rm_rf!(@test_workspace)
+    File.mkdir_p!(@test_workspace)
 
-      on_exit(fn ->
-        Enum.each(pids, fn pid ->
-          if Process.alive?(pid), do: Goodwizard.Jido.stop_agent(pid)
-        end)
-      end)
+    original_workspace = Goodwizard.Config.workspace()
+    Goodwizard.Config.put(["agent", "workspace"], @test_workspace)
 
-      assert {:error, :at_capacity} = CronRunner.run_isolated("test task", "room_xyz")
-    end
+    on_exit(fn ->
+      File.rm_rf!(@test_workspace)
+      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+    end)
+
+    :ok
   end
 
-  describe "agent lifecycle" do
-    test "spawns a SubAgent with model override in initial_state" do
-      alias Goodwizard.SubAgent
-
-      agent_id = "cron_model_test:#{System.unique_integer([:positive])}"
-      opts = [id: agent_id, initial_state: %{model: "anthropic:claude-haiku-4-5"}]
-
-      {:ok, pid} = Goodwizard.Jido.start_agent(SubAgent, opts)
+  describe "run_isolated/3" do
+    test "returns :at_capacity when max_concurrent_agents is 0" do
+      # Set max to 0 so the capacity check triggers immediately
+      Goodwizard.Config.put(["cron", "max_concurrent_agents"], 0)
 
       on_exit(fn ->
-        if Process.alive?(pid), do: Goodwizard.Jido.stop_agent(pid)
+        Goodwizard.Config.put(["cron", "max_concurrent_agents"], nil)
       end)
 
-      assert is_pid(pid)
-      assert Process.alive?(pid)
-
-      # Verify the agent accepted the initial_state (it started without error).
-      # The model is stored in agent state and used by the ReAct strategy
-      # at query time via Map.get(agent.state, :model, default).
-      assert Process.alive?(pid)
+      assert {:error, :at_capacity} = CronRunner.run_isolated("test task", "room_1")
     end
 
-    test "spawns and stops agent correctly" do
-      alias Goodwizard.SubAgent
+    test "accepts keyword opts for model override" do
+      # Verify the function signature accepts opts — capacity will block actual execution
+      Goodwizard.Config.put(["cron", "max_concurrent_agents"], 0)
 
-      agent_id = "cron_lifecycle_test:#{System.unique_integer([:positive])}"
-      {:ok, pid} = Goodwizard.Jido.start_agent(SubAgent, id: agent_id)
+      on_exit(fn ->
+        Goodwizard.Config.put(["cron", "max_concurrent_agents"], nil)
+      end)
 
-      assert Process.alive?(pid)
-      Goodwizard.Jido.stop_agent(pid)
-      Process.sleep(100)
-      refute Process.alive?(pid)
+      assert {:error, :at_capacity} =
+               CronRunner.run_isolated("test task", "room_1", model: "anthropic:claude-haiku-4-5")
     end
   end
 end

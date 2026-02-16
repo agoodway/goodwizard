@@ -29,7 +29,7 @@ defmodule Goodwizard.Scheduling.CronLoaderTest do
   describe "reload/0" do
     test "reloads valid persisted jobs" do
       CronStore.save(%{
-        job_id: :cron_reload1,
+        job_id: :cron_aa11bb22cc33dd44,
         schedule: "0 9 * * *",
         task: "morning check",
         room_id: "cli:main",
@@ -38,7 +38,7 @@ defmodule Goodwizard.Scheduling.CronLoaderTest do
       })
 
       CronStore.save(%{
-        job_id: :cron_reload2,
+        job_id: :cron_ee55ff66aa77bb88,
         schedule: "*/5 * * * *",
         task: "poll status",
         room_id: "cli:heartbeat",
@@ -62,7 +62,7 @@ defmodule Goodwizard.Scheduling.CronLoaderTest do
 
     test "skips malformed files and continues", %{cron_dir: cron_dir} do
       CronStore.save(%{
-        job_id: :cron_good_reload,
+        job_id: :cron_1122334455667788,
         schedule: "0 9 * * *",
         task: "valid task",
         room_id: "cli:main",
@@ -88,7 +88,7 @@ defmodule Goodwizard.Scheduling.CronLoaderTest do
 
       # Also add a valid job
       CronStore.save(%{
-        job_id: :cron_complete,
+        job_id: :cron_aabbccdd11223344,
         schedule: "0 9 * * *",
         task: "has schedule",
         room_id: "cli:main",
@@ -101,7 +101,7 @@ defmodule Goodwizard.Scheduling.CronLoaderTest do
 
     test "handles reload with model override" do
       CronStore.save(%{
-        job_id: :cron_with_model,
+        job_id: :cron_99887766aabbccdd,
         schedule: "@daily",
         task: "daily report",
         room_id: "cli:main",

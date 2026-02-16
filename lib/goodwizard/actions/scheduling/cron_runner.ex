@@ -36,9 +36,7 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
   """
   @spec run_isolated(String.t(), String.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def run_isolated(task, room_id, opts \\ []) do
-    # Serialize the capacity check + agent spawn to prevent TOCTOU races.
-    # :global.trans ensures only one caller at a time enters this section.
-    case :global.trans({__MODULE__, :spawn_lock}, fn -> try_spawn(task, room_id, opts) end) do
+    case try_spawn(task, room_id, opts) do
       {:ok, pid, query, room_id} -> run_query_and_save(pid, query, room_id)
       {:error, _} = error -> error
     end
@@ -113,32 +111,42 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
   end
 
   defp save_response(room_id, response) do
-    case Messaging.save_message(%{
-           room_id: room_id,
-           sender_id: "cron:isolated",
-           role: :assistant,
-           content: [%{type: "text", text: response}]
-         }) do
-      {:ok, _msg} ->
-        :ok
-
-      {:error, reason} ->
-        Logger.warning("Failed to save cron response to room #{room_id}: #{inspect(reason)}")
-    end
+    save_message_with_retry(room_id, %{
+      room_id: room_id,
+      sender_id: "cron:isolated",
+      role: :assistant,
+      content: [%{type: "text", text: response}]
+    })
   end
 
   defp save_error_message(room_id, message) do
-    case Messaging.save_message(%{
-           room_id: room_id,
-           sender_id: "cron:isolated",
-           role: :assistant,
-           content: [%{type: "text", text: "[Cron Error] #{message}"}]
-         }) do
+    save_message_with_retry(room_id, %{
+      room_id: room_id,
+      sender_id: "cron:isolated",
+      role: :assistant,
+      content: [%{type: "text", text: "[Cron Error] #{message}"}]
+    })
+  end
+
+  @max_save_retries 2
+
+  defp save_message_with_retry(room_id, msg, attempt \\ 1) do
+    case Messaging.save_message(msg) do
       {:ok, _msg} ->
         :ok
 
+      {:error, reason} when attempt < @max_save_retries ->
+        Logger.warning(
+          "Failed to save message to room #{room_id} (attempt #{attempt}/#{@max_save_retries}): #{inspect(reason)}"
+        )
+
+        Process.sleep(100 * attempt)
+        save_message_with_retry(room_id, msg, attempt + 1)
+
       {:error, reason} ->
-        Logger.warning("Failed to save cron error to room #{room_id}: #{inspect(reason)}")
+        Logger.error(
+          "Failed to save message to room #{room_id} after #{@max_save_retries} attempts: #{inspect(reason)}"
+        )
     end
   end
 

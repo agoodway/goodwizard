@@ -74,10 +74,16 @@ defmodule Goodwizard.Config do
     get([Atom.to_string(key)])
   end
 
-  @doc "Sets a value at the given key path. Intended for testing."
+  @doc "Sets a value at the given key path. Only available in the test environment."
   @spec put([String.t()], term()) :: :ok
-  def put(key_path, value) when is_list(key_path) do
-    GenServer.call(__MODULE__, {:put, key_path, value})
+  if Mix.env() == :test do
+    def put(key_path, value) when is_list(key_path) do
+      GenServer.call(__MODULE__, {:put, key_path, value})
+    end
+  else
+    def put(_key_path, _value) do
+      raise "Config.put/2 is only available in the test environment"
+    end
   end
 
   @doc "Returns the expanded workspace path."
@@ -259,25 +265,32 @@ defmodule Goodwizard.Config do
     Application.put_env(:jido_browser, :adapter, adapter_module)
 
     # Resolve vibium binary path — the npm package ships "vibium" not "clicker"
+    # We wrap the real binary with --oneshot so each invocation launches a fresh
+    # Chrome instance instead of connecting to a daemon (avoids stale-pipe errors).
     case find_vibium_binary() do
       {:ok, path} ->
-        Application.put_env(:jido_browser, :vibium, binary_path: path)
+        wrapper = create_oneshot_wrapper(path)
+        Application.put_env(:jido_browser, :vibium, binary_path: wrapper)
 
       :error ->
         Logger.warning("Vibium binary not found. Browser actions will fail. Install with: npm install -g vibium @vibium/darwin-arm64")
     end
   end
 
-  defp find_vibium_binary do
-    # 1. Check explicit config
-    case get_in(Process.get(:goodwizard_config) || %{}, ["browser", "vibium_path"]) do
-      path when is_binary(path) and path != "" ->
-        if File.exists?(path), do: {:ok, path}, else: :error
+  defp create_oneshot_wrapper(real_binary) do
+    wrapper_dir = Path.join(System.tmp_dir!(), "goodwizard")
+    File.mkdir_p!(wrapper_dir)
+    wrapper_path = Path.join(wrapper_dir, "vibium-oneshot")
 
-      _ ->
-        # 2. Check npm global install (binary is named "vibium", not "clicker")
-        find_vibium_from_npm() || find_vibium_in_path()
-    end
+    content = "#!/bin/bash\nexec \"#{real_binary}\" --oneshot \"$@\"\n"
+
+    File.write!(wrapper_path, content)
+    File.chmod!(wrapper_path, 0o755)
+    wrapper_path
+  end
+
+  defp find_vibium_binary do
+    find_vibium_from_npm() || find_vibium_in_path()
   end
 
   defp find_vibium_from_npm do

@@ -26,15 +26,17 @@ defmodule Goodwizard.Actions.Scheduling.CancelCron do
     # Delete the persisted file (idempotent — :ok if missing)
     CronStore.delete(job_id)
 
-    # Always emit cancel directive to handle orphaned in-memory jobs
-    atom_id =
+    # Use the string directly for the cancel directive — Jido accepts term().
+    # Attempt to resolve to an existing atom (matching the original registration),
+    # but never create new atoms from user input to avoid atom table exhaustion.
+    cancel_id =
       try do
         String.to_existing_atom(job_id)
       rescue
-        ArgumentError -> String.to_atom(job_id)
+        ArgumentError -> job_id
       end
 
-    directive = Directive.cron_cancel(atom_id)
-    {:ok, %{cancelled: true, job_id: atom_id}, [directive]}
+    directive = Directive.cron_cancel(cancel_id)
+    {:ok, %{cancelled: true, job_id: cancel_id}, [directive]}
   end
 end
