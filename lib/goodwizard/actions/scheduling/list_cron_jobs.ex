@@ -46,7 +46,7 @@ defmodule Goodwizard.Actions.Scheduling.ListCronJobs do
 
   defp get_cron_jobs(agent_id) do
     case Jido.AgentServer.state(agent_id) do
-      {:ok, state} -> {:ok, state.cron_jobs || %{}}
+      {:ok, state} -> {:ok, Map.get(state, :cron_jobs, %{})}
       {:error, _} = err -> err
     end
   end

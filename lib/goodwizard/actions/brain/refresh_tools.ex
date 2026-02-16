@@ -9,8 +9,8 @@ defmodule Goodwizard.Actions.Brain.RefreshTools do
   use Jido.Action,
     name: "refresh_brain_tools",
     description:
-      "Regenerate typed brain tools after schema changes. " <>
-        "Call after save_schema to pick up new or modified entity types.",
+      "Regenerate typed brain tools when schemas were changed outside the agent " <>
+        "(e.g. manual file edits, git pulls). Not needed after save_schema, which auto-regenerates.",
     schema: []
 
   alias Goodwizard.Actions.Brain.Helpers
@@ -20,8 +20,14 @@ defmodule Goodwizard.Actions.Brain.RefreshTools do
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(_params, context) do
     workspace = Helpers.workspace(context)
-    {:ok, modules} = ToolGenerator.generate_all(workspace)
-    tool_names = Enum.map(modules, & &1.name())
-    {:ok, %{message: "Regenerated #{length(modules)} brain tools", tools: tool_names}}
+
+    case ToolGenerator.generate_all(workspace) do
+      {:ok, modules} ->
+        tool_names = Enum.map(modules, & &1.name())
+        {:ok, %{message: "Regenerated #{length(modules)} brain tools", tools: tool_names}}
+
+      {:error, reason} ->
+        {:error, "Failed to regenerate brain tools: #{inspect(reason)}"}
+    end
   end
 end

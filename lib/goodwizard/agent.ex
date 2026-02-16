@@ -30,8 +30,10 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Scheduling.Cron,
       Goodwizard.Actions.Scheduling.CancelCron,
       Goodwizard.Actions.Scheduling.ListCronJobs,
-      # Brain (typed create/update tools are registered dynamically)
+      # Brain (typed create/update tools are registered dynamically, generics are fallbacks)
       Goodwizard.Actions.Brain.ReadEntity,
+      Goodwizard.Actions.Brain.CreateEntity,
+      Goodwizard.Actions.Brain.UpdateEntity,
       Goodwizard.Actions.Brain.DeleteEntity,
       Goodwizard.Actions.Brain.ListEntities,
       Goodwizard.Actions.Brain.GetSchema,
@@ -55,6 +57,8 @@ defmodule Goodwizard.Agent do
   alias Goodwizard.Character.Hydrator
   alias Goodwizard.Plugins.Session
   alias Jido.Agent.Strategy.State, as: StratState
+  alias Jido.AI.Strategy.StateOpsHelpers
+  alias Jido.AI.ToolAdapter
 
   @impl true
   def on_before_cmd(agent, {:react_start, %{query: _query}} = action) do
@@ -180,9 +184,6 @@ defmodule Goodwizard.Agent do
   end
 
   defp maybe_register_brain_tools(agent) do
-    alias Jido.AI.Strategy.StateOpsHelpers
-    alias Jido.AI.ToolAdapter
-
     desired_modules = ToolGenerator.generated_modules()
 
     state = StratState.get(agent, %{})

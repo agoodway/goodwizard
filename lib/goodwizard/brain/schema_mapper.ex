@@ -8,6 +8,7 @@ defmodule Goodwizard.Brain.SchemaMapper do
   """
 
   @system_fields ~w(id created_at updated_at)
+  @valid_property_name ~r/^[a-z][a-z0-9_]{0,63}$/
 
   @doc """
   Builds a Jido Action schema for a create action.
@@ -15,27 +16,31 @@ defmodule Goodwizard.Brain.SchemaMapper do
   Excludes system fields, marks schema-required fields as required,
   and appends an optional `body` field.
   """
-  @spec for_create(map()) :: keyword()
+  @spec for_create(map()) :: {:ok, keyword()} | {:error, String.t()}
   def for_create(schema_map) do
     properties = Map.get(schema_map, "properties", %{})
     required = MapSet.new(Map.get(schema_map, "required", []))
 
-    properties
-    |> Enum.reject(fn {name, _} -> name in @system_fields end)
-    |> Enum.sort_by(fn {name, _} -> name end)
-    |> Enum.map(fn {name, prop} ->
-      opts = map_property(prop)
+    with {:ok, fields} <- validate_and_map_properties(properties, @system_fields) do
+      schema =
+        fields
+        |> Enum.sort_by(fn {name, _} -> name end)
+        |> Enum.map(fn {atom_name, {str_name, prop}} ->
+          opts = map_property(prop)
 
-      opts =
-        if MapSet.member?(required, name) and name not in @system_fields do
-          Keyword.put(opts, :required, true)
-        else
-          opts
-        end
+          opts =
+            if MapSet.member?(required, str_name) and str_name not in @system_fields do
+              Keyword.put(opts, :required, true)
+            else
+              opts
+            end
 
-      {String.to_atom(name), opts}
-    end)
-    |> Kernel.++([{:body, [type: :string, default: "", doc: "Optional markdown body content"]}])
+          {atom_name, opts}
+        end)
+        |> Kernel.++([{:body, [type: :string, default: "", doc: "Optional markdown body content"]}])
+
+      {:ok, schema}
+    end
   end
 
   @doc """
@@ -44,22 +49,44 @@ defmodule Goodwizard.Brain.SchemaMapper do
   Prepends a required `id` field, includes all entity fields as optional
   (excluding system fields), and appends an optional `body` field.
   """
-  @spec for_update(map()) :: keyword()
+  @spec for_update(map()) :: {:ok, keyword()} | {:error, String.t()}
   def for_update(schema_map) do
     properties = Map.get(schema_map, "properties", %{})
 
-    entity_fields =
+    with {:ok, fields} <- validate_and_map_properties(properties, @system_fields) do
+      entity_fields =
+        fields
+        |> Enum.sort_by(fn {name, _} -> name end)
+        |> Enum.map(fn {atom_name, {_str_name, prop}} ->
+          {atom_name, map_property(prop)}
+        end)
+
+      schema =
+        [{:id, [type: :string, required: true, doc: "The entity ID to update"]} | entity_fields]
+        |> Kernel.++([
+          {:body, [type: :string, doc: "Optional new markdown body content (nil preserves existing)"]}
+        ])
+
+      {:ok, schema}
+    end
+  end
+
+  defp validate_and_map_properties(properties, system_fields) do
+    result =
       properties
-      |> Enum.reject(fn {name, _} -> name in @system_fields end)
-      |> Enum.sort_by(fn {name, _} -> name end)
-      |> Enum.map(fn {name, prop} ->
-        {String.to_atom(name), map_property(prop)}
+      |> Enum.reject(fn {name, _} -> name in system_fields end)
+      |> Enum.reduce_while([], fn {name, prop}, acc ->
+        if Regex.match?(@valid_property_name, name) do
+          {:cont, [{String.to_atom(name), {name, prop}} | acc]}
+        else
+          {:halt, {:error, "Invalid property name: #{inspect(name)}. Names must match [a-z][a-z0-9_]* and be at most 64 characters."}}
+        end
       end)
 
-    [{:id, [type: :string, required: true, doc: "The entity ID to update"]} | entity_fields]
-    |> Kernel.++([
-      {:body, [type: :string, doc: "Optional new markdown body content (nil preserves existing)"]}
-    ])
+    case result do
+      {:error, _} = err -> err
+      fields -> {:ok, fields}
+    end
   end
 
   @doc false

@@ -9,10 +9,11 @@ The `Paths` module exposes `counter_path/1` for the counter file location.
 ## Goals / Non-Goals
 
 **Goals:**
-- Replace sqids ID generation with UUID v4 (`UUID.uuid4()` from Elixir stdlib — no external dependency needed since Elixir ships with `:crypto`)
+- Replace sqids ID generation with UUIDv7 (`Uniq.UUID.uuid7()` via the `uniq` hex package)
+- Gain time-ordered IDs for natural chronological sorting and cross-agent sync
 - Simplify `Goodwizard.Brain.Id` to just generation and validation (remove counter, locking, recovery)
 - Update all schema patterns to match UUID format
-- Remove the `sqids` hex dependency
+- Replace the `sqids` hex dependency with `uniq`
 
 **Non-Goals:**
 - No migration of existing sqids-based entities — this is a clean break
@@ -21,15 +22,20 @@ The `Paths` module exposes `counter_path/1` for the counter file location.
 
 ## Decisions
 
-**1. Use Elixir's built-in UUID generation**
+**1. Use the `uniq` hex package for UUIDv7 generation**
 
-Elixir provides UUID v4 generation without external dependencies. The implementation is a simple call — no counter file, no locking, no recovery logic needed.
+Elixir's stdlib provides UUID v4 but not v7. The `uniq` package by bitwalker supports UUID v1, v4, v6, and v7 with a clean API (`Uniq.UUID.uuid7/0`). UUIDv7 embeds a millisecond-precision Unix timestamp in the first 48 bits, making IDs time-ordered — entities created later have lexicographically greater IDs. This is valuable for:
+- Cross-agent sync (merge ordering is implicit in the ID)
+- File listings sorted by name are also sorted by creation time
+- Debugging (you can eyeball when an entity was created)
 
-Alternative considered: `elixir_uuid` or `uniq` hex packages — rejected because stdlib is sufficient and avoids adding a dependency to replace one.
+Alternative considered: Implementing UUIDv7 manually with `:crypto.strong_rand_bytes/1` — rejected because `uniq` is well-maintained, tested, and handles the spec correctly.
 
-**2. UUID pattern: standard 8-4-4-4-12 lowercase hex with hyphens**
+Alternative considered: UUID v4 via stdlib — rejected because v7's time-ordering is a meaningful advantage for sync scenarios at no extra complexity cost.
 
-The UUID format is `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`. This is the canonical UUID string representation.
+**2. UUID pattern: standard 8-4-4-4-12 lowercase hex with hyphens (generic validation)**
+
+For validation, use the general UUID pattern `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$` rather than a v7-specific pattern. This keeps validation lenient — if we encounter UUIDs from external sources or future versions, they'll still pass. Generation always produces v7, but validation accepts any well-formed UUID.
 
 Entity reference patterns become:
 - Typed: `^companies/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`
@@ -54,3 +60,5 @@ Existing entity files with sqids-format IDs and filenames won't match the new UU
 **[Existing data invalidated]** → Intentional clean break. Existing brain directories should be cleared before using the updated code.
 
 **[`generate/1` still takes workspace param]** → Slight API oddity since UUIDs don't need filesystem access, but avoids a breaking change to callers. The param is simply ignored.
+
+**[New dependency: `uniq`]** → Replaces `sqids`, so net dependency count is unchanged. `uniq` is well-maintained and widely used in the Elixir ecosystem.
