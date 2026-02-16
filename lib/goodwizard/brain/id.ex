@@ -6,7 +6,7 @@ defmodule Goodwizard.Brain.Id do
   using UUIDv7 via the `uniq` hex package.
   """
 
-  @id_pattern_string "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+  @id_pattern_string "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
   @id_pattern Regex.compile!(@id_pattern_string)
 
   @doc "Returns the ID pattern string for use in JSON Schema definitions."
@@ -16,14 +16,24 @@ defmodule Goodwizard.Brain.Id do
   @doc """
   Generates a new unique UUIDv7 ID.
 
-  The `workspace` parameter is accepted for API compatibility but not used —
-  UUIDv7 generation is stateless and requires no filesystem access.
-
   Returns `{:ok, id}`.
   """
+  @spec generate() :: {:ok, String.t()}
+  def generate do
+    {:ok, Uniq.UUID.uuid7()}
+  end
+
+  @doc """
+  Generates a new unique UUIDv7 ID.
+
+  The `workspace` parameter is accepted for API compatibility but not used —
+  UUIDv7 generation is stateless and requires no filesystem access.
+  Prefer `generate/0` for new code.
+  """
+  @deprecated "Use generate/0 instead"
   @spec generate(String.t()) :: {:ok, String.t()}
   def generate(_workspace) do
-    {:ok, Uniq.UUID.uuid7()}
+    generate()
   end
 
   @doc """

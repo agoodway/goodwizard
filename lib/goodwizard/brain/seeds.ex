@@ -44,7 +44,7 @@ defmodule Goodwizard.Brain.Seeds do
   end
 
   @id_pattern Id.id_pattern()
-  @uuid_pattern "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+  @uuid_pattern Id.id_pattern() |> String.trim_leading("^") |> String.trim_trailing("$")
 
   @doc "Returns the schema map for a given entity type."
   @spec schema_for(String.t()) :: map()

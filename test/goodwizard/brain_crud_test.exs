@@ -15,6 +15,7 @@ defmodule Goodwizard.BrainCrudTest do
       assert {:ok, {id, data, body}} = Brain.create(workspace, "people", %{"name" => "Alice"})
 
       assert is_binary(id)
+      assert Id.valid?(id)
       assert data["id"] == id
       assert data["name"] == "Alice"
       assert data["created_at"]
@@ -191,7 +192,7 @@ defmodule Goodwizard.BrainCrudTest do
 
       # Try to create another entity and manually place a file at the would-be path
       # We test the write_exclusive path by creating a file before Brain.create can
-      {:ok, next_id} = Id.generate(workspace)
+      {:ok, next_id} = Id.generate()
       {:ok, next_path} = Paths.entity_path(workspace, "people", next_id)
       File.write!(next_path, "occupied")
 

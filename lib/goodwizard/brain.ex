@@ -37,7 +37,7 @@ defmodule Goodwizard.Brain do
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
     with {:ok, _} <- ensure_initialized(workspace),
-         {:ok, id} <- Id.generate(workspace),
+         {:ok, id} <- Id.generate(),
          data =
            data
            |> Map.drop(@system_fields)

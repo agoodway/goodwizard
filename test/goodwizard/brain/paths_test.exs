@@ -51,13 +51,13 @@ defmodule Goodwizard.Brain.PathsTest do
 
   describe "entity_path/3" do
     test "returns entity file path with .md extension" do
-      assert {:ok, "/tmp/test_workspace/brain/people/abc12345.md"} =
-               Paths.entity_path(@workspace, "people", "abc12345")
+      assert {:ok, "/tmp/test_workspace/brain/people/0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a.md"} =
+               Paths.entity_path(@workspace, "people", "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a")
     end
 
     test "rejects traversal in type" do
       assert {:error, "entity type contains path traversal"} =
-               Paths.entity_path(@workspace, "..", "abc12345")
+               Paths.entity_path(@workspace, "..", "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a")
     end
 
     test "rejects traversal in id" do
