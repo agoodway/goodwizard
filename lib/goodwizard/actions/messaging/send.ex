@@ -15,17 +15,8 @@ defmodule Goodwizard.Actions.Messaging.Send do
       content: [type: :string, required: true, doc: "The message content to send"]
     ]
 
-  require Logger
-
   alias Goodwizard.Messaging
-
-  @default_channel_modules %{
-    telegram: JidoMessaging.Channels.Telegram
-  }
-
-  defp channel_modules do
-    Application.get_env(:goodwizard, :channel_modules, @default_channel_modules)
-  end
+  alias Goodwizard.Messaging.Delivery
 
   @impl true
   def run(params, _context) do
@@ -43,7 +34,7 @@ defmodule Goodwizard.Actions.Messaging.Send do
 
     case Messaging.save_message(message_attrs) do
       {:ok, message} ->
-        delivery_results = deliver_to_bindings(room_id, content)
+        delivery_results = Delivery.deliver_to_bindings(room_id, content)
         failures = Enum.filter(delivery_results, &match?({:error, _, _}, &1))
 
         {:ok,
@@ -57,56 +48,6 @@ defmodule Goodwizard.Actions.Messaging.Send do
 
       {:error, reason} ->
         {:error, "Failed to save message: #{inspect(reason)}"}
-    end
-  end
-
-  defp deliver_to_bindings(room_id, content) do
-    case Messaging.list_room_bindings(room_id) do
-      {:ok, bindings} ->
-        bindings
-        |> Enum.filter(&outbound_enabled?/1)
-        |> Enum.map(fn binding ->
-          deliver_to_binding(binding, room_id, content)
-        end)
-
-      {:error, reason} ->
-        Logger.debug("No bindings found for room #{room_id}: #{inspect(reason)}")
-        []
-    end
-  end
-
-  defp outbound_enabled?(%{direction: direction, enabled: enabled}) do
-    enabled and direction in [:both, :outbound]
-  end
-
-  defp deliver_to_binding(binding, room_id, content) do
-    case Map.get(channel_modules(), binding.channel) do
-      nil ->
-        Logger.debug("No channel module for #{binding.channel}, skipping delivery")
-        {:error, binding.channel, :no_channel_module}
-
-      channel_module ->
-        channel_context = %{
-          channel: channel_module,
-          external_room_id: binding.external_room_id
-        }
-
-        case JidoMessaging.Deliver.send_to_room(
-               Messaging,
-               room_id,
-               content,
-               channel_context
-             ) do
-          {:ok, _message} ->
-            {:ok, binding.channel}
-
-          {:error, reason} ->
-            Logger.warning(
-              "Failed to deliver to #{binding.channel}:#{binding.external_room_id}: #{inspect(reason)}"
-            )
-
-            {:error, binding.channel, reason}
-        end
     end
   end
 end
