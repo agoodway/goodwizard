@@ -25,18 +25,21 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
       delay_minutes: [type: :integer, required: false, doc: "Minutes from now to fire (positive integer)"],
       at: [type: :string, required: false, doc: "ISO 8601 UTC datetime to fire at (e.g. \"2026-02-15T15:00:00Z\")"],
       task: [type: :string, required: true, doc: "Description of the task to execute"],
-      room_id: [type: :string, required: true, doc: "Target Messaging room identifier"]
+      room_id: [type: :string, required: false, doc: "Target Messaging room identifier. Auto-resolved from agent context when omitted."]
     ]
 
   alias Jido.Agent.Directive
 
+  alias Goodwizard.Actions.Brain.Helpers
+
   @impl true
-  def run(params, _context) do
-    %{task: task, room_id: room_id} = params
+  def run(params, context) do
+    task = params.task
     delay_minutes = Map.get(params, :delay_minutes)
     at = Map.get(params, :at)
 
-    with :ok <- validate_exclusivity(delay_minutes, at),
+    with {:ok, room_id} <- resolve_room(params, context),
+         :ok <- validate_exclusivity(delay_minutes, at),
          {:ok, delay_ms, fires_at, mode} <- compute_delay(delay_minutes, at) do
       message = %{type: "cron.task", task: task, room_id: room_id}
       hash_input = if delay_minutes, do: {delay_minutes, task, room_id}, else: {at, task, room_id}
@@ -78,6 +81,11 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
         {:ok, delay_ms, fires_at, "delay"}
     end
   end
+
+  defp resolve_room(%{room_id: room_id}, _context) when is_binary(room_id) and room_id != "",
+    do: {:ok, room_id}
+
+  defp resolve_room(_params, context), do: Helpers.resolve_room_id(context)
 
   defp compute_delay(nil, at_string) when is_binary(at_string) do
     case DateTime.from_iso8601(at_string) do
