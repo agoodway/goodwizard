@@ -31,13 +31,14 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
       case Schema.save(workspace, params.entity_type, params.schema) do
         :ok ->
           Goodwizard.Cache.delete("brain:schema_summaries:#{workspace}")
-          ToolGenerator.generate_for_type(workspace, params.entity_type)
 
-          {:ok,
-           %{
-             message:
-               "Schema saved for type: #{params.entity_type}. Typed tools regenerated — available next turn."
-           }}
+          tool_msg =
+            case ToolGenerator.generate_for_type(workspace, params.entity_type) do
+              {:ok, _modules} -> "Typed tools regenerated — available next turn."
+              {:error, reason} -> "Tool generation failed (#{inspect(reason)}) — generic tools still available."
+            end
+
+          {:ok, %{message: "Schema saved for type: #{params.entity_type}. #{tool_msg}"}}
 
         {:error, reason} ->
           {:error, Helpers.format_error(reason)}

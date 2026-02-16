@@ -8,6 +8,8 @@ defmodule Goodwizard.Application do
   use Application
   require Logger
 
+  alias Goodwizard.Brain.ToolGenerator
+
   @impl true
   def start(_type, _args) do
     maybe_add_file_logger()
@@ -19,8 +21,8 @@ defmodule Goodwizard.Application do
     children = [
       Goodwizard.Config,
       Goodwizard.Cache,
-      Supervisor.child_spec({Task, &generate_brain_tools/0}, id: :brain_tools),
       Goodwizard.Jido,
+      Supervisor.child_spec({Task, &generate_brain_tools/0}, id: :brain_tools),
       Goodwizard.Messaging,
       Goodwizard.ShutdownHandler,
       {Task, &start_optional_channels/0}
@@ -46,7 +48,6 @@ defmodule Goodwizard.Application do
 
   defp generate_brain_tools do
     workspace = Goodwizard.Config.workspace()
-    alias Goodwizard.Brain.ToolGenerator
     {:ok, modules} = ToolGenerator.generate_all(workspace)
     Logger.info("Generated #{length(modules)} brain tools at startup")
   rescue

@@ -21,9 +21,21 @@ defmodule Goodwizard.Actions.Scheduling.CancelCron do
 
   @impl true
   def run(%{job_id: job_id}, _context) do
-    atom_id = String.to_atom(job_id)
-    directive = Directive.cron_cancel(atom_id)
+    atom_id =
+      try do
+        String.to_existing_atom(job_id)
+      rescue
+        ArgumentError ->
+          # Job ID atom doesn't exist, so no cron job was ever registered with this ID.
+          # Return idempotent success without creating a new atom.
+          nil
+      end
 
-    {:ok, %{cancelled: true, job_id: atom_id}, [directive]}
+    if atom_id do
+      directive = Directive.cron_cancel(atom_id)
+      {:ok, %{cancelled: true, job_id: atom_id}, [directive]}
+    else
+      {:ok, %{cancelled: true, job_id: job_id, note: "No active job found with this ID"}}
+    end
   end
 end

@@ -54,20 +54,9 @@ defmodule Goodwizard.Brain.ToolGenerator do
   """
   @spec generate_for_type(String.t(), String.t()) :: {:ok, [module()]} | {:error, term()}
   def generate_for_type(workspace, entity_type) do
-    singular = SchemaMapper.singularize(entity_type)
-    create_mod = module_name("Create", singular)
-    update_mod = module_name("Update", singular)
-
-    # Purge old versions if they exist
-    purge_module(create_mod)
-    purge_module(update_mod)
-
-    with {:ok, schema_map} <- load_raw_schema(workspace, entity_type),
-         {:ok, create} <- build_create_module(create_mod, entity_type, singular, schema_map),
-         {:ok, update} <- build_update_module(update_mod, entity_type, singular, schema_map) do
-      new_modules = [create, update]
-      update_cache(entity_type, new_modules)
-      {:ok, new_modules}
+    with {:ok, modules} <- build_type_modules(workspace, entity_type) do
+      update_cache(entity_type, modules)
+      {:ok, modules}
     end
   end
 
@@ -100,7 +89,7 @@ defmodule Goodwizard.Brain.ToolGenerator do
       |> Enum.map(&String.replace_suffix(&1, ".json", ""))
 
     Enum.flat_map(types, fn type ->
-      case generate_for_type(workspace, type) do
+      case build_type_modules(workspace, type) do
         {:ok, mods} ->
           mods
 
@@ -110,6 +99,21 @@ defmodule Goodwizard.Brain.ToolGenerator do
           []
       end
     end)
+  end
+
+  defp build_type_modules(workspace, entity_type) do
+    singular = SchemaMapper.singularize(entity_type)
+    create_mod = module_name("Create", singular)
+    update_mod = module_name("Update", singular)
+
+    purge_module(create_mod)
+    purge_module(update_mod)
+
+    with {:ok, schema_map} <- load_raw_schema(workspace, entity_type),
+         {:ok, create} <- build_create_module(create_mod, entity_type, singular, schema_map),
+         {:ok, update} <- build_update_module(update_mod, entity_type, singular, schema_map) do
+      {:ok, [create, update]}
+    end
   end
 
   defp module_name(prefix, singular) do
@@ -132,81 +136,83 @@ defmodule Goodwizard.Brain.ToolGenerator do
     action_name = "create_#{singular}"
     schema_title = Map.get(schema_map, "title", singular)
     description = "Create a new #{schema_title} in the brain knowledge base"
-    schema_kw = SchemaMapper.for_create(schema_map)
 
-    body =
-      quote do
-        use Jido.Action,
-          name: unquote(action_name),
-          description: unquote(description),
-          schema: unquote(Macro.escape(schema_kw))
+    with {:ok, schema_kw} <- SchemaMapper.for_create(schema_map) do
+      body =
+        quote do
+          use Jido.Action,
+            name: unquote(action_name),
+            description: unquote(description),
+            schema: unquote(Macro.escape(schema_kw))
 
-        alias Goodwizard.Actions.Brain.Helpers
+          alias Goodwizard.Actions.Brain.Helpers
 
-        @entity_type unquote(entity_type)
+          @entity_type unquote(entity_type)
 
-        @impl true
-        def run(params, context) do
-          workspace = Helpers.workspace(context)
-          body = Map.get(params, :body, "")
+          @impl true
+          def run(params, context) do
+            workspace = Helpers.workspace(context)
+            body = Map.get(params, :body, "")
 
-          data =
-            params
-            |> Map.drop([:body])
-            |> Map.new(fn {k, v} -> {to_string(k), v} end)
+            data =
+              params
+              |> Map.drop([:body])
+              |> Map.new(fn {k, v} -> {to_string(k), v} end)
 
-          case Goodwizard.Brain.create(workspace, @entity_type, data, body) do
-            {:ok, {id, data, body}} ->
-              {:ok, %{id: id, data: data, body: body}}
+            case Goodwizard.Brain.create(workspace, @entity_type, data, body) do
+              {:ok, {id, data, body}} ->
+                {:ok, %{id: id, data: data, body: body}}
 
-            {:error, reason} ->
-              {:error, Helpers.format_error(reason)}
+              {:error, reason} ->
+                {:error, Helpers.format_error(reason)}
+            end
           end
         end
-      end
 
-    create_module(mod_name, body)
+      create_module(mod_name, body)
+    end
   end
 
   defp build_update_module(mod_name, entity_type, singular, schema_map) do
     action_name = "update_#{singular}"
     schema_title = Map.get(schema_map, "title", singular)
     description = "Update an existing #{schema_title} by ID. Pass only the fields to change."
-    schema_kw = SchemaMapper.for_update(schema_map)
 
-    body =
-      quote do
-        use Jido.Action,
-          name: unquote(action_name),
-          description: unquote(description),
-          schema: unquote(Macro.escape(schema_kw))
+    with {:ok, schema_kw} <- SchemaMapper.for_update(schema_map) do
+      body =
+        quote do
+          use Jido.Action,
+            name: unquote(action_name),
+            description: unquote(description),
+            schema: unquote(Macro.escape(schema_kw))
 
-        alias Goodwizard.Actions.Brain.Helpers
+          alias Goodwizard.Actions.Brain.Helpers
 
-        @entity_type unquote(entity_type)
+          @entity_type unquote(entity_type)
 
-        @impl true
-        def run(params, context) do
-          workspace = Helpers.workspace(context)
-          id = params.id
-          body = Map.get(params, :body)
+          @impl true
+          def run(params, context) do
+            workspace = Helpers.workspace(context)
+            id = params.id
+            body = Map.get(params, :body)
 
-          data =
-            params
-            |> Map.drop([:id, :body])
-            |> Map.new(fn {k, v} -> {to_string(k), v} end)
+            data =
+              params
+              |> Map.drop([:id, :body])
+              |> Map.new(fn {k, v} -> {to_string(k), v} end)
 
-          case Goodwizard.Brain.update(workspace, @entity_type, id, data, body) do
-            {:ok, {data, body}} ->
-              {:ok, %{data: data, body: body}}
+            case Goodwizard.Brain.update(workspace, @entity_type, id, data, body) do
+              {:ok, {data, body}} ->
+                {:ok, %{data: data, body: body}}
 
-            {:error, reason} ->
-              {:error, Helpers.format_error(reason)}
+              {:error, reason} ->
+                {:error, Helpers.format_error(reason)}
+            end
           end
         end
-      end
 
-    create_module(mod_name, body)
+      create_module(mod_name, body)
+    end
   end
 
   defp create_module(mod_name, body) do
