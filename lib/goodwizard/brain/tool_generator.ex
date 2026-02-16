@@ -156,7 +156,7 @@ defmodule Goodwizard.Brain.ToolGenerator do
 
             data =
               params
-              |> Map.drop([:body])
+              |> Map.drop([:body, :id])
               |> Map.new(fn {k, v} -> {to_string(k), v} end)
 
             case Goodwizard.Brain.create(workspace, @entity_type, data, body) do

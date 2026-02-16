@@ -6,8 +6,9 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
   use Jido.Action,
     name: "create_entity",
     description:
-      "Create a new entity in the brain. Pass entity_type and data with fields matching the schema. " <>
-        "Example: entity_type=\"companies\", data={\"name\": \"Acme Corp\"}. Use get_schema first to see required fields.",
+      "Generic fallback for creating brain entities. Prefer typed tools like create_note, create_person, " <>
+        "create_company, etc. when available — they have proper field-level parameters. " <>
+        "Only use this for entity types that lack a dedicated tool.",
     schema: [
       entity_type: [
         type: :string,
@@ -31,7 +32,9 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
     workspace = Helpers.workspace(context)
     body = Map.get(params, :body, "")
 
-    case Goodwizard.Brain.create(workspace, params.entity_type, params.data, body) do
+    data = Map.drop(params.data, ["id", :id])
+
+    case Goodwizard.Brain.create(workspace, params.entity_type, data, body) do
       {:ok, {id, data, body}} ->
         {:ok, %{id: id, data: data, body: body}}
 

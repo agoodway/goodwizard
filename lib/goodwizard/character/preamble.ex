@@ -20,7 +20,7 @@ defmodule Goodwizard.Character.Preamble do
 
   ### Workspace Directories
 
-  - **brain/** — Persistent knowledge store for entities (people, companies, events, etc.)
+  - **brain/** — Your second brain. A persistent knowledge store for entities (people, companies, events, etc.). Refer to this as your "second brain" when discussing it with the user.
   - **memory/** — Long-term conversation memory and learned preferences
   - **sessions/** — Active and historical conversation session data
   - **skills/** — Prompt-based skills that extend your capabilities

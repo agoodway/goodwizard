@@ -122,6 +122,25 @@ defmodule Goodwizard.Actions.Brain.Helpers do
   def format_error({:duplicate_id, _id}), do: "Duplicate entity ID"
   def format_error({:parse_error, _file, _reason}), do: "Failed to parse entity file"
   def format_error({:schema_resolution_error, _msg}), do: "Schema resolution failed"
-  def format_error({:validation, errors}) when is_list(errors), do: "Validation failed"
-  def format_error(_reason), do: "An unexpected error occurred"
+  def format_error({:validation, errors}) when is_list(errors),
+    do: format_validation_errors(errors)
+
+  def format_error(errors) when is_list(errors), do: format_validation_errors(errors)
+
+  def format_error(reason) do
+    Logger.warning("[Brain] Unhandled error reason: #{inspect(reason)}")
+    "Unexpected error: #{inspect(reason)}"
+  end
+
+  defp format_validation_errors(errors) do
+    details =
+      errors
+      |> Enum.map(fn
+        {message, path} when is_binary(message) -> "#{path}: #{message}"
+        other -> inspect(other)
+      end)
+      |> Enum.join("; ")
+
+    "Validation failed: #{details}"
+  end
 end
