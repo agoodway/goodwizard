@@ -50,7 +50,7 @@ defmodule Goodwizard.TelemetryTest do
       assert log =~ "duration_ms=42"
     end
 
-    test "stop with {:error, _} logs at error with status=error" do
+    test "stop with {:error, _} logs at error with status=error and reason" do
       log =
         capture_log([level: :error], fn ->
           :telemetry.execute(
@@ -67,6 +67,7 @@ defmodule Goodwizard.TelemetryTest do
 
       assert log =~ "tool=create_entity"
       assert log =~ "status=error"
+      assert log =~ "reason=\"not found\""
     end
 
     test "exception logs at error with reason" do
@@ -87,6 +88,50 @@ defmodule Goodwizard.TelemetryTest do
       assert log =~ "tool=exec"
       assert log =~ "event=exception"
       assert log =~ "boom"
+    end
+
+    test "exception logs stacktrace when available" do
+      stacktrace = [{MyModule, :my_fun, 2, [file: ~c"lib/my_module.ex", line: 42]}]
+
+      log =
+        capture_log([level: :error], fn ->
+          :telemetry.execute(
+            [:jido, :ai, :tool, :execute, :exception],
+            %{duration: System.convert_time_unit(5, :millisecond, :native)},
+            %{
+              tool_name: "exec",
+              reason: %RuntimeError{message: "crash"},
+              stacktrace: stacktrace,
+              call_id: "exc2",
+              thread_id: "t3"
+            }
+          )
+        end)
+
+      assert log =~ "tool=exec"
+      assert log =~ "event=exception"
+      assert log =~ "crash"
+      assert log =~ "my_module.ex:42"
+    end
+
+    test "stop with structured error map includes reason" do
+      log =
+        capture_log([level: :error], fn ->
+          :telemetry.execute(
+            [:jido, :ai, :tool, :execute, :stop],
+            %{duration: System.convert_time_unit(3, :millisecond, :native)},
+            %{
+              tool_name: "schedule_cron_task",
+              result: {:error, %{message: "invalid cron expression", field: :schedule}},
+              call_id: "cron1",
+              thread_id: "t4"
+            }
+          )
+        end)
+
+      assert log =~ "tool=schedule_cron_task"
+      assert log =~ "status=error"
+      assert log =~ "invalid cron expression"
     end
   end
 

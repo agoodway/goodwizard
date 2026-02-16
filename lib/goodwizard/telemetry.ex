@@ -65,16 +65,22 @@ defmodule Goodwizard.Telemetry do
 
   def handle_tool_event([:jido, :ai, :tool, :execute, :stop], measurements, metadata, _config) do
     duration_ms = System.convert_time_unit(measurements[:duration] || 0, :native, :millisecond)
-    status = if match?({:ok, _}, metadata[:result]), do: :ok, else: :error
+    status = if match?({:ok, _}, metadata[:result]) or match?({:ok, _, _}, metadata[:result]), do: :ok, else: :error
 
     log_fn = fn ->
-      kv(
-        tool: metadata[:tool_name],
-        event: :stop,
-        status: status,
-        duration_ms: duration_ms,
-        call_id: metadata[:call_id]
-      )
+      base =
+        kv(
+          tool: metadata[:tool_name],
+          event: :stop,
+          status: status,
+          duration_ms: duration_ms,
+          call_id: metadata[:call_id]
+        )
+
+      case {status, metadata[:result]} do
+        {:error, {:error, reason}} -> base <> " reason=#{inspect(reason)}"
+        _ -> base
+      end
     end
 
     if status == :ok, do: Logger.info(log_fn), else: Logger.error(log_fn)
@@ -89,13 +95,19 @@ defmodule Goodwizard.Telemetry do
     duration_ms = System.convert_time_unit(measurements[:duration] || 0, :native, :millisecond)
 
     Logger.error(fn ->
-      kv(
-        tool: metadata[:tool_name],
-        event: :exception,
-        reason: inspect(metadata[:reason]),
-        duration_ms: duration_ms,
-        call_id: metadata[:call_id]
-      )
+      base =
+        kv(
+          tool: metadata[:tool_name],
+          event: :exception,
+          reason: inspect(metadata[:reason]),
+          duration_ms: duration_ms,
+          call_id: metadata[:call_id]
+        )
+
+      case metadata[:stacktrace] do
+        [_ | _] = stacktrace -> base <> "\n" <> Exception.format_stacktrace(stacktrace)
+        _ -> base
+      end
     end)
   end
 
