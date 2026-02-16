@@ -48,6 +48,7 @@ defmodule Goodwizard.Agent do
       Goodwizard.Plugins.Session,
       Goodwizard.Plugins.Memory,
       Goodwizard.Plugins.PromptSkills,
+      Goodwizard.Plugins.CronScheduler,
       {JidoBrowser.Plugin, [headless: true]}
     ]
 
