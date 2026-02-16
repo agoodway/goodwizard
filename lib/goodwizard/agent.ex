@@ -31,16 +31,39 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Scheduling.CancelCron,
       Goodwizard.Actions.Scheduling.ListCronJobs,
       Goodwizard.Actions.Scheduling.OneShot,
-      # Brain (typed create/update tools are registered dynamically, generics are fallbacks)
-      Goodwizard.Actions.Brain.ReadEntity,
+      # Browser (listed explicitly for ReAct tool visibility; session managed by agent)
+      JidoBrowser.Actions.Navigate,
+      JidoBrowser.Actions.Back,
+      JidoBrowser.Actions.Forward,
+      JidoBrowser.Actions.Reload,
+      JidoBrowser.Actions.GetUrl,
+      JidoBrowser.Actions.GetTitle,
+      JidoBrowser.Actions.Click,
+      JidoBrowser.Actions.Type,
+      JidoBrowser.Actions.Hover,
+      JidoBrowser.Actions.Focus,
+      JidoBrowser.Actions.Scroll,
+      JidoBrowser.Actions.SelectOption,
+      JidoBrowser.Actions.Wait,
+      JidoBrowser.Actions.WaitForSelector,
+      JidoBrowser.Actions.WaitForNavigation,
+      JidoBrowser.Actions.Query,
+      JidoBrowser.Actions.GetText,
+      JidoBrowser.Actions.GetAttribute,
+      JidoBrowser.Actions.IsVisible,
+      JidoBrowser.Actions.Snapshot,
+      JidoBrowser.Actions.Screenshot,
+      JidoBrowser.Actions.ExtractContent,
+      JidoBrowser.Actions.Evaluate,
+      # Brain
       Goodwizard.Actions.Brain.CreateEntity,
+      Goodwizard.Actions.Brain.ReadEntity,
       Goodwizard.Actions.Brain.UpdateEntity,
       Goodwizard.Actions.Brain.DeleteEntity,
       Goodwizard.Actions.Brain.ListEntities,
       Goodwizard.Actions.Brain.GetSchema,
       Goodwizard.Actions.Brain.SaveSchema,
-      Goodwizard.Actions.Brain.ListEntityTypes,
-      Goodwizard.Actions.Brain.RefreshTools
+      Goodwizard.Actions.Brain.ListEntityTypes
     ],
     model: "anthropic:claude-sonnet-4-5",
     max_iterations: 20,
@@ -55,20 +78,13 @@ defmodule Goodwizard.Agent do
   require Logger
 
   alias Goodwizard.Actions.Memory.Consolidate
-  alias Goodwizard.Brain.ToolGenerator
   alias Goodwizard.Character.Hydrator
   alias Goodwizard.Plugins.Session
-  alias Jido.Agent.Strategy.State, as: StratState
-  alias Jido.AI.Strategy.StateOpsHelpers
-  alias Jido.AI.ToolAdapter
 
   @impl true
   def on_before_cmd(agent, {:react_start, %{query: _query}} = action) do
     # First let the parent macro handle request tracking
     {:ok, agent, action} = super(agent, action)
-
-    # Register plugin and generated brain tools into the strategy state
-    agent = agent |> maybe_register_browser_tools() |> maybe_register_brain_tools()
 
     Logger.debug(fn ->
       {:react_start, %{query: q}} = action
@@ -115,11 +131,17 @@ defmodule Goodwizard.Agent do
             )
       }
 
-      # Inject system prompt into the strategy options
-      {:react_start, params} = action
-      action = {:react_start, Map.put(params, :system_prompt, system_prompt)}
+      # Ensure browser session and inject into tool_context + system prompt
+      {agent, browser_session} = ensure_browser_session(agent)
 
-      {:ok, agent, action}
+      {:react_start, params} = action
+
+      params =
+        params
+        |> Map.put(:system_prompt, system_prompt)
+        |> Map.update(:tool_context, %{session: browser_session}, &Map.put(&1, :session, browser_session))
+
+      {:ok, agent, {:react_start, params}}
     rescue
       e ->
         Logger.error(
@@ -185,77 +207,23 @@ defmodule Goodwizard.Agent do
     end
   end
 
-  defp maybe_register_browser_tools(agent) do
-    browser_actions = JidoBrowser.Plugin.actions()
+  defp ensure_browser_session(agent) do
+    case get_in(agent.state, [:browser, :session]) do
+      %JidoBrowser.Session{} = session ->
+        {agent, session}
 
-    state = StratState.get(agent, %{})
-    config = state[:config] || %{}
-    current_tools = config[:tools] || []
+      _ ->
+        case JidoBrowser.start_session(headless: true) do
+          {:ok, session} ->
+            agent = %{agent | state: put_in(agent.state, [:browser, :session], session)}
+            Logger.debug("[Agent] Browser session started")
+            {agent, session}
 
-    # Check if browser actions are already registered
-    current_set = MapSet.new(current_tools)
-
-    if Enum.all?(browser_actions, &MapSet.member?(current_set, &1)) do
-      agent
-    else
-      new_tools = (current_tools ++ browser_actions) |> Enum.uniq()
-      new_by_name = Map.new(new_tools, fn mod -> {mod.name(), mod} end)
-      new_reqllm = ToolAdapter.from_actions(new_tools)
-
-      new_state =
-        StateOpsHelpers.apply_to_state(
-          state,
-          StateOpsHelpers.update_tools_config(new_tools, new_by_name, new_reqllm)
-        )
-
-      StratState.put(agent, new_state)
+          {:error, reason} ->
+            Logger.warning("Failed to start browser session: #{inspect(reason)}")
+            {agent, nil}
+        end
     end
-  rescue
-    e ->
-      Logger.warning(
-        "Browser tool registration failed: #{Exception.message(e)}, continuing without browser tools"
-      )
-
-      agent
-  end
-
-  defp maybe_register_brain_tools(agent) do
-    desired_modules = ToolGenerator.generated_modules()
-
-    state = StratState.get(agent, %{})
-    config = state[:config] || %{}
-    current_tools = config[:tools] || []
-
-    # Separate current tools into generated (in Generated namespace) and static
-    {generated_current, static_tools} =
-      Enum.split_with(current_tools, fn mod ->
-        mod |> Module.split() |> Enum.take(5) == ~w(Goodwizard Actions Brain Generated)
-      end)
-
-    # If desired matches current generated set, nothing to do
-    if MapSet.new(desired_modules) == MapSet.new(generated_current) do
-      agent
-    else
-      # Rebuild: static tools + desired generated modules
-      new_tools = (static_tools ++ desired_modules) |> Enum.uniq()
-      new_by_name = Map.new(new_tools, fn mod -> {mod.name(), mod} end)
-      new_reqllm = ToolAdapter.from_actions(new_tools)
-
-      new_state =
-        StateOpsHelpers.apply_to_state(
-          state,
-          StateOpsHelpers.update_tools_config(new_tools, new_by_name, new_reqllm)
-        )
-
-      StratState.put(agent, new_state)
-    end
-  rescue
-    e ->
-      Logger.warning(
-        "Brain tool registration failed: #{Exception.message(e)}, continuing without dynamic tools"
-      )
-
-      agent
   end
 
   defp maybe_consolidate(agent) do
