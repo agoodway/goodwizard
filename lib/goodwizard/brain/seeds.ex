@@ -2,13 +2,13 @@ defmodule Goodwizard.Brain.Seeds do
   @moduledoc """
   Default schema definitions for the brain knowledge base.
 
-  Ships 7 initial entity type schemas as Elixir maps and writes them
+  Ships 8 initial entity type schemas as Elixir maps and writes them
   to disk on first use via `seed/1`.
   """
 
   alias Goodwizard.Brain.{Id, Paths, Schema}
 
-  @entity_types ~w(people places events notes tasks companies tasklists)
+  @entity_types ~w(people places events notes tasks companies tasklists webpages)
 
   @doc "Returns the list of default entity type names."
   @spec entity_types() :: [String.t()]
@@ -135,6 +135,17 @@ defmodule Goodwizard.Brain.Seeds do
     })
   end
 
+  def schema_for("webpages") do
+    schema =
+      build_schema("Webpage", ["id", "title", "url"], %{
+        "title" => %{"type" => "string"},
+        "url" => %{"type" => "string", "format" => "uri"},
+        "description" => %{"type" => "string"}
+      })
+
+    Map.update!(schema, "properties", &Map.delete(&1, "webpages"))
+  end
+
   defp build_schema(title, required, custom_properties) do
     %{
       "$schema" => "http://json-schema.org/draft-07/schema#",
@@ -152,6 +163,7 @@ defmodule Goodwizard.Brain.Seeds do
       "id" => %{"type" => "string", "pattern" => @id_pattern},
       "name" => %{"type" => "string"},
       "notes" => entity_ref_list("notes"),
+      "webpages" => entity_ref_list("webpages"),
       "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
       "created_at" => %{"type" => "string", "format" => "date-time"},
       "updated_at" => %{"type" => "string", "format" => "date-time"}

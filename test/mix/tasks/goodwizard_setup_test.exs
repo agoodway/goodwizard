@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Goodwizard.SetupTest do
   alias Mix.Tasks.Goodwizard.Setup
 
   @subdirs ~w(memory sessions skills)
-  @entity_types ~w(people places events notes tasks companies tasklists)
+  @entity_types ~w(people places events notes tasks companies tasklists webpages)
 
   defp with_tmp_dir(fun) do
     tmp = Path.join(System.tmp_dir!(), "goodwizard_test_#{System.unique_integer([:positive])}")

@@ -459,6 +459,55 @@ defmodule Goodwizard.BrainCrudTest do
     end
   end
 
+  describe "webpages CRUD" do
+    test "create, read, and list a webpage", %{workspace: workspace} do
+      # Create
+      assert {:ok, {id, data, body}} =
+               Brain.create(workspace, "webpages", %{
+                 "title" => "Elixir Docs",
+                 "url" => "https://hexdocs.pm/elixir"
+               })
+
+      assert data["title"] == "Elixir Docs"
+      assert data["url"] == "https://hexdocs.pm/elixir"
+      assert body == ""
+
+      # Read
+      assert {:ok, {read_data, _body}} = Brain.read(workspace, "webpages", id)
+      assert read_data["title"] == "Elixir Docs"
+      assert read_data["url"] == "https://hexdocs.pm/elixir"
+
+      # List
+      assert {:ok, entities} = Brain.list(workspace, "webpages")
+      assert length(entities) == 1
+    end
+
+    test "accepts optional description", %{workspace: workspace} do
+      assert {:ok, {_id, data, _body}} =
+               Brain.create(workspace, "webpages", %{
+                 "title" => "Phoenix Framework",
+                 "url" => "https://phoenixframework.org",
+                 "description" => "Web framework for Elixir"
+               })
+
+      assert data["description"] == "Web framework for Elixir"
+    end
+
+    test "rejects missing required title", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "webpages", %{
+                 "url" => "https://example.com"
+               })
+    end
+
+    test "rejects missing required url", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "webpages", %{
+                 "title" => "Example"
+               })
+    end
+  end
+
   describe "list entity count limit" do
     test "list returns at most 1000 entities", %{workspace: workspace} do
       Brain.ensure_initialized(workspace)
