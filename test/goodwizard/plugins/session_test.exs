@@ -19,6 +19,52 @@ defmodule Goodwizard.Plugins.SessionTest do
       assert is_binary(plugin_state.created_at)
       assert {:ok, _, _} = DateTime.from_iso8601(plugin_state.created_at)
     end
+
+    test "loads existing session file when session_key matches" do
+      workspace = Path.join(System.tmp_dir!(), "gw_mount_test_#{System.unique_integer([:positive])}")
+      sessions_dir = Path.join(workspace, "sessions")
+      File.mkdir_p!(sessions_dir)
+
+      # Write a session file
+      session_key = "telegram-12345"
+      metadata_line = Jason.encode!(%{key: session_key, created_at: "2026-01-15T10:00:00Z", version: 1, metadata: %{source: "test"}})
+      msg_line = Jason.encode!(%{role: "user", content: "Hello from file", timestamp: "2026-01-15T10:00:01Z"})
+      File.write!(Path.join(sessions_dir, "telegram-12345.jsonl"), metadata_line <> "\n" <> msg_line <> "\n")
+
+      agent = %{state: %{session_key: session_key, workspace: workspace}}
+      {:ok, plugin_state} = Session.mount(agent, %{})
+
+      assert plugin_state.created_at == "2026-01-15T10:00:00Z"
+      assert plugin_state.metadata == %{"source" => "test"}
+      assert length(plugin_state.messages) == 1
+      assert hd(plugin_state.messages).content == "Hello from file"
+
+      File.rm_rf!(workspace)
+    end
+
+    test "starts empty when no file matches session_key" do
+      workspace = Path.join(System.tmp_dir!(), "gw_mount_empty_#{System.unique_integer([:positive])}")
+      sessions_dir = Path.join(workspace, "sessions")
+      File.mkdir_p!(sessions_dir)
+
+      agent = %{state: %{session_key: "cli-direct-9999999999", workspace: workspace}}
+      {:ok, plugin_state} = Session.mount(agent, %{})
+
+      # Should get a fresh created_at (not from file) and empty messages
+      assert is_binary(plugin_state.created_at)
+      assert {:ok, _, _} = DateTime.from_iso8601(plugin_state.created_at)
+      refute Map.has_key?(plugin_state, :messages)
+
+      File.rm_rf!(workspace)
+    end
+
+    test "starts empty when agent has no session_key" do
+      agent = %{state: %{workspace: "/tmp/whatever"}}
+      {:ok, plugin_state} = Session.mount(agent, %{})
+
+      assert is_binary(plugin_state.created_at)
+      refute Map.has_key?(plugin_state, :messages)
+    end
   end
 
   describe "add_message/4" do

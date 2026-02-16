@@ -229,6 +229,27 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
     end
   end
 
+  describe "session keying" do
+    test "agent gets telegram-{chat_id} session key", %{workspace: workspace} do
+      chat_id = "99887#{System.unique_integer([:positive])}"
+
+      {:ok, agent_pid} =
+        Goodwizard.Jido.start_agent(GoodwizardAgent,
+          id: "telegram:session_key_test_#{chat_id}",
+          initial_state: %{
+            workspace: workspace,
+            channel: "telegram",
+            chat_id: chat_id,
+            session_key: "telegram-#{chat_id}",
+            character_overrides: %{}
+          }
+        )
+
+      {:ok, server_state} = Jido.AgentServer.state(agent_pid)
+      assert server_state.agent.state.session_key == "telegram-#{chat_id}"
+    end
+  end
+
   # -- Helpers -----------------------------------------------------------------
 
   defp build_message_and_context(text, user_id, workspace) do

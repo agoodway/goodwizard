@@ -48,6 +48,11 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   # channel = "telegram"
   # chat_id = "your_chat_id"
 
+  [session]
+  # Maximum number of CLI session files to retain. Oldest files are
+  # deleted when the limit is exceeded. Only affects cli-direct-* files.
+  # max_cli_sessions = 50
+
   [tools]
   restrict_to_workspace = true
 
