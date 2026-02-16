@@ -460,7 +460,7 @@ defmodule Goodwizard.BrainCrudTest do
   end
 
   describe "webpages CRUD" do
-    test "create, read, and list a webpage", %{workspace: workspace} do
+    test "create, read, list, update, and delete a webpage", %{workspace: workspace} do
       # Create
       assert {:ok, {id, data, body}} =
                Brain.create(workspace, "webpages", %{
@@ -480,6 +480,22 @@ defmodule Goodwizard.BrainCrudTest do
       # List
       assert {:ok, entities} = Brain.list(workspace, "webpages")
       assert length(entities) == 1
+
+      # Update
+      assert {:ok, {updated, _body}} =
+               Brain.update(workspace, "webpages", id, %{
+                 "title" => "Elixir Docs v2",
+                 "url" => "https://hexdocs.pm/elixir/main",
+                 "description" => "Official Elixir documentation"
+               })
+
+      assert updated["title"] == "Elixir Docs v2"
+      assert updated["url"] == "https://hexdocs.pm/elixir/main"
+      assert updated["description"] == "Official Elixir documentation"
+
+      # Delete
+      assert :ok = Brain.delete(workspace, "webpages", id)
+      assert {:error, :not_found} = Brain.read(workspace, "webpages", id)
     end
 
     test "accepts optional description", %{workspace: workspace} do
@@ -505,6 +521,97 @@ defmodule Goodwizard.BrainCrudTest do
                Brain.create(workspace, "webpages", %{
                  "title" => "Example"
                })
+    end
+
+    test "rejects invalid URL formats", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "webpages", %{
+                 "title" => "Bad URL",
+                 "url" => "not a url"
+               })
+    end
+
+    test "rejects javascript: scheme URL", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "webpages", %{
+                 "title" => "XSS Attempt",
+                 "url" => "javascript:alert(1)"
+               })
+    end
+
+    test "rejects file:// scheme URL", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "webpages", %{
+                 "title" => "File Access",
+                 "url" => "file:///etc/passwd"
+               })
+    end
+
+    test "rejects data: scheme URL", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "webpages", %{
+                 "title" => "Data URI",
+                 "url" => "data:text/html,<h1>hi</h1>"
+               })
+    end
+  end
+
+  describe "cross-entity webpage references" do
+    test "create person with webpages reference", %{workspace: workspace} do
+      {:ok, {webpage_id, _data, _body}} =
+        Brain.create(workspace, "webpages", %{
+          "title" => "Personal Site",
+          "url" => "https://example.com"
+        })
+
+      {:ok, {_person_id, person_data, _body}} =
+        Brain.create(workspace, "people", %{
+          "name" => "Alice",
+          "webpages" => ["webpages/#{webpage_id}"]
+        })
+
+      assert person_data["webpages"] == ["webpages/#{webpage_id}"]
+    end
+
+    test "read back person with webpages reference", %{workspace: workspace} do
+      {:ok, {webpage_id, _data, _body}} =
+        Brain.create(workspace, "webpages", %{
+          "title" => "Blog",
+          "url" => "https://blog.example.com"
+        })
+
+      {:ok, {person_id, _data, _body}} =
+        Brain.create(workspace, "people", %{
+          "name" => "Bob",
+          "webpages" => ["webpages/#{webpage_id}"]
+        })
+
+      assert {:ok, {read_data, _body}} = Brain.read(workspace, "people", person_id)
+      assert read_data["webpages"] == ["webpages/#{webpage_id}"]
+    end
+
+    test "rejects invalid webpage reference type prefix", %{workspace: workspace} do
+      {:ok, {webpage_id, _data, _body}} =
+        Brain.create(workspace, "webpages", %{
+          "title" => "Site",
+          "url" => "https://example.com"
+        })
+
+      assert {:error, _} =
+               Brain.create(workspace, "people", %{
+                 "name" => "Charlie",
+                 "webpages" => ["people/#{webpage_id}"]
+               })
+    end
+
+    test "accepts empty webpages array", %{workspace: workspace} do
+      assert {:ok, {_id, data, _body}} =
+               Brain.create(workspace, "people", %{
+                 "name" => "Dave",
+                 "webpages" => []
+               })
+
+      assert data["webpages"] == []
     end
   end
 
