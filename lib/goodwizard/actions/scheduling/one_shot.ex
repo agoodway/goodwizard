@@ -38,6 +38,8 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
     delay_minutes = Map.get(params, :delay_minutes)
     at = Map.get(params, :at)
 
+    Logger.debug("[OneShot] params=#{inspect(params)} agent_id=#{inspect(context[:agent_id])}")
+
     with {:ok, room_id} <- resolve_room(params, context),
          :ok <- validate_exclusivity(delay_minutes, at),
          {:ok, delay_ms, fires_at, mode} <- compute_delay(delay_minutes, at) do

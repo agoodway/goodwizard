@@ -2,7 +2,8 @@ defmodule Goodwizard.Actions.Scheduling.CancelCron do
   @moduledoc """
   Cancels a scheduled cron job by job_id.
 
-  Emits a `Directive.CronCancel` for Jido's scheduler to process.
+  Removes the persisted job file via `CronStore.delete/1` and emits a
+  `Directive.CronCancel` for Jido's scheduler to stop the in-memory job.
   Cancellation is idempotent — cancelling a nonexistent job is a no-op.
   """
 
@@ -18,24 +19,22 @@ defmodule Goodwizard.Actions.Scheduling.CancelCron do
     ]
 
   alias Jido.Agent.Directive
+  alias Goodwizard.Scheduling.CronStore
 
   @impl true
   def run(%{job_id: job_id}, _context) do
+    # Delete the persisted file (idempotent — :ok if missing)
+    CronStore.delete(job_id)
+
+    # Always emit cancel directive to handle orphaned in-memory jobs
     atom_id =
       try do
         String.to_existing_atom(job_id)
       rescue
-        ArgumentError ->
-          # Job ID atom doesn't exist, so no cron job was ever registered with this ID.
-          # Return idempotent success without creating a new atom.
-          nil
+        ArgumentError -> String.to_atom(job_id)
       end
 
-    if atom_id do
-      directive = Directive.cron_cancel(atom_id)
-      {:ok, %{cancelled: true, job_id: atom_id}, [directive]}
-    else
-      {:ok, %{cancelled: true, job_id: job_id, note: "No active job found with this ID"}}
-    end
+    directive = Directive.cron_cancel(atom_id)
+    {:ok, %{cancelled: true, job_id: atom_id}, [directive]}
   end
 end

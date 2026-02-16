@@ -1,0 +1,214 @@
+digraph "xref graph" {
+  "lib/goodwizard.ex"
+  "lib/goodwizard/actions/brain/create_entity.ex"
+  "lib/goodwizard/actions/brain/create_entity.ex" -> "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/brain/helpers.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/actions/brain/create_entity.ex" -> "lib/goodwizard/brain.ex"
+  "lib/goodwizard/brain.ex" -> "lib/goodwizard/brain/entity.ex"
+  "lib/goodwizard/brain.ex" -> "lib/goodwizard/brain/id.ex"
+  "lib/goodwizard/brain/id.ex" -> "lib/goodwizard/brain/paths.ex"
+  "lib/goodwizard/brain.ex" -> "lib/goodwizard/brain/paths.ex"
+  "lib/goodwizard/brain.ex" -> "lib/goodwizard/brain/schema.ex"
+  "lib/goodwizard/brain/schema.ex" -> "lib/goodwizard/brain/paths.ex"
+  "lib/goodwizard/brain.ex" -> "lib/goodwizard/brain/seeds.ex"
+  "lib/goodwizard/brain/seeds.ex" -> "lib/goodwizard/brain/id.ex" [label="(compile)"]
+  "lib/goodwizard/brain/seeds.ex" -> "lib/goodwizard/brain/paths.ex"
+  "lib/goodwizard/brain/seeds.ex" -> "lib/goodwizard/brain/schema.ex"
+  "lib/goodwizard/actions/brain/delete_entity.ex"
+  "lib/goodwizard/actions/brain/delete_entity.ex" -> "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/brain/delete_entity.ex" -> "lib/goodwizard/brain.ex"
+  "lib/goodwizard/actions/brain/get_schema.ex"
+  "lib/goodwizard/actions/brain/get_schema.ex" -> "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/brain/get_schema.ex" -> "lib/goodwizard/brain/paths.ex"
+  "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/brain/list_entities.ex"
+  "lib/goodwizard/actions/brain/list_entities.ex" -> "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/brain/list_entities.ex" -> "lib/goodwizard/brain.ex"
+  "lib/goodwizard/actions/brain/list_entity_types.ex"
+  "lib/goodwizard/actions/brain/list_entity_types.ex" -> "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/brain/list_entity_types.ex" -> "lib/goodwizard/brain/schema.ex"
+  "lib/goodwizard/actions/brain/read_entity.ex"
+  "lib/goodwizard/actions/brain/read_entity.ex" -> "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/brain/read_entity.ex" -> "lib/goodwizard/brain.ex"
+  "lib/goodwizard/actions/brain/refresh_tools.ex"
+  "lib/goodwizard/actions/brain/refresh_tools.ex" -> "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/brain/refresh_tools.ex" -> "lib/goodwizard/brain/tool_generator.ex"
+  "lib/goodwizard/brain/tool_generator.ex" -> "lib/goodwizard/brain/paths.ex"
+  "lib/goodwizard/brain/tool_generator.ex" -> "lib/goodwizard/brain/schema_mapper.ex"
+  "lib/goodwizard/brain/tool_generator.ex" -> "lib/goodwizard/cache.ex"
+  "lib/goodwizard/actions/brain/save_schema.ex"
+  "lib/goodwizard/actions/brain/save_schema.ex" -> "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/brain/save_schema.ex" -> "lib/goodwizard/brain/schema.ex"
+  "lib/goodwizard/actions/brain/save_schema.ex" -> "lib/goodwizard/brain/tool_generator.ex"
+  "lib/goodwizard/actions/brain/save_schema.ex" -> "lib/goodwizard/cache.ex"
+  "lib/goodwizard/actions/brain/update_entity.ex"
+  "lib/goodwizard/actions/brain/update_entity.ex" -> "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/brain/update_entity.ex" -> "lib/goodwizard/brain.ex"
+  "lib/goodwizard/actions/filesystem.ex"
+  "lib/goodwizard/actions/filesystem.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/actions/filesystem/edit_file.ex"
+  "lib/goodwizard/actions/filesystem/edit_file.ex" -> "lib/goodwizard/actions/filesystem.ex"
+  "lib/goodwizard/actions/filesystem/grep_file.ex"
+  "lib/goodwizard/actions/filesystem/grep_file.ex" -> "lib/goodwizard/actions/filesystem.ex"
+  "lib/goodwizard/actions/filesystem/list_dir.ex"
+  "lib/goodwizard/actions/filesystem/list_dir.ex" -> "lib/goodwizard/actions/filesystem.ex"
+  "lib/goodwizard/actions/filesystem/read_file.ex"
+  "lib/goodwizard/actions/filesystem/read_file.ex" -> "lib/goodwizard/actions/filesystem.ex"
+  "lib/goodwizard/actions/filesystem/write_file.ex"
+  "lib/goodwizard/actions/filesystem/write_file.ex" -> "lib/goodwizard/actions/filesystem.ex"
+  "lib/goodwizard/actions/memory/append_history.ex"
+  "lib/goodwizard/actions/memory/append_history.ex" -> "lib/goodwizard/memory/paths.ex"
+  "lib/goodwizard/actions/memory/consolidate.ex"
+  "lib/goodwizard/actions/memory/consolidate.ex" -> "lib/goodwizard/memory/paths.ex"
+  "lib/goodwizard/actions/memory/read_long_term.ex"
+  "lib/goodwizard/actions/memory/read_long_term.ex" -> "lib/goodwizard/memory/paths.ex"
+  "lib/goodwizard/actions/memory/search_history.ex"
+  "lib/goodwizard/actions/memory/search_history.ex" -> "lib/goodwizard/memory/paths.ex"
+  "lib/goodwizard/actions/memory/write_long_term.ex"
+  "lib/goodwizard/actions/memory/write_long_term.ex" -> "lib/goodwizard/memory/paths.ex"
+  "lib/goodwizard/actions/messaging/send.ex"
+  "lib/goodwizard/actions/messaging/send.ex" -> "lib/goodwizard/messaging.ex"
+  "lib/goodwizard/actions/scheduling/cancel_cron.ex"
+  "lib/goodwizard/actions/scheduling/cron.ex"
+  "lib/goodwizard/actions/scheduling/cron_runner.ex"
+  "lib/goodwizard/actions/scheduling/cron_runner.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/actions/scheduling/cron_runner.ex" -> "lib/goodwizard/jido.ex"
+  "lib/goodwizard/actions/scheduling/cron_runner.ex" -> "lib/goodwizard/messaging.ex"
+  "lib/goodwizard/actions/scheduling/cron_runner.ex" -> "lib/goodwizard/sub_agent.ex"
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/brain/create_entity.ex" [label="(compile)"]
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/brain/delete_entity.ex" [label="(compile)"]
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/brain/get_schema.ex" [label="(compile)"]
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/brain/list_entities.ex" [label="(compile)"]
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/brain/list_entity_types.ex" [label="(compile)"]
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/brain/read_entity.ex" [label="(compile)"]
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/brain/update_entity.ex" [label="(compile)"]
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/filesystem/list_dir.ex" [label="(compile)"]
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/filesystem/read_file.ex" [label="(compile)"]
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/filesystem/write_file.ex" [label="(compile)"]
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/actions/shell/exec.ex" [label="(compile)"]
+  "lib/goodwizard/actions/shell/exec.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/sub_agent.ex" -> "lib/goodwizard/sub_agent/character.ex"
+  "lib/goodwizard/actions/scheduling/list_cron_jobs.ex"
+  "lib/goodwizard/actions/scheduling/one_shot.ex"
+  "lib/goodwizard/actions/shell/exec.ex"
+  "lib/goodwizard/actions/skills/activate_skill.ex"
+  "lib/goodwizard/actions/skills/activate_skill.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/actions/skills/activate_skill.ex" -> "lib/goodwizard/plugins/prompt_skills.ex"
+  "lib/goodwizard/plugins/prompt_skills.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/plugins/prompt_skills.ex" -> "lib/goodwizard/plugins/prompt_skills/parser.ex"
+  "lib/goodwizard/actions/skills/create_skill.ex"
+  "lib/goodwizard/actions/skills/create_skill.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/actions/skills/load_skill_resource.ex"
+  "lib/goodwizard/actions/skills/load_skill_resource.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/actions/skills/load_skill_resource.ex" -> "lib/goodwizard/plugins/prompt_skills.ex"
+  "lib/goodwizard/actions/subagent/spawn.ex"
+  "lib/goodwizard/actions/subagent/spawn.ex" -> "lib/goodwizard/actions/brain/helpers.ex"
+  "lib/goodwizard/actions/subagent/spawn.ex" -> "lib/goodwizard/jido.ex"
+  "lib/goodwizard/actions/subagent/spawn.ex" -> "lib/goodwizard/sub_agent.ex"
+  "lib/goodwizard/agent.ex"
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/brain/create_entity.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/brain/delete_entity.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/brain/get_schema.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/brain/list_entities.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/brain/list_entity_types.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/brain/read_entity.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/brain/refresh_tools.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/brain/save_schema.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/brain/update_entity.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/filesystem/edit_file.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/filesystem/grep_file.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/filesystem/list_dir.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/filesystem/read_file.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/filesystem/write_file.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/memory/append_history.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/memory/consolidate.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/memory/read_long_term.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/memory/search_history.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/memory/write_long_term.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/messaging/send.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/scheduling/cancel_cron.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/scheduling/cron.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/scheduling/list_cron_jobs.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/scheduling/one_shot.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/shell/exec.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/skills/activate_skill.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/skills/create_skill.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/skills/load_skill_resource.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/actions/subagent/spawn.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/brain/tool_generator.ex"
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/character/hydrator.ex"
+  "lib/goodwizard/character/hydrator.ex" -> "lib/goodwizard/brain/schema.ex"
+  "lib/goodwizard/character/hydrator.ex" -> "lib/goodwizard/cache.ex"
+  "lib/goodwizard/character/hydrator.ex" -> "lib/goodwizard/character.ex"
+  "lib/goodwizard/character/hydrator.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/plugins/cron_scheduler.ex" [label="(compile)"]
+  "lib/goodwizard/plugins/cron_scheduler.ex" -> "lib/goodwizard/actions/scheduling/cron_runner.ex"
+  "lib/goodwizard/plugins/cron_scheduler.ex" -> "lib/goodwizard/messaging.ex"
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/plugins/memory.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/plugins/prompt_skills.ex" [label="(compile)"]
+  "lib/goodwizard/agent.ex" -> "lib/goodwizard/plugins/session.ex" [label="(compile)"]
+  "lib/goodwizard/application.ex"
+  "lib/goodwizard/application.ex" -> "lib/goodwizard/brain/tool_generator.ex"
+  "lib/goodwizard/application.ex" -> "lib/goodwizard/cache.ex"
+  "lib/goodwizard/application.ex" -> "lib/goodwizard/channels/telegram/handler.ex"
+  "lib/goodwizard/channels/telegram/handler.ex" -> "lib/goodwizard/agent.ex"
+  "lib/goodwizard/channels/telegram/handler.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/channels/telegram/handler.ex" -> "lib/goodwizard/jido.ex"
+  "lib/goodwizard/channels/telegram/handler.ex" -> "lib/goodwizard/messaging.ex" [label="(compile)"]
+  "lib/goodwizard/application.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/application.ex" -> "lib/goodwizard/heartbeat.ex"
+  "lib/goodwizard/heartbeat.ex" -> "lib/goodwizard/agent.ex"
+  "lib/goodwizard/heartbeat.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/heartbeat.ex" -> "lib/goodwizard/jido.ex"
+  "lib/goodwizard/heartbeat.ex" -> "lib/goodwizard/messaging.ex"
+  "lib/goodwizard/application.ex" -> "lib/goodwizard/jido.ex"
+  "lib/goodwizard/application.ex" -> "lib/goodwizard/messaging.ex"
+  "lib/goodwizard/application.ex" -> "lib/goodwizard/shutdown_handler.ex"
+  "lib/goodwizard/shutdown_handler.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/shutdown_handler.ex" -> "lib/goodwizard/jido.ex"
+  "lib/goodwizard/shutdown_handler.ex" -> "lib/goodwizard/plugins/session.ex"
+  "lib/goodwizard/application.ex" -> "lib/goodwizard/telemetry.ex"
+  "lib/goodwizard/brain.ex"
+  "lib/goodwizard/brain/entity.ex"
+  "lib/goodwizard/brain/id.ex"
+  "lib/goodwizard/brain/paths.ex"
+  "lib/goodwizard/brain/schema.ex"
+  "lib/goodwizard/brain/schema_mapper.ex"
+  "lib/goodwizard/brain/seeds.ex"
+  "lib/goodwizard/brain/tool_generator.ex"
+  "lib/goodwizard/cache.ex"
+  "lib/goodwizard/channels/cli/server.ex"
+  "lib/goodwizard/channels/cli/server.ex" -> "lib/goodwizard/agent.ex"
+  "lib/goodwizard/channels/cli/server.ex" -> "lib/goodwizard/config.ex"
+  "lib/goodwizard/channels/cli/server.ex" -> "lib/goodwizard/jido.ex"
+  "lib/goodwizard/channels/cli/server.ex" -> "lib/goodwizard/messaging.ex"
+  "lib/goodwizard/channels/telegram/handler.ex"
+  "lib/goodwizard/character.ex"
+  "lib/goodwizard/character/hydrator.ex"
+  "lib/goodwizard/config.ex"
+  "lib/goodwizard/context_builder.ex"
+  "lib/goodwizard/heartbeat.ex"
+  "lib/goodwizard/jido.ex"
+  "lib/goodwizard/memory/paths.ex"
+  "lib/goodwizard/messaging.ex"
+  "lib/goodwizard/plugins/cron_scheduler.ex"
+  "lib/goodwizard/plugins/memory.ex"
+  "lib/goodwizard/plugins/prompt_skills.ex"
+  "lib/goodwizard/plugins/prompt_skills/parser.ex"
+  "lib/goodwizard/plugins/session.ex"
+  "lib/goodwizard/shutdown_handler.ex"
+  "lib/goodwizard/sub_agent.ex"
+  "lib/goodwizard/sub_agent/character.ex"
+  "lib/goodwizard/telemetry.ex"
+  "lib/mix/tasks/goodwizard.cli.ex"
+  "lib/mix/tasks/goodwizard.cli.ex" -> "lib/goodwizard/channels/cli/server.ex"
+  "lib/mix/tasks/goodwizard.setup.ex"
+  "lib/mix/tasks/goodwizard.setup.ex" -> "lib/goodwizard/brain.ex"
+  "lib/mix/tasks/goodwizard.setup.ex" -> "lib/goodwizard/brain/paths.ex"
+  "lib/mix/tasks/goodwizard.setup.ex" -> "lib/goodwizard/brain/seeds.ex"
+  "lib/mix/tasks/goodwizard.start.ex"
+  "lib/mix/tasks/goodwizard.status.ex"
+  "lib/mix/tasks/goodwizard.status.ex" -> "lib/goodwizard/config.ex"
+  "lib/mix/tasks/goodwizard.status.ex" -> "lib/goodwizard/messaging.ex"
+}

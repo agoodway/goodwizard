@@ -43,6 +43,7 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
   require Logger
 
   alias Jido.Agent.Directive
+  alias Goodwizard.Scheduling.CronStore
 
   @valid_modes ~w(main isolated)
   @known_model_prefixes ~w(anthropic: openai: google: ollama: mistral:)
@@ -69,6 +70,16 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
       hash = :crypto.hash(:sha256, "#{schedule}:#{task}:#{room_id}:#{mode}") |> Base.encode16(case: :lower) |> binary_part(0, 16)
       job_id = :"cron_#{hash}"
       directive = Directive.cron(schedule, message, job_id: job_id)
+
+      CronStore.save(%{
+        job_id: job_id,
+        schedule: schedule,
+        task: task,
+        room_id: room_id,
+        mode: mode,
+        model: model,
+        created_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      })
 
       {:ok,
        %{
