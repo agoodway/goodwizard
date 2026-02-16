@@ -16,7 +16,15 @@ defmodule Goodwizard.SubAgent do
       Goodwizard.Actions.Filesystem.ReadFile,
       Goodwizard.Actions.Filesystem.WriteFile,
       Goodwizard.Actions.Filesystem.ListDir,
-      Goodwizard.Actions.Shell.Exec
+      Goodwizard.Actions.Shell.Exec,
+      # Brain
+      Goodwizard.Actions.Brain.CreateEntity,
+      Goodwizard.Actions.Brain.ReadEntity,
+      Goodwizard.Actions.Brain.UpdateEntity,
+      Goodwizard.Actions.Brain.DeleteEntity,
+      Goodwizard.Actions.Brain.ListEntities,
+      Goodwizard.Actions.Brain.GetSchema,
+      Goodwizard.Actions.Brain.ListEntityTypes
     ],
     model: "anthropic:claude-sonnet-4-5",
     max_iterations: 10

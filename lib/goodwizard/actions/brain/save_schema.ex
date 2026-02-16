@@ -20,7 +20,7 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
     ]
 
   alias Goodwizard.Actions.Brain.Helpers
-  alias Goodwizard.Brain.Schema
+  alias Goodwizard.Brain.{Schema, ToolGenerator}
 
   @impl true
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
@@ -31,7 +31,13 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
       case Schema.save(workspace, params.entity_type, params.schema) do
         :ok ->
           Goodwizard.Cache.delete("brain:schema_summaries:#{workspace}")
-          {:ok, %{message: "Schema saved for type: #{params.entity_type}"}}
+          ToolGenerator.generate_for_type(workspace, params.entity_type)
+
+          {:ok,
+           %{
+             message:
+               "Schema saved for type: #{params.entity_type}. Typed tools regenerated — available next turn."
+           }}
 
         {:error, reason} ->
           {:error, Helpers.format_error(reason)}

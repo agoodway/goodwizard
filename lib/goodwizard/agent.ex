@@ -28,15 +28,16 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Subagent.Spawn,
       Goodwizard.Actions.Messaging.Send,
       Goodwizard.Actions.Scheduling.Cron,
-      # Brain
-      Goodwizard.Actions.Brain.CreateEntity,
+      Goodwizard.Actions.Scheduling.CancelCron,
+      Goodwizard.Actions.Scheduling.ListCronJobs,
+      # Brain (typed create/update tools are registered dynamically)
       Goodwizard.Actions.Brain.ReadEntity,
-      Goodwizard.Actions.Brain.UpdateEntity,
       Goodwizard.Actions.Brain.DeleteEntity,
       Goodwizard.Actions.Brain.ListEntities,
       Goodwizard.Actions.Brain.GetSchema,
       Goodwizard.Actions.Brain.SaveSchema,
-      Goodwizard.Actions.Brain.ListEntityTypes
+      Goodwizard.Actions.Brain.ListEntityTypes,
+      Goodwizard.Actions.Brain.RefreshTools
     ],
     model: "anthropic:claude-sonnet-4-5",
     max_iterations: 20,
@@ -50,13 +51,18 @@ defmodule Goodwizard.Agent do
   require Logger
 
   alias Goodwizard.Actions.Memory.Consolidate
+  alias Goodwizard.Brain.ToolGenerator
   alias Goodwizard.Character.Hydrator
   alias Goodwizard.Plugins.Session
+  alias Jido.Agent.Strategy.State, as: StratState
 
   @impl true
   def on_before_cmd(agent, {:react_start, %{query: _query}} = action) do
     # First let the parent macro handle request tracking
     {:ok, agent, action} = super(agent, action)
+
+    # Register any generated brain tools into the strategy state
+    agent = maybe_register_brain_tools(agent)
 
     Logger.debug(fn ->
       {:react_start, %{query: q}} = action
@@ -171,6 +177,48 @@ defmodule Goodwizard.Agent do
 
         {:ok, agent, directives}
     end
+  end
+
+  defp maybe_register_brain_tools(agent) do
+    alias Jido.AI.Strategy.StateOpsHelpers
+    alias Jido.AI.ToolAdapter
+
+    desired_modules = ToolGenerator.generated_modules()
+
+    state = StratState.get(agent, %{})
+    config = state[:config] || %{}
+    current_tools = config[:tools] || []
+
+    # Separate current tools into generated (in Generated namespace) and static
+    {generated_current, static_tools} =
+      Enum.split_with(current_tools, fn mod ->
+        mod |> Module.split() |> Enum.take(5) == ~w(Goodwizard Actions Brain Generated)
+      end)
+
+    # If desired matches current generated set, nothing to do
+    if MapSet.new(desired_modules) == MapSet.new(generated_current) do
+      agent
+    else
+      # Rebuild: static tools + desired generated modules
+      new_tools = (static_tools ++ desired_modules) |> Enum.uniq()
+      new_by_name = Map.new(new_tools, fn mod -> {mod.name(), mod} end)
+      new_reqllm = ToolAdapter.from_actions(new_tools)
+
+      new_state =
+        StateOpsHelpers.apply_to_state(
+          state,
+          StateOpsHelpers.update_tools_config(new_tools, new_by_name, new_reqllm)
+        )
+
+      StratState.put(agent, new_state)
+    end
+  rescue
+    e ->
+      Logger.warning(
+        "Brain tool registration failed: #{Exception.message(e)}, continuing without dynamic tools"
+      )
+
+      agent
   end
 
   defp maybe_consolidate(agent) do
