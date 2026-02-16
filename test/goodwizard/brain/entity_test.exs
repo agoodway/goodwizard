@@ -7,7 +7,7 @@ defmodule Goodwizard.Brain.EntityTest do
     test "parses frontmatter and body" do
       content = """
       ---
-      id: abc12345
+      id: 0193a5e7-1234-7000-8000-000000000001
       name: John Doe
       ---
 
@@ -15,16 +15,16 @@ defmodule Goodwizard.Brain.EntityTest do
       """
 
       assert {:ok, {data, body}} = Entity.parse(content)
-      assert data["id"] == "abc12345"
+      assert data["id"] == "0193a5e7-1234-7000-8000-000000000001"
       assert data["name"] == "John Doe"
       assert body == "Some notes here."
     end
 
     test "parses empty body" do
-      content = "---\nid: abc12345\n---\n"
+      content = "---\nid: 0193a5e7-1234-7000-8000-000000000001\n---\n"
 
       assert {:ok, {data, body}} = Entity.parse(content)
-      assert data["id"] == "abc12345"
+      assert data["id"] == "0193a5e7-1234-7000-8000-000000000001"
       assert body == ""
     end
 
@@ -36,10 +36,10 @@ defmodule Goodwizard.Brain.EntityTest do
     end
 
     test "parses quoted strings" do
-      content = ~s(---\ncompany: "companies/x9rku2dq"\n---\n)
+      content = ~s(---\ncompany: "companies/0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a"\n---\n)
 
       assert {:ok, {data, _body}} = Entity.parse(content)
-      assert data["company"] == "companies/x9rku2dq"
+      assert data["company"] == "companies/0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a"
     end
 
     test "returns error for missing frontmatter" do
@@ -92,27 +92,27 @@ defmodule Goodwizard.Brain.EntityTest do
 
   describe "serialize/2" do
     test "serializes data map and body" do
-      data = %{"id" => "abc12345", "name" => "John Doe"}
+      data = %{"id" => "0193a5e7-1234-7000-8000-000000000001", "name" => "John Doe"}
       result = Entity.serialize(data, "Some notes.")
 
       assert String.starts_with?(result, "---\n")
-      assert String.contains?(result, "id: abc12345")
+      assert String.contains?(result, ~s(id: "0193a5e7-1234-7000-8000-000000000001"))
       assert String.contains?(result, "name: John Doe")
       assert String.contains?(result, "---\n\nSome notes.")
     end
 
     test "serializes with empty body" do
-      data = %{"id" => "abc12345"}
+      data = %{"id" => "0193a5e7-1234-7000-8000-000000000001"}
       result = Entity.serialize(data, "")
 
-      assert result == "---\nid: abc12345\n---\n"
+      assert result == "---\nid: \"0193a5e7-1234-7000-8000-000000000001\"\n---\n"
     end
 
     test "serializes default empty body" do
-      data = %{"id" => "abc12345"}
+      data = %{"id" => "0193a5e7-1234-7000-8000-000000000001"}
       result = Entity.serialize(data)
 
-      assert result == "---\nid: abc12345\n---\n"
+      assert result == "---\nid: \"0193a5e7-1234-7000-8000-000000000001\"\n---\n"
     end
 
     test "sorts keys alphabetically" do
@@ -163,7 +163,11 @@ defmodule Goodwizard.Brain.EntityTest do
     end
 
     test "roundtrips map values through serialize and parse" do
-      data = %{"id" => "abc12345", "meta" => %{"source" => "import", "version" => 2}}
+      data = %{
+        "id" => "0193a5e7-1234-7000-8000-000000000001",
+        "meta" => %{"source" => "import", "version" => 2}
+      }
+
       serialized = Entity.serialize(data)
       assert {:ok, {parsed, _}} = Entity.parse(serialized)
       assert parsed["meta"]["source"] == "import"
@@ -225,7 +229,12 @@ defmodule Goodwizard.Brain.EntityTest do
 
   describe "roundtrip" do
     test "serialize then parse returns original data and body" do
-      data = %{"id" => "abc12345", "name" => "John Doe", "tags" => ["friend", "colleague"]}
+      data = %{
+        "id" => "0193a5e7-1234-7000-8000-000000000001",
+        "name" => "John Doe",
+        "tags" => ["friend", "colleague"]
+      }
+
       body = "Some notes about John."
 
       serialized = Entity.serialize(data, body)
@@ -238,7 +247,7 @@ defmodule Goodwizard.Brain.EntityTest do
     end
 
     test "roundtrip with empty body" do
-      data = %{"id" => "abc12345", "name" => "Test"}
+      data = %{"id" => "0193a5e7-1234-7000-8000-000000000001", "name" => "Test"}
 
       serialized = Entity.serialize(data)
       assert {:ok, {parsed_data, parsed_body}} = Entity.parse(serialized)
@@ -249,12 +258,15 @@ defmodule Goodwizard.Brain.EntityTest do
     end
 
     test "roundtrip with entity references" do
-      data = %{"id" => "abc12345", "company" => "companies/x9rku2dq"}
+      data = %{
+        "id" => "0193a5e7-1234-7000-8000-000000000001",
+        "company" => "companies/0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a"
+      }
 
       serialized = Entity.serialize(data)
       assert {:ok, {parsed_data, _body}} = Entity.parse(serialized)
 
-      assert parsed_data["company"] == "companies/x9rku2dq"
+      assert parsed_data["company"] == "companies/0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a"
     end
   end
 end

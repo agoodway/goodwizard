@@ -46,7 +46,7 @@ defmodule Goodwizard.MixProject do
       {:yaml_elixir, "~> 2.9"},
       {:dotenvy, "~> 1.1"},
       {:ex_json_schema, "~> 0.10"},
-      {:sqids, "~> 0.2.1"},
+      {:uniq, "~> 0.6"},
       {:nebulex, "~> 2.6"},
 
       # Code Quality (dev/test only)

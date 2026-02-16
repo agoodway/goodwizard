@@ -409,7 +409,7 @@ defmodule Goodwizard.BrainCrudTest do
       assert {:error, _} =
                Brain.create(workspace, "tasklists", %{
                  "title" => "Bad Refs",
-                 "tasks" => ["people/abc12345"]
+                 "tasks" => ["people/0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a"]
                })
     end
 
