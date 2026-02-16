@@ -23,12 +23,33 @@ defmodule Goodwizard.Config do
       "telegram" => %{"enabled" => false, "allow_from" => []}
     },
     "tools" => %{
-      "exec" => %{"timeout" => 60},
+      "exec" => %{
+        "timeout" => 60,
+        "deny_patterns" => [
+          "\\brm\\s+(-[a-zA-Z]*r[a-zA-Z]*f|--recursive\\s+--force|-[a-zA-Z]*f[a-zA-Z]*r)\\b",
+          "\\bdel\\s+\\/[fq]\\b",
+          "\\brmdir\\s+\\/s\\b",
+          "\\b(mkfs|format|diskpart)\\b",
+          "\\bdd\\s+if=",
+          "\\/dev\\/sd[a-z]",
+          "\\b(shutdown|reboot|poweroff)\\b",
+          ":\\(\\)\\{\\s*:\\|:\\s*&\\s*\\}\\s*;",
+          "\\$\\(",
+          "`",
+          "\\|",
+          "[<>]\\(",
+          "\\b(curl|wget|nc|ncat|netcat)\\b",
+          "\\b(kill|killall|pkill)\\b",
+          "\\b(chmod|chown|chgrp)\\b",
+          "\\b(sudo|su|doas)\\b",
+          "\\b(crontab)\\b"
+        ]
+      },
       "restrict_to_workspace" => true
     },
     "cron" => %{
       "ask_timeout" => 120_000,
-      "max_concurrent_agents" => 3
+      "max_concurrent_agents" => 50
     },
     "heartbeat" => %{
       "enabled" => false,

@@ -9,35 +9,10 @@ defmodule Goodwizard.Actions.Shell.Exec do
     schema: [
       command: [type: :string, required: true, doc: "Shell command to execute"],
       working_dir: [type: :string, doc: "Working directory for the command"],
-      timeout: [type: :integer, default: 60, doc: "Timeout in seconds"],
-      deny_patterns: [type: {:list, :string}, doc: "Regex patterns to block"],
-      allow_patterns: [type: {:list, :string}, doc: "Regex patterns to allow"]
+      timeout: [type: :integer, default: 60, doc: "Timeout in seconds"]
     ]
 
   @max_output 10_000
-
-  @default_deny_patterns [
-    ~r/\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|--recursive\s+--force|-[a-zA-Z]*f[a-zA-Z]*r)\b/,
-    ~r/\bdel\s+\/[fq]\b/i,
-    ~r/\brmdir\s+\/s\b/i,
-    ~r/\b(mkfs|format|diskpart)\b/i,
-    ~r/\bdd\s+if=/,
-    ~r/\/dev\/sd[a-z]/,
-    ~r/\b(shutdown|reboot|poweroff)\b/,
-    ~r/:\(\)\{\s*:\|:\s*&\s*\}\s*;/,
-    # Shell metacharacter injection
-    ~r/\$\(/,
-    ~r/`/,
-    ~r/\|/,
-    ~r/[<>]\(/,
-    # Network commands
-    ~r/\b(curl|wget|nc|ncat|netcat)\b/,
-    # Process and permission commands
-    ~r/\b(kill|killall|pkill)\b/,
-    ~r/\b(chmod|chown|chgrp)\b/,
-    ~r/\b(sudo|su|doas)\b/,
-    ~r/\b(crontab)\b/
-  ]
 
   @impl true
   def run(params, _context) do
@@ -45,31 +20,21 @@ defmodule Goodwizard.Actions.Shell.Exec do
     working_dir = Map.get(params, :working_dir)
     timeout = Map.get(params, :timeout, 60)
 
-    with {:ok, deny_patterns} <-
-           compile_patterns(Map.get(params, :deny_patterns), @default_deny_patterns),
-         {:ok, allow_patterns} <- compile_patterns(Map.get(params, :allow_patterns), nil),
-         :ok <- check_deny_patterns(command, deny_patterns),
-         :ok <- check_allow_patterns(command, allow_patterns),
+    with :ok <- check_deny_patterns(command, deny_patterns_from_config()),
          :ok <- check_workspace_restriction(command, working_dir) do
       execute(command, working_dir, timeout)
     end
   end
 
   defp check_deny_patterns(command, patterns) do
-    if Enum.any?(patterns, &Regex.match?(&1, command)) do
-      {:error, "Command blocked by safety guard (dangerous pattern detected)"}
-    else
-      :ok
-    end
-  end
+    case Enum.find(patterns, &Regex.match?(&1, command)) do
+      nil ->
+        :ok
 
-  defp check_allow_patterns(_command, nil), do: :ok
-
-  defp check_allow_patterns(command, patterns) do
-    if Enum.any?(patterns, &Regex.match?(&1, command)) do
-      :ok
-    else
-      {:error, "Command blocked by safety guard (not in allowlist)"}
+      matched ->
+        {:error,
+         "Command '#{String.slice(command, 0, 80)}' blocked by safety guard " <>
+           "(matched deny pattern: #{Regex.source(matched)})"}
     end
   end
 
@@ -100,15 +65,11 @@ defmodule Goodwizard.Actions.Shell.Exec do
     end
   end
 
-  defp compile_patterns(nil, default), do: {:ok, default}
-
-  defp compile_patterns(patterns, _default) do
-    results = Enum.map(patterns, &Regex.compile/1)
-
-    case Enum.find(results, &match?({:error, _}, &1)) do
-      {:error, {msg, _}} -> {:error, "Invalid regex pattern: #{msg}"}
-      nil -> {:ok, Enum.map(results, fn {:ok, regex} -> regex end)}
-    end
+  defp deny_patterns_from_config do
+    Goodwizard.Config.get(["tools", "exec", "deny_patterns"])
+    |> Enum.map(&Regex.compile!/1)
+  catch
+    :exit, _ -> []
   end
 
   defp has_outside_absolute_path?(command, working_dir) when is_binary(working_dir) do

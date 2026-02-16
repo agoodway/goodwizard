@@ -58,6 +58,25 @@ defmodule Mix.Tasks.Goodwizard.Setup do
 
   [tools.exec]
   timeout = 60
+  deny_patterns = [                        # Regex patterns that block shell commands.
+    '\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|--recursive\s+--force|-[a-zA-Z]*f[a-zA-Z]*r)\b',
+    '\bdel\s+\/[fq]\b',
+    '\brmdir\s+\/s\b',
+    '\b(mkfs|diskpart)\b',
+    '\bdd\s+if=',
+    '\/dev\/sd[a-z]',
+    '\b(shutdown|reboot|poweroff)\b',
+    ':\(\)\{\s*:\|:\s*&\s*\}\s*;',
+    '\$\(',
+    '`',
+    '\|',
+    '[<>]\(',
+    # '\b(curl|wget|nc|ncat|netcat)\b',   # Uncomment to block network commands.
+    '\b(kill|killall|pkill)\b',
+    '\b(chmod|chown|chgrp)\b',
+    '\b(sudo|su|doas)\b',
+    '\b(crontab)\b',
+  ]
   """
 
   @impl Mix.Task
