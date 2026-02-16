@@ -137,4 +137,37 @@ defmodule Goodwizard.Actions.Scheduling.CronTest do
       assert r_main.job_id != r_isolated.job_id
     end
   end
+
+  describe "model validation" do
+    test "accepts valid anthropic model" do
+      params = %{
+        schedule: "0 9 * * *",
+        task: "check",
+        room_id: "room_1",
+        mode: "isolated",
+        model: "anthropic:claude-haiku-4-5"
+      }
+
+      assert {:ok, _result, _directives} = Cron.run(params, %{})
+    end
+
+    test "rejects model with unknown provider prefix" do
+      params = %{
+        schedule: "0 9 * * *",
+        task: "check",
+        room_id: "room_1",
+        mode: "isolated",
+        model: "unknown-provider:some-model"
+      }
+
+      assert {:error, msg} = Cron.run(params, %{})
+      assert msg =~ "Invalid model"
+      assert msg =~ "unknown-provider"
+    end
+
+    test "accepts nil model (no model override)" do
+      params = %{schedule: "0 9 * * *", task: "check", room_id: "room_1", mode: "isolated"}
+      assert {:ok, _result, _directives} = Cron.run(params, %{})
+    end
+  end
 end

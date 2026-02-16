@@ -29,11 +29,11 @@ defmodule Goodwizard.Plugins.CronScheduler do
 
   @impl Jido.Plugin
   def handle_signal(%{type: "jido.cron_tick"} = signal, context) do
-    message = signal.data[:message] || %{}
-    task = message[:task] || message["task"]
-    room_id = message[:room_id] || message["room_id"]
-    mode = message[:mode] || message["mode"] || "isolated"
-    model = message[:model] || message["model"]
+    message = (signal.data[:message] || %{}) |> normalize_keys()
+    task = message[:task]
+    room_id = message[:room_id]
+    mode = message[:mode] || "isolated"
+    model = message[:model]
 
     Logger.info(
       "Cron tick received: mode=#{mode}, task=#{inspect(task)}, room_id=#{inspect(room_id)}"
@@ -70,7 +70,7 @@ defmodule Goodwizard.Plugins.CronScheduler do
   defp dispatch_isolated(task, room_id, model) do
     opts = if model, do: [model: model], else: []
 
-    Task.start(fn ->
+    Task.Supervisor.start_child(Goodwizard.Jido.task_supervisor_name(), fn ->
       case CronRunner.run_isolated(task, room_id, opts) do
         {:ok, _response} ->
           Logger.info("Isolated cron completed: task=#{inspect(task)}")
@@ -90,5 +90,20 @@ defmodule Goodwizard.Plugins.CronScheduler do
       role: :user,
       content: [%{type: "text", text: "[Cron Task] #{task}"}]
     })
+  end
+
+  @known_keys %{
+    "task" => :task,
+    "room_id" => :room_id,
+    "mode" => :mode,
+    "model" => :model,
+    "type" => :type
+  }
+
+  defp normalize_keys(map) when is_map(map) do
+    Map.new(map, fn
+      {k, v} when is_binary(k) -> {Map.get(@known_keys, k, k), v}
+      {k, v} -> {k, v}
+    end)
   end
 end

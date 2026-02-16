@@ -26,6 +26,10 @@ defmodule Goodwizard.Config do
       "exec" => %{"timeout" => 60},
       "restrict_to_workspace" => true
     },
+    "cron" => %{
+      "ask_timeout" => 120_000,
+      "max_concurrent_agents" => 3
+    },
     "heartbeat" => %{
       "enabled" => false,
       "interval_minutes" => 5

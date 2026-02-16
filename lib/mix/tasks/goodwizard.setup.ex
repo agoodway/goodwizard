@@ -42,6 +42,12 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   [channels.telegram]
   enabled = false
 
+  [scheduling]
+  # Default delivery channel for cron/oneshot tasks.
+  # Set these so scheduled tasks know where to send results.
+  # channel = "telegram"
+  # chat_id = "your_chat_id"
+
   [tools]
   restrict_to_workspace = true
 

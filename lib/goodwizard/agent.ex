@@ -67,8 +67,8 @@ defmodule Goodwizard.Agent do
     # First let the parent macro handle request tracking
     {:ok, agent, action} = super(agent, action)
 
-    # Register any generated brain tools into the strategy state
-    agent = maybe_register_brain_tools(agent)
+    # Register plugin and generated brain tools into the strategy state
+    agent = agent |> maybe_register_browser_tools() |> maybe_register_brain_tools()
 
     Logger.debug(fn ->
       {:react_start, %{query: q}} = action
@@ -183,6 +183,40 @@ defmodule Goodwizard.Agent do
 
         {:ok, agent, directives}
     end
+  end
+
+  defp maybe_register_browser_tools(agent) do
+    browser_actions = JidoBrowser.Plugin.actions()
+
+    state = StratState.get(agent, %{})
+    config = state[:config] || %{}
+    current_tools = config[:tools] || []
+
+    # Check if browser actions are already registered
+    current_set = MapSet.new(current_tools)
+
+    if Enum.all?(browser_actions, &MapSet.member?(current_set, &1)) do
+      agent
+    else
+      new_tools = (current_tools ++ browser_actions) |> Enum.uniq()
+      new_by_name = Map.new(new_tools, fn mod -> {mod.name(), mod} end)
+      new_reqllm = ToolAdapter.from_actions(new_tools)
+
+      new_state =
+        StateOpsHelpers.apply_to_state(
+          state,
+          StateOpsHelpers.update_tools_config(new_tools, new_by_name, new_reqllm)
+        )
+
+      StratState.put(agent, new_state)
+    end
+  rescue
+    e ->
+      Logger.warning(
+        "Browser tool registration failed: #{Exception.message(e)}, continuing without browser tools"
+      )
+
+      agent
   end
 
   defp maybe_register_brain_tools(agent) do

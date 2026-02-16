@@ -27,7 +27,7 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
     schema: [
       schedule: [type: :string, required: true, doc: "Cron expression (e.g. \"0 9 * * *\")"],
       task: [type: :string, required: true, doc: "Description of the task to execute"],
-      room_id: [type: :string, required: true, doc: "Target Messaging room identifier"],
+      room_id: [type: :string, required: false, doc: "Target Messaging room identifier. Auto-resolved from agent context when omitted."],
       mode: [
         type: :string,
         required: false,
@@ -45,23 +45,29 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
   alias Jido.Agent.Directive
 
   @valid_modes ~w(main isolated)
+  @known_model_prefixes ~w(anthropic: openai: google: ollama: mistral:)
 
   # Standard 5-field cron has a minimum resolution of 1 minute.
   # Warn on every-minute schedules to flag potential resource abuse.
   @high_frequency_patterns ["* * * * *", "*/1 * * * *"]
 
+  alias Goodwizard.Actions.Brain.Helpers
+
   @impl true
-  def run(params, _context) do
-    %{schedule: schedule, task: task, room_id: room_id} = params
+  def run(params, context) do
+    %{schedule: schedule, task: task} = params
     mode = Map.get(params, :mode) || "isolated"
     model = Map.get(params, :model)
 
-    with :ok <- validate_mode(mode),
+    with {:ok, room_id} <- resolve_room(params, context),
+         :ok <- validate_mode(mode),
+         :ok <- validate_model(model),
          :ok <- validate_cron(schedule) do
       warn_high_frequency(schedule)
 
       message = build_message(task, room_id, mode, model)
-      job_id = :"cron_#{:erlang.phash2({schedule, task, room_id, mode})}"
+      hash = :crypto.hash(:sha256, "#{schedule}:#{task}:#{room_id}:#{mode}") |> Base.encode16(case: :lower) |> binary_part(0, 16)
+      job_id = :"cron_#{hash}"
       directive = Directive.cron(schedule, message, job_id: job_id)
 
       {:ok,
@@ -73,6 +79,22 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
          mode: mode,
          job_id: job_id
        }, [directive]}
+    end
+  end
+
+  defp resolve_room(%{room_id: room_id}, _context) when is_binary(room_id) and room_id != "",
+    do: {:ok, room_id}
+
+  defp resolve_room(_params, context), do: Helpers.resolve_room_id(context)
+
+  defp validate_model(nil), do: :ok
+
+  defp validate_model(model) when is_binary(model) do
+    if Enum.any?(@known_model_prefixes, &String.starts_with?(model, &1)) do
+      :ok
+    else
+      {:error,
+       "Invalid model #{inspect(model)} — must start with a known provider prefix: #{Enum.join(@known_model_prefixes, ", ")}"}
     end
   end
 
