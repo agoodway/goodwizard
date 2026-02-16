@@ -151,30 +151,40 @@ defmodule Goodwizard.Channels.Telegram.Handler do
   end
 
   defp get_or_create_agent(chat_id) do
-    workspace = Goodwizard.Config.workspace()
+    agent_id = "telegram:#{chat_id}"
 
-    overrides =
-      Goodwizard.Config.get(["channels", "telegram", "character_overrides"]) ||
-        %{"tone" => "friendly", "style" => "brief and mobile-friendly"}
+    # Check registry first — start_agent always creates a new process
+    # because DynamicSupervisor doesn't deduplicate and Jido's
+    # Registry.register result is discarded in AgentServer.init.
+    case Goodwizard.Jido.whereis(agent_id) do
+      pid when is_pid(pid) ->
+        Logger.debug("[Telegram] Reusing agent #{agent_id}, pid=#{inspect(pid)}")
+        {:ok, pid}
 
-    case Goodwizard.Jido.start_agent(GoodwizardAgent,
-           id: "telegram:#{chat_id}",
-           initial_state: %{
-             workspace: workspace,
-             channel: "telegram",
-             chat_id: "#{chat_id}",
-             session_key: "telegram-#{chat_id}",
-             character_overrides: overrides
-           }
-         ) do
-      {:ok, agent_pid} ->
-        {:ok, agent_pid}
+      nil ->
+        Logger.debug("[Telegram] Creating new agent #{agent_id}")
+        workspace = Goodwizard.Config.workspace()
 
-      {:error, {:already_started, agent_pid}} ->
-        {:ok, agent_pid}
+        overrides =
+          Goodwizard.Config.get(["channels", "telegram", "character_overrides"]) ||
+            %{"tone" => "friendly", "style" => "brief and mobile-friendly"}
 
-      {:error, reason} ->
-        {:error, reason}
+        case Goodwizard.Jido.start_agent(GoodwizardAgent,
+               id: agent_id,
+               initial_state: %{
+                 workspace: workspace,
+                 channel: "telegram",
+                 chat_id: "#{chat_id}",
+                 session_key: "telegram-#{chat_id}",
+                 character_overrides: overrides
+               }
+             ) do
+          {:ok, agent_pid} ->
+            {:ok, agent_pid}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
     end
   end
 
