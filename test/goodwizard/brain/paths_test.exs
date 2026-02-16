@@ -17,12 +17,6 @@ defmodule Goodwizard.Brain.PathsTest do
     end
   end
 
-  describe "counter_path/1" do
-    test "returns .counter file path" do
-      assert Paths.counter_path(@workspace) == "/tmp/test_workspace/brain/.counter"
-    end
-  end
-
   describe "entity_type_dir/2" do
     test "returns entity type directory" do
       assert {:ok, "/tmp/test_workspace/brain/people"} =

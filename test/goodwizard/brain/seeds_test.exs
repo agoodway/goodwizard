@@ -125,13 +125,17 @@ defmodule Goodwizard.Brain.SeedsTest do
 
       tasks = schema["properties"]["tasks"]
       assert tasks["type"] == "array"
-      assert tasks["items"]["pattern"] == "^tasks/[a-z0-9]{8,64}$"
+
+      assert tasks["items"]["pattern"] ==
+               "^tasks/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     end
 
     test "notes schema has polymorphic related_to references" do
       schema = Seeds.schema_for("notes")
       related = schema["properties"]["related_to"]
-      assert related["items"]["pattern"] == "^[a-z_]+/[a-z0-9]{8,64}$"
+
+      assert related["items"]["pattern"] ==
+               "^[a-z_]+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     end
   end
 

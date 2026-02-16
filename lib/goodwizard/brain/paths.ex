@@ -41,10 +41,6 @@ defmodule Goodwizard.Brain.Paths do
     end
   end
 
-  @doc "Returns the `brain/.counter` file path."
-  @spec counter_path(String.t()) :: String.t()
-  def counter_path(workspace), do: Path.join([workspace, "brain", ".counter"])
-
   @doc """
   Validates that a path segment is safe. Rejects `..`, leading `/`, and null bytes.
   """

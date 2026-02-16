@@ -44,6 +44,7 @@ defmodule Goodwizard.Brain.Seeds do
   end
 
   @id_pattern Id.id_pattern()
+  @uuid_pattern "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
   @doc "Returns the schema map for a given entity type."
   @spec schema_for(String.t()) :: map()
@@ -90,7 +91,7 @@ defmodule Goodwizard.Brain.Seeds do
       "topic" => %{"type" => "string"},
       "related_to" => %{
         "type" => "array",
-        "items" => %{"type" => "string", "pattern" => "^[a-z_]+/[a-z0-9]{8,64}$"},
+        "items" => %{"type" => "string", "pattern" => "^[a-z_]+/#{@uuid_pattern}$"},
         "description" => "Polymorphic entity references (any entity type)"
       }
     })
@@ -160,7 +161,7 @@ defmodule Goodwizard.Brain.Seeds do
   defp entity_ref(type) do
     %{
       "type" => "string",
-      "pattern" => "^#{type}/[a-z0-9]{8,64}$",
+      "pattern" => "^#{type}/#{@uuid_pattern}$",
       "description" => "Entity reference to #{type}"
     }
   end
@@ -168,7 +169,7 @@ defmodule Goodwizard.Brain.Seeds do
   defp entity_ref_list(type) do
     %{
       "type" => "array",
-      "items" => %{"type" => "string", "pattern" => "^#{type}/[a-z0-9]{8,64}$"},
+      "items" => %{"type" => "string", "pattern" => "^#{type}/#{@uuid_pattern}$"},
       "description" => "Entity references to #{type}"
     }
   end
