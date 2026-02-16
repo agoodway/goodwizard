@@ -21,6 +21,9 @@ defmodule Goodwizard.Application do
     children = [
       Goodwizard.Config,
       Goodwizard.Cache,
+      Goodwizard.BrowserSessionStore,
+      Goodwizard.Browser.Serializer,
+      Goodwizard.Scheduling.CronRegistry,
       Goodwizard.Jido,
       Supervisor.child_spec({Task, &generate_brain_tools/0}, id: :brain_tools),
       Goodwizard.Messaging,

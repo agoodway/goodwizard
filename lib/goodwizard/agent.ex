@@ -31,30 +31,30 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Scheduling.CancelCron,
       Goodwizard.Actions.Scheduling.ListCronJobs,
       Goodwizard.Actions.Scheduling.OneShot,
-      # Browser (listed explicitly for ReAct tool visibility; session managed by agent)
-      JidoBrowser.Actions.Navigate,
-      JidoBrowser.Actions.Back,
-      JidoBrowser.Actions.Forward,
-      JidoBrowser.Actions.Reload,
-      JidoBrowser.Actions.GetUrl,
-      JidoBrowser.Actions.GetTitle,
-      JidoBrowser.Actions.Click,
-      JidoBrowser.Actions.Type,
-      JidoBrowser.Actions.Hover,
-      JidoBrowser.Actions.Focus,
-      JidoBrowser.Actions.Scroll,
-      JidoBrowser.Actions.SelectOption,
-      JidoBrowser.Actions.Wait,
-      JidoBrowser.Actions.WaitForSelector,
-      JidoBrowser.Actions.WaitForNavigation,
-      JidoBrowser.Actions.Query,
-      JidoBrowser.Actions.GetText,
-      JidoBrowser.Actions.GetAttribute,
-      JidoBrowser.Actions.IsVisible,
-      JidoBrowser.Actions.Snapshot,
-      JidoBrowser.Actions.Screenshot,
-      JidoBrowser.Actions.ExtractContent,
-      JidoBrowser.Actions.Evaluate,
+      # Browser (serialized wrappers around JidoBrowser.Actions.*)
+      Goodwizard.Actions.Browser.Navigate,
+      Goodwizard.Actions.Browser.Back,
+      Goodwizard.Actions.Browser.Forward,
+      Goodwizard.Actions.Browser.Reload,
+      Goodwizard.Actions.Browser.GetUrl,
+      Goodwizard.Actions.Browser.GetTitle,
+      Goodwizard.Actions.Browser.Click,
+      Goodwizard.Actions.Browser.Type,
+      Goodwizard.Actions.Browser.Hover,
+      Goodwizard.Actions.Browser.Focus,
+      Goodwizard.Actions.Browser.Scroll,
+      Goodwizard.Actions.Browser.SelectOption,
+      Goodwizard.Actions.Browser.Wait,
+      Goodwizard.Actions.Browser.WaitForSelector,
+      Goodwizard.Actions.Browser.WaitForNavigation,
+      Goodwizard.Actions.Browser.Query,
+      Goodwizard.Actions.Browser.GetText,
+      Goodwizard.Actions.Browser.GetAttribute,
+      Goodwizard.Actions.Browser.IsVisible,
+      Goodwizard.Actions.Browser.Snapshot,
+      Goodwizard.Actions.Browser.Screenshot,
+      Goodwizard.Actions.Browser.ExtractContent,
+      Goodwizard.Actions.Browser.Evaluate,
       # Brain
       Goodwizard.Actions.Brain.CreateEntity,
       Goodwizard.Actions.Brain.ReadEntity,
@@ -78,6 +78,7 @@ defmodule Goodwizard.Agent do
   require Logger
 
   alias Goodwizard.Actions.Memory.Consolidate
+  alias Goodwizard.BrowserSessionStore
   alias Goodwizard.Character.Hydrator
   alias Goodwizard.Plugins.Session
 
@@ -134,6 +135,9 @@ defmodule Goodwizard.Agent do
       # Ensure browser session and inject into tool_context + system prompt
       {agent, browser_session} = ensure_browser_session(agent)
 
+      # Register dynamically generated brain tools with the strategy
+      agent = ensure_brain_tools(agent)
+
       {:react_start, params} = action
 
       params =
@@ -156,6 +160,13 @@ defmodule Goodwizard.Agent do
 
         {:ok, agent, safe_action}
     end
+  end
+
+  @impl true
+  def on_before_cmd(agent, {:react_llm_result, _params} = action) do
+    {:ok, agent, action} = super(agent, action)
+    agent = refresh_browser_session(agent)
+    {:ok, agent, action}
   end
 
   @impl true
@@ -210,6 +221,7 @@ defmodule Goodwizard.Agent do
   defp ensure_browser_session(agent) do
     case get_in(agent.state, [:browser, :session]) do
       %JidoBrowser.Session{} = session ->
+        BrowserSessionStore.put(agent.id, session)
         {agent, session}
 
       _ ->
@@ -219,6 +231,7 @@ defmodule Goodwizard.Agent do
         case JidoBrowser.start_session(headless: true) do
           {:ok, session} ->
             agent = %{agent | state: put_in(agent.state, [:browser, :session], session)}
+            BrowserSessionStore.put(agent.id, session)
             Logger.debug("[Agent] Browser session started")
             {agent, session}
 
@@ -226,6 +239,23 @@ defmodule Goodwizard.Agent do
             Logger.warning("Failed to start browser session: #{inspect(reason)}")
             {agent, nil}
         end
+    end
+  end
+
+  # Reads the latest browser session from the ETS store and injects it into
+  # the strategy's run_tool_context so that lift_directives builds ToolExec
+  # directives with an up-to-date session (including current_url after Navigate).
+  defp refresh_browser_session(agent) do
+    case BrowserSessionStore.get(agent.id) do
+      nil ->
+        agent
+
+      session ->
+        strategy_state = Map.get(agent.state, :__strategy__, %{})
+        run_ctx = Map.get(strategy_state, :run_tool_context, %{})
+        updated_ctx = Map.put(run_ctx, :session, session)
+        updated_strat = Map.put(strategy_state, :run_tool_context, updated_ctx)
+        %{agent | state: Map.put(agent.state, :__strategy__, updated_strat)}
     end
   end
 
@@ -309,6 +339,37 @@ defmodule Goodwizard.Agent do
     Goodwizard.Config.get(["agent", "memory_window"]) || 50
   catch
     :exit, _ -> 50
+  end
+
+  defp ensure_brain_tools(agent) do
+    brain_tools = Goodwizard.Brain.ToolGenerator.generated_modules()
+
+    if brain_tools == [] do
+      agent
+    else
+      strategy_state = Map.get(agent.state, :__strategy__, %{})
+      config = Map.get(strategy_state, :config, %{})
+      current_tools = config[:tools] || []
+
+      # Merge: generated tools first (preferred), then static tools, dedup by module
+      all_tools = Enum.uniq(brain_tools ++ current_tools)
+
+      if length(all_tools) == length(current_tools) do
+        agent
+      else
+        actions_by_name = Map.new(all_tools, &{&1.name(), &1})
+        reqllm_tools = Jido.AI.ToolAdapter.from_actions(all_tools)
+
+        updated_config =
+          config
+          |> Map.put(:tools, all_tools)
+          |> Map.put(:actions_by_name, actions_by_name)
+          |> Map.put(:reqllm_tools, reqllm_tools)
+
+        updated_strat = Map.put(strategy_state, :config, updated_config)
+        %{agent | state: Map.put(agent.state, :__strategy__, updated_strat)}
+      end
+    end
   end
 
   defp build_skills_state(agent) do
