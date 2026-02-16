@@ -42,14 +42,14 @@ Every entity type except `webpages` SHALL include an optional `webpages` field t
 
 #### Scenario: Base properties include webpages reference list
 - **WHEN** any non-webpage entity schema is loaded (people, places, events, notes, tasks, companies, tasklists)
-- **THEN** it SHALL include a `webpages` property of type array with items matching the pattern `^webpages/[a-z0-9]{8,}$`
+- **THEN** it SHALL include a `webpages` property of type array with items matching the UUIDv7 entity reference pattern `^webpages/[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`
 
 #### Scenario: Webpages schema excludes self-reference
 - **WHEN** the `webpages` schema is loaded
 - **THEN** it SHALL NOT include a `webpages` property referencing itself
 
 #### Scenario: Entity created with webpage references
-- **WHEN** a `people` entity is created with `"webpages" => ["webpages/abc12345"]`
+- **WHEN** a `people` entity is created with `"webpages" => ["webpages/01953780-1a2b-7c3d-89ab-0123456789ab"]`
 - **THEN** the entity SHALL be created successfully with the webpage references stored
 
 #### Scenario: Entity created without webpage references
