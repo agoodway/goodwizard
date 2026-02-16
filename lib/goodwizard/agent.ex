@@ -30,6 +30,7 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Scheduling.Cron,
       Goodwizard.Actions.Scheduling.CancelCron,
       Goodwizard.Actions.Scheduling.ListCronJobs,
+      Goodwizard.Actions.Scheduling.OneShot,
       # Brain (typed create/update tools are registered dynamically, generics are fallbacks)
       Goodwizard.Actions.Brain.ReadEntity,
       Goodwizard.Actions.Brain.CreateEntity,
