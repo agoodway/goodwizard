@@ -41,6 +41,26 @@ Cache.has_key?("brain:people:abc123")               # check existence
 
 **TTL guidance:** Use TTLs for data that may change externally (skills, config). Omit TTL for data only modified through Goodwizard actions (brain entities) — invalidate explicitly on write instead.
 
+## Upstream Dependency Source Code
+
+When writing or debugging code that interacts with Jido libraries, read the source directly from these local checkouts rather than guessing at APIs:
+
+- **Jido** (core agent framework): `/Users/tbrewer/projects/jido`
+- **Jido AI** (LLM integration, ReAct loop, tool execution): `/Users/tbrewer/projects/jido_ai`
+- **Jido Messaging** (rooms, messages, delivery): `/Users/tbrewer/projects/jido_messaging`
+
+Use these to look up function signatures, struct definitions, behaviour callbacks, and module internals. Prefer reading the actual source over assumptions about how a Jido API works.
+
+## Configuration Changes
+
+When adding, removing, or renaming config options, update **all three** locations that define or reference them:
+
+1. **`lib/goodwizard/config.ex`** — `@defaults` map (hardcoded fallback values)
+2. **`config.toml`** — the project's live config file (add new options commented out with a description)
+3. **`lib/mix/tasks/goodwizard.setup.ex`** — `@default_config` template (what `mix goodwizard.setup` generates for new projects)
+
+If the option has an env var override, also update the `@env_overrides` list in `config.ex`.
+
 ## Project Structure
 
 - `lib/goodwizard/actions/` — Jido actions (tools the agent can call)

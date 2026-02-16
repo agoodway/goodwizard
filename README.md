@@ -137,6 +137,21 @@ Since `HEARTBEAT.md` is just a file, anything that can write to the filesystem c
 
 The pattern is always the same: write a prompt to the file, and the agent picks it up on the next heartbeat tick. Pair this with a lower `interval_minutes` value for near-real-time responsiveness, or a higher value for background batch processing.
 
+## Agent Concurrency
+
+Goodwizard limits how many concurrent agents can run at once to prevent resource exhaustion. This applies to both cron-spawned isolated agents and manually spawned subagents.
+
+The default limit is **50** concurrent agents. Cron tasks that fire while at capacity are skipped with a warning logged and an error message saved to the target room. Subagent spawns at capacity return an error to the caller.
+
+**Configure via `config.toml`:**
+
+```toml
+[cron]
+max_concurrent_agents = 50  # max isolated cron agents running at once
+```
+
+The subagent spawn limit is set to the same default (50) but is not currently configurable via `config.toml`.
+
 ## Telegram Bot Setup
 
 ### 1. Create the bot
