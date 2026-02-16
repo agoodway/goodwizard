@@ -123,7 +123,7 @@ defmodule Goodwizard.Channels.Telegram.Handler do
 
       {:error, reason} ->
         Logger.error("Agent error for chat #{chat_id}: #{error_label(reason)}")
-        {:reply, "Sorry, I encountered an error. Please try again."}
+        {:reply, Goodwizard.ErrorFormatter.format(reason)}
     end
   end
 

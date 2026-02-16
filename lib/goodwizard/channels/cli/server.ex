@@ -144,7 +144,7 @@ defmodule Goodwizard.Channels.CLI.Server do
         {:ok, response}
 
       {:error, reason} ->
-        IO.puts("\n[error] #{inspect(reason)}\n")
+        IO.puts("\n[error] #{Goodwizard.ErrorFormatter.format(reason)}\n")
         {:error, reason}
     end
   end
