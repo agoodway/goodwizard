@@ -10,7 +10,7 @@ defmodule Goodwizard.Brain.SchemaTest do
     "type" => "object",
     "required" => ["id", "name"],
     "properties" => %{
-      "id" => %{"type" => "string", "pattern" => "^[a-z0-9]{8,}$"},
+      "id" => %{"type" => "string", "pattern" => "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
       "name" => %{"type" => "string"},
       "tags" => %{"type" => "array", "items" => %{"type" => "string"}}
     },
@@ -74,24 +74,24 @@ defmodule Goodwizard.Brain.SchemaTest do
     end
 
     test "validates correct data", %{resolved: resolved} do
-      data = %{"id" => "abcd1234", "name" => "Test"}
+      data = %{"id" => "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a", "name" => "Test"}
       assert :ok = Schema.validate(resolved, data)
     end
 
     test "validates data with optional fields", %{resolved: resolved} do
-      data = %{"id" => "abcd1234", "name" => "Test", "tags" => ["foo", "bar"]}
+      data = %{"id" => "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a", "name" => "Test", "tags" => ["foo", "bar"]}
       assert :ok = Schema.validate(resolved, data)
     end
 
     test "rejects data missing required field", %{resolved: resolved} do
-      data = %{"id" => "abcd1234"}
+      data = %{"id" => "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a"}
       assert {:error, errors} = Schema.validate(resolved, data)
       assert is_list(errors)
       assert errors != []
     end
 
     test "rejects data with wrong type", %{resolved: resolved} do
-      data = %{"id" => "abcd1234", "name" => 123}
+      data = %{"id" => "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a", "name" => 123}
       assert {:error, _} = Schema.validate(resolved, data)
     end
 
@@ -101,7 +101,7 @@ defmodule Goodwizard.Brain.SchemaTest do
     end
 
     test "rejects additional properties", %{resolved: resolved} do
-      data = %{"id" => "abcd1234", "name" => "Test", "extra" => "nope"}
+      data = %{"id" => "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a", "name" => "Test", "extra" => "nope"}
       assert {:error, _} = Schema.validate(resolved, data)
     end
   end

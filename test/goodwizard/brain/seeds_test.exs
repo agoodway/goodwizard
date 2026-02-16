@@ -127,7 +127,7 @@ defmodule Goodwizard.Brain.SeedsTest do
       assert tasks["type"] == "array"
 
       assert tasks["items"]["pattern"] ==
-               "^tasks/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+               "^tasks/[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
     end
 
     test "notes schema has polymorphic related_to references" do
@@ -135,7 +135,7 @@ defmodule Goodwizard.Brain.SeedsTest do
       related = schema["properties"]["related_to"]
 
       assert related["items"]["pattern"] ==
-               "^[a-z_]+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+               "^[a-z_]+/[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
     end
   end
 
@@ -199,7 +199,7 @@ defmodule Goodwizard.BrainTest do
       assert length(seeded) == 7
 
       # 2. Generate an ID
-      assert {:ok, id} = Id.generate(workspace)
+      assert {:ok, id} = Id.generate()
       assert Id.valid?(id)
 
       # 3. Load a seeded schema
