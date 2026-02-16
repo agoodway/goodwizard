@@ -9,6 +9,7 @@ defmodule Goodwizard.Character.Hydrator do
   require Logger
 
   alias Goodwizard.Brain.Schema
+  alias Goodwizard.Character.Preamble
 
   @bootstrap_files ~w(AGENTS.md SOUL.md USER.md TOOLS.md IDENTITY.md)
   @max_bootstrap_file_bytes 1_048_576
@@ -42,7 +43,8 @@ defmodule Goodwizard.Character.Hydrator do
       |> maybe_inject_memory(Keyword.get(opts, :memory))
       |> maybe_inject_skills(Keyword.get(opts, :skills))
 
-    {:ok, Jido.Character.to_system_prompt(character)}
+    rendered = Jido.Character.to_system_prompt(character)
+    {:ok, Preamble.generate() <> "\n\n" <> rendered}
   end
 
   @doc """

@@ -47,6 +47,14 @@ Cache.has_key?("brain:people:abc123")               # check existence
 - `lib/goodwizard/plugins/` — Jido plugins (mount into agent state at startup)
 - `lib/goodwizard/channels/` — Channel handlers (CLI, Telegram)
 - `lib/goodwizard/brain/` — Knowledge base (file-backed entity store)
+- `lib/goodwizard/character/preamble.ex` — Code-controlled system prompt preamble (see Configuration Changes below)
 - `lib/goodwizard/cache.ex` — Nebulex local ETS cache (see Caching section above)
 - `lib/goodwizard/config.ex` — Config GenServer (TOML + env vars + defaults)
 - `priv/workspace/` — Default workspace (brain data, skills, memory, sessions)
+
+## Configuration Changes
+
+When workspace structure changes (adding/removing directories or bootstrap files), update these locations:
+
+- `lib/goodwizard/character/preamble.ex` — Update `generate/0` to reflect new directories or bootstrap files in the system prompt orientation text
+- `test/goodwizard/character/preamble_test.exs` — Update test assertions to match the new directory/file names
