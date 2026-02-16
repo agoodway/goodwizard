@@ -37,5 +37,40 @@ defmodule Goodwizard.Character.PreambleTest do
 
       assert first == second
     end
+
+    test "returns valid UTF-8" do
+      assert String.valid?(Preamble.generate())
+    end
+
+    test "contains Markdown headers in correct hierarchy and order" do
+      result = Preamble.generate()
+
+      orientation_pos = :binary.match(result, "## System Orientation")
+      directories_pos = :binary.match(result, "### Workspace Directories")
+      bootstrap_pos = :binary.match(result, "### Bootstrap Files")
+
+      assert orientation_pos != :nomatch
+      assert directories_pos != :nomatch
+      assert bootstrap_pos != :nomatch
+
+      {o, _} = orientation_pos
+      {d, _} = directories_pos
+      {b, _} = bootstrap_pos
+
+      assert o < d
+      assert d < b
+    end
+
+    test "does not end with a newline" do
+      result = Preamble.generate()
+
+      refute String.ends_with?(result, "\n")
+    end
+
+    test "uses only Unix line endings" do
+      result = Preamble.generate()
+
+      refute result =~ "\r"
+    end
   end
 end
