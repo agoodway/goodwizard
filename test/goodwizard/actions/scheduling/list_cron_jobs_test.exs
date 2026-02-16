@@ -4,28 +4,23 @@ defmodule Goodwizard.Actions.Scheduling.ListCronJobsTest do
   alias Goodwizard.Actions.Scheduling.ListCronJobs
   alias Goodwizard.Scheduling.CronStore
 
-  @test_workspace Path.join(System.tmp_dir!(), "list_cron_test_#{System.unique_integer([:positive])}")
+  @test_workspace Path.join(
+                    System.tmp_dir!(),
+                    "list_cron_test_#{System.unique_integer([:positive])}"
+                  )
 
   setup do
     cron_dir = Path.join(@test_workspace, "scheduling/cron")
     File.rm_rf!(@test_workspace)
     File.mkdir_p!(cron_dir)
 
-    System.put_env("GOODWIZARD_WORKSPACE", @test_workspace)
-
-    if Process.whereis(Goodwizard.Config) do
-      GenServer.stop(Goodwizard.Config)
-      Goodwizard.Config.start_link([])
-    end
+    # Save original workspace and override it for tests
+    original_workspace = Goodwizard.Config.workspace()
+    Goodwizard.Config.put(["agent", "workspace"], @test_workspace)
 
     on_exit(fn ->
       File.rm_rf!(@test_workspace)
-      System.delete_env("GOODWIZARD_WORKSPACE")
-
-      if Process.whereis(Goodwizard.Config) do
-        GenServer.stop(Goodwizard.Config)
-        Goodwizard.Config.start_link([])
-      end
+      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
     end)
 
     %{cron_dir: cron_dir}

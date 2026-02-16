@@ -74,6 +74,12 @@ defmodule Goodwizard.Config do
     get([Atom.to_string(key)])
   end
 
+  @doc "Sets a value at the given key path. Intended for testing."
+  @spec put([String.t()], term()) :: :ok
+  def put(key_path, value) when is_list(key_path) do
+    GenServer.call(__MODULE__, {:put, key_path, value})
+  end
+
   @doc "Returns the expanded workspace path."
   @spec workspace() :: String.t()
   def workspace do
@@ -149,7 +155,20 @@ defmodule Goodwizard.Config do
     {:reply, get_in(config, key_path), config}
   end
 
+  @impl true
+  def handle_call({:put, key_path, value}, _from, config) do
+    config = put_in_path(config, key_path, value)
+    {:reply, :ok, config}
+  end
+
   # Private
+
+  defp put_in_path(map, [key], value), do: Map.put(map, key, value)
+
+  defp put_in_path(map, [key | rest], value) do
+    child = Map.get(map, key, %{})
+    Map.put(map, key, put_in_path(child, rest, value))
+  end
 
   defp load_toml(path) do
     with {:ok, %{size: size}} <- File.stat(path),
@@ -238,6 +257,76 @@ defmodule Goodwizard.Config do
       end
 
     Application.put_env(:jido_browser, :adapter, adapter_module)
+
+    # Resolve vibium binary path — the npm package ships "vibium" not "clicker"
+    case find_vibium_binary() do
+      {:ok, path} ->
+        Application.put_env(:jido_browser, :vibium, binary_path: path)
+
+      :error ->
+        Logger.warning("Vibium binary not found. Browser actions will fail. Install with: npm install -g vibium @vibium/darwin-arm64")
+    end
+  end
+
+  defp find_vibium_binary do
+    # 1. Check explicit config
+    case get_in(Process.get(:goodwizard_config) || %{}, ["browser", "vibium_path"]) do
+      path when is_binary(path) and path != "" ->
+        if File.exists?(path), do: {:ok, path}, else: :error
+
+      _ ->
+        # 2. Check npm global install (binary is named "vibium", not "clicker")
+        find_vibium_from_npm() || find_vibium_in_path()
+    end
+  end
+
+  defp find_vibium_from_npm do
+    case System.cmd("npm", ["root", "-g"], stderr_to_stdout: true) do
+      {npm_root, 0} ->
+        npm_root = String.trim(npm_root)
+
+        platform_pkg =
+          case {detect_os(), detect_arch()} do
+            {:darwin, :arm64} -> "@vibium/darwin-arm64"
+            {:darwin, :amd64} -> "@vibium/darwin-x64"
+            {:linux, :amd64} -> "@vibium/linux-x64"
+            {:linux, :arm64} -> "@vibium/linux-arm64"
+            _ -> "@vibium/darwin-arm64"
+          end
+
+        path = Path.join([npm_root, platform_pkg, "bin", "vibium"])
+        if File.exists?(path), do: {:ok, path}, else: nil
+
+      _ ->
+        nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp find_vibium_in_path do
+    case System.find_executable("vibium") do
+      path when is_binary(path) -> {:ok, path}
+      nil -> :error
+    end
+  end
+
+  defp detect_os do
+    case :os.type() do
+      {:unix, :darwin} -> :darwin
+      {:unix, :linux} -> :linux
+      _ -> :unknown
+    end
+  end
+
+  defp detect_arch do
+    :erlang.system_info(:system_architecture)
+    |> to_string()
+    |> then(fn
+      "aarch64" <> _ -> :arm64
+      "arm64" <> _ -> :arm64
+      _ -> :amd64
+    end)
   end
 
   @numeric_ranges [

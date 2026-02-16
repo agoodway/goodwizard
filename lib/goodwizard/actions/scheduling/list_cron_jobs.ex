@@ -19,7 +19,6 @@ defmodule Goodwizard.Actions.Scheduling.ListCronJobs do
   @impl true
   def run(_params, _context) do
     {:ok, jobs} = CronStore.list()
-
     {:ok, %{jobs: jobs, count: length(jobs)}}
   end
 end

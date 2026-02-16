@@ -62,10 +62,7 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
   defp do_spawn(task, room_id, opts) do
     model = Keyword.get(opts, :model)
     workspace = Goodwizard.Config.workspace()
-
-    query =
-      "Workspace: #{workspace}\n\nCron Task: #{task}"
-
+    query = "Workspace: #{workspace}\n\nCron Task: #{task}"
     agent_id = "cron:isolated:#{System.unique_integer([:positive])}"
 
     agent_opts =
@@ -103,7 +100,12 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
     rescue
       e ->
         Logger.error("Isolated cron task crashed: #{Exception.message(e)}")
-        save_error_message(room_id, "Cron task encountered an unexpected error. Check server logs for details.")
+
+        save_error_message(
+          room_id,
+          "Cron task encountered an unexpected error. Check server logs for details."
+        )
+
         {:error, e}
     after
       Goodwizard.Jido.stop_agent(pid)
@@ -117,8 +119,11 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
            role: :assistant,
            content: [%{type: "text", text: response}]
          }) do
-      {:ok, _msg} -> :ok
-      {:error, reason} -> Logger.warning("Failed to save cron response to room #{room_id}: #{inspect(reason)}")
+      {:ok, _msg} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to save cron response to room #{room_id}: #{inspect(reason)}")
     end
   end
 
@@ -129,8 +134,11 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
            role: :assistant,
            content: [%{type: "text", text: "[Cron Error] #{message}"}]
          }) do
-      {:ok, _msg} -> :ok
-      {:error, reason} -> Logger.warning("Failed to save cron error to room #{room_id}: #{inspect(reason)}")
+      {:ok, _msg} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to save cron error to room #{room_id}: #{inspect(reason)}")
     end
   end
 

@@ -79,8 +79,6 @@ defmodule Goodwizard.Scheduling.CronStore do
   @spec load_all() :: {:ok, [map()]}
   def load_all, do: list()
 
-  # Private
-
   defp cron_dir do
     Path.join(Goodwizard.Config.workspace(), "scheduling/cron")
   end

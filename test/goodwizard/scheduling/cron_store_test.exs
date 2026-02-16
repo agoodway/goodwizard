@@ -10,29 +10,13 @@ defmodule Goodwizard.Scheduling.CronStoreTest do
     File.rm_rf!(@test_workspace)
     File.mkdir_p!(cron_dir)
 
-    # Point Config.workspace() at our test dir
-    original_env = Application.get_env(:goodwizard, :config_path)
-    # We'll use a mock approach: override the workspace via env
-    System.put_env("GOODWIZARD_WORKSPACE", @test_workspace)
-
-    # Restart Config to pick up the new workspace
-    if Process.whereis(Goodwizard.Config) do
-      GenServer.stop(Goodwizard.Config)
-      Goodwizard.Config.start_link([])
-    end
+    # Save original workspace and override it for tests
+    original_workspace = Goodwizard.Config.workspace()
+    Goodwizard.Config.put(["agent", "workspace"], @test_workspace)
 
     on_exit(fn ->
       File.rm_rf!(@test_workspace)
-      System.delete_env("GOODWIZARD_WORKSPACE")
-
-      if original_env do
-        Application.put_env(:goodwizard, :config_path, original_env)
-      end
-
-      if Process.whereis(Goodwizard.Config) do
-        GenServer.stop(Goodwizard.Config)
-        Goodwizard.Config.start_link([])
-      end
+      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
     end)
 
     %{cron_dir: cron_dir}
@@ -82,7 +66,14 @@ defmodule Goodwizard.Scheduling.CronStoreTest do
     end
 
     test "overwrites existing file with same job_id", %{cron_dir: cron_dir} do
-      record = %{job_id: :cron_overwrite, schedule: "0 9 * * *", task: "v1", room_id: "r1", created_at: "2026-02-15T00:00:00Z"}
+      record = %{
+        job_id: :cron_overwrite,
+        schedule: "0 9 * * *",
+        task: "v1",
+        room_id: "r1",
+        created_at: "2026-02-15T00:00:00Z"
+      }
+
       assert :ok = CronStore.save(record)
 
       updated = %{record | task: "v2"}
@@ -96,7 +87,14 @@ defmodule Goodwizard.Scheduling.CronStoreTest do
 
   describe "delete/1" do
     test "removes an existing job file", %{cron_dir: cron_dir} do
-      record = %{job_id: :cron_del, schedule: "0 9 * * *", task: "t", room_id: "r", created_at: "2026-02-15T00:00:00Z"}
+      record = %{
+        job_id: :cron_del,
+        schedule: "0 9 * * *",
+        task: "t",
+        room_id: "r",
+        created_at: "2026-02-15T00:00:00Z"
+      }
+
       CronStore.save(record)
       assert File.exists?(Path.join(cron_dir, "cron_del.json"))
 
@@ -109,7 +107,14 @@ defmodule Goodwizard.Scheduling.CronStoreTest do
     end
 
     test "accepts string job_id" do
-      record = %{job_id: :cron_strarg, schedule: "0 9 * * *", task: "t", room_id: "r", created_at: "2026-02-15T00:00:00Z"}
+      record = %{
+        job_id: :cron_strarg,
+        schedule: "0 9 * * *",
+        task: "t",
+        room_id: "r",
+        created_at: "2026-02-15T00:00:00Z"
+      }
+
       CronStore.save(record)
 
       assert :ok = CronStore.delete("cron_strarg")
@@ -118,8 +123,21 @@ defmodule Goodwizard.Scheduling.CronStoreTest do
 
   describe "list/0" do
     test "returns all persisted jobs sorted by created_at" do
-      CronStore.save(%{job_id: :cron_b, schedule: "0 10 * * *", task: "second", room_id: "r", created_at: "2026-02-15T01:00:00Z"})
-      CronStore.save(%{job_id: :cron_a, schedule: "0 9 * * *", task: "first", room_id: "r", created_at: "2026-02-15T00:00:00Z"})
+      CronStore.save(%{
+        job_id: :cron_b,
+        schedule: "0 10 * * *",
+        task: "second",
+        room_id: "r",
+        created_at: "2026-02-15T01:00:00Z"
+      })
+
+      CronStore.save(%{
+        job_id: :cron_a,
+        schedule: "0 9 * * *",
+        task: "first",
+        room_id: "r",
+        created_at: "2026-02-15T00:00:00Z"
+      })
 
       assert {:ok, jobs} = CronStore.list()
       assert length(jobs) == 2
@@ -145,7 +163,14 @@ defmodule Goodwizard.Scheduling.CronStoreTest do
     end
 
     test "skips malformed JSON files", %{cron_dir: cron_dir} do
-      CronStore.save(%{job_id: :cron_good, schedule: "0 9 * * *", task: "ok", room_id: "r", created_at: "2026-02-15T00:00:00Z"})
+      CronStore.save(%{
+        job_id: :cron_good,
+        schedule: "0 9 * * *",
+        task: "ok",
+        room_id: "r",
+        created_at: "2026-02-15T00:00:00Z"
+      })
+
       File.write!(Path.join(cron_dir, "cron_bad.json"), "not valid json {{{")
 
       assert {:ok, jobs} = CronStore.list()
@@ -154,7 +179,14 @@ defmodule Goodwizard.Scheduling.CronStoreTest do
     end
 
     test "ignores non-JSON files", %{cron_dir: cron_dir} do
-      CronStore.save(%{job_id: :cron_only, schedule: "0 9 * * *", task: "t", room_id: "r", created_at: "2026-02-15T00:00:00Z"})
+      CronStore.save(%{
+        job_id: :cron_only,
+        schedule: "0 9 * * *",
+        task: "t",
+        room_id: "r",
+        created_at: "2026-02-15T00:00:00Z"
+      })
+
       File.write!(Path.join(cron_dir, "readme.txt"), "ignore me")
 
       assert {:ok, jobs} = CronStore.list()
@@ -164,7 +196,13 @@ defmodule Goodwizard.Scheduling.CronStoreTest do
 
   describe "load_all/0" do
     test "returns same result as list/0" do
-      CronStore.save(%{job_id: :cron_load, schedule: "0 9 * * *", task: "t", room_id: "r", created_at: "2026-02-15T00:00:00Z"})
+      CronStore.save(%{
+        job_id: :cron_load,
+        schedule: "0 9 * * *",
+        task: "t",
+        room_id: "r",
+        created_at: "2026-02-15T00:00:00Z"
+      })
 
       assert CronStore.list() == CronStore.load_all()
     end
