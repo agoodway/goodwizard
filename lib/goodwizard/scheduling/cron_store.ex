@@ -19,7 +19,8 @@ defmodule Goodwizard.Scheduling.CronStore do
   def save(%{job_id: job_id} = record) do
     dir = cron_dir()
 
-    with :ok <- File.mkdir_p(dir) do
+    with :ok <- validate_job_id(job_id),
+         :ok <- File.mkdir_p(dir) do
       path = job_path(dir, job_id)
       json = Jason.encode!(normalize_record(record), pretty: true)
       File.write(path, json)
@@ -33,12 +34,14 @@ defmodule Goodwizard.Scheduling.CronStore do
   """
   @spec delete(atom() | String.t()) :: :ok | {:error, term()}
   def delete(job_id) do
-    path = job_path(cron_dir(), job_id)
+    with :ok <- validate_job_id(job_id) do
+      path = job_path(cron_dir(), job_id)
 
-    case File.rm(path) do
-      :ok -> :ok
-      {:error, :enoent} -> :ok
-      {:error, _} = err -> err
+      case File.rm(path) do
+        :ok -> :ok
+        {:error, :enoent} -> :ok
+        {:error, _} = err -> err
+      end
     end
   end
 
@@ -81,6 +84,25 @@ defmodule Goodwizard.Scheduling.CronStore do
 
   defp cron_dir do
     Path.join(Goodwizard.Config.workspace(), "scheduling/cron")
+  end
+
+  defp validate_job_id(job_id) do
+    id_str = to_string(job_id)
+
+    cond do
+      id_str == "" ->
+        {:error, :invalid_job_id}
+
+      String.contains?(id_str, "..") or String.contains?(id_str, "/") or
+          String.contains?(id_str, <<0>>) ->
+        {:error, :path_traversal}
+
+      byte_size(id_str) > 255 ->
+        {:error, :invalid_job_id}
+
+      true ->
+        :ok
+    end
   end
 
   defp job_path(dir, job_id) do

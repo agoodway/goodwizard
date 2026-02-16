@@ -55,10 +55,17 @@ defmodule Goodwizard.Actions.Scheduling.CancelCronTest do
       assert result.cancelled == true
     end
 
-    test "returns atom job_id in result" do
-      params = %{job_id: "cron_99887766"}
+    test "returns atom job_id when atom exists, string otherwise" do
+      # This atom exists because it was created via the Cron action or test setup
+      _ = :cron_existing_test_atom
+      params = %{job_id: "cron_existing_test_atom"}
       assert {:ok, result, [_directive]} = CancelCron.run(params, %{})
-      assert is_atom(result.job_id)
+      assert result.job_id == :cron_existing_test_atom
+
+      # For a never-seen job_id, falls back to string (no atom leak)
+      params2 = %{job_id: "cron_never_seen_before_xyz"}
+      assert {:ok, result2, [_directive2]} = CancelCron.run(params2, %{})
+      assert is_binary(result2.job_id)
     end
   end
 end

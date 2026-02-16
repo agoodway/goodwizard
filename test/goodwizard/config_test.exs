@@ -532,4 +532,39 @@ defmodule Goodwizard.ConfigTest do
       refute log =~ "does not match known provider patterns"
     end
   end
+
+  describe "put/2" do
+    test "sets a top-level key", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "nonexistent.toml")
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      Config.put(["agent", "model"], "openai:gpt-4o")
+      assert Config.get(["agent", "model"]) == "openai:gpt-4o"
+    end
+
+    test "creates intermediate maps for nested paths", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "nonexistent.toml")
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      Config.put(["cron", "max_jobs"], 100)
+      assert Config.get(["cron", "max_jobs"]) == 100
+    end
+
+    test "overwrites existing nested value", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "nonexistent.toml")
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      assert Config.get(["agent", "max_tokens"]) == 8192
+      Config.put(["agent", "max_tokens"], 4096)
+      assert Config.get(["agent", "max_tokens"]) == 4096
+    end
+
+    test "deeply nested path creates all intermediate maps", %{tmp_dir: tmp_dir} do
+      config_path = Path.join(tmp_dir, "nonexistent.toml")
+      {:ok, _pid} = Config.start_link(config_path: config_path)
+
+      Config.put(["a", "b", "c"], "deep_value")
+      assert Config.get(["a", "b", "c"]) == "deep_value"
+    end
+  end
 end

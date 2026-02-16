@@ -55,6 +55,7 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
   # Standard 5-field cron has a minimum resolution of 1 minute.
   # Warn on every-minute schedules to flag potential resource abuse.
   @high_frequency_patterns ["* * * * *", "*/1 * * * *"]
+  @default_max_jobs 50
 
   alias Goodwizard.Actions.Brain.Helpers
 
@@ -67,13 +68,14 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
     with {:ok, room_id} <- resolve_room(params, context),
          :ok <- validate_mode(mode),
          :ok <- validate_model(model),
-         :ok <- validate_cron(schedule) do
+         :ok <- validate_cron(schedule),
+         :ok <- check_job_limit() do
       warn_high_frequency(schedule)
 
       message = build_message(task, room_id, mode, model)
 
       hash =
-        :crypto.hash(:sha256, "#{schedule}:#{task}:#{room_id}:#{mode}")
+        :crypto.hash(:sha256, "#{schedule}:#{task}:#{room_id}:#{mode}:#{model || "default"}")
         |> Base.encode16(case: :lower)
         |> binary_part(0, 16)
 
@@ -138,6 +140,18 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
       Logger.warning(
         "Cron schedule #{inspect(schedule)} runs every minute — consider a less frequent interval"
       )
+    end
+  end
+
+  defp check_job_limit do
+    max_jobs = Goodwizard.Config.get(["cron", "max_jobs"]) || @default_max_jobs
+
+    case CronStore.list() do
+      {:ok, jobs} when length(jobs) >= max_jobs ->
+        {:error, "Cron job limit reached (#{max_jobs}). Cancel existing jobs before scheduling new ones."}
+
+      _ ->
+        :ok
     end
   end
 

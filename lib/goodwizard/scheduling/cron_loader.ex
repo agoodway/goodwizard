@@ -68,20 +68,16 @@ defmodule Goodwizard.Scheduling.CronLoader do
     end)
   end
 
+  # Job IDs are created as :"cron_<16hex>" — only allow that format.
+  @job_id_pattern ~r/\Acron_[0-9a-f]{16}\z/
+
   defp register_job(_pid, agent_id, job) do
     with {:ok, schedule} <- extract_field(job, "schedule"),
          {:ok, task} <- extract_field(job, "task"),
-         {:ok, room_id} <- extract_field(job, "room_id") do
-      job_id_str = job["job_id"] || "unknown"
+         {:ok, room_id} <- extract_field(job, "room_id"),
+         {:ok, job_id} <- validate_job_id(job["job_id"]) do
       mode = job["mode"] || "isolated"
       model = job["model"]
-
-      job_id =
-        try do
-          String.to_existing_atom(job_id_str)
-        rescue
-          ArgumentError -> String.to_atom(job_id_str)
-        end
 
       message = build_message(task, room_id, mode, model)
       directive = Directive.cron(schedule, message, job_id: job_id)
@@ -113,6 +109,16 @@ defmodule Goodwizard.Scheduling.CronLoader do
       {:error, reason} ->
         Logger.warning("CronLoader: skipping malformed job record: #{inspect(reason)}")
         :skip
+    end
+  end
+
+  defp validate_job_id(nil), do: {:error, "missing field: job_id"}
+
+  defp validate_job_id(job_id_str) when is_binary(job_id_str) do
+    if Regex.match?(@job_id_pattern, job_id_str) do
+      {:ok, String.to_atom(job_id_str)}
+    else
+      {:error, "invalid job_id format: #{inspect(job_id_str)}"}
     end
   end
 
