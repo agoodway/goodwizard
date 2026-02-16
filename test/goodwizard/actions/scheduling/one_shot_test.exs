@@ -34,6 +34,24 @@ defmodule Goodwizard.Actions.Scheduling.OneShotTest do
       assert {:error, msg} = OneShot.run(params, %{})
       assert msg =~ "positive integer"
     end
+
+    test "delay_minutes exceeding max returns error" do
+      params = %{delay_minutes: 525_601, task: "test", room_id: "room_1"}
+      assert {:error, msg} = OneShot.run(params, %{})
+      assert msg =~ "exceeds maximum"
+    end
+
+    test "delay_minutes at max boundary succeeds" do
+      params = %{delay_minutes: 525_600, task: "test", room_id: "room_1"}
+      assert {:ok, _result, [_directive]} = OneShot.run(params, %{})
+    end
+
+    test "fires_at is approximately correct" do
+      params = %{delay_minutes: 10, task: "test", room_id: "room_1"}
+      assert {:ok, result, _} = OneShot.run(params, %{})
+      expected = DateTime.add(DateTime.utc_now(), 10, :minute)
+      assert_in_delta DateTime.to_unix(result.fires_at), DateTime.to_unix(expected), 5
+    end
   end
 
   describe "at mode" do
@@ -66,6 +84,21 @@ defmodule Goodwizard.Actions.Scheduling.OneShotTest do
       params = %{at: "not-a-date", task: "test", room_id: "room_1"}
       assert {:error, msg} = OneShot.run(params, %{})
       assert msg =~ "Invalid ISO 8601"
+    end
+
+    test "fires_at matches input datetime exactly" do
+      future = DateTime.utc_now() |> DateTime.add(60, :minute)
+      at_string = DateTime.to_iso8601(future)
+      params = %{at: at_string, task: "test", room_id: "room_1"}
+
+      assert {:ok, result, _} = OneShot.run(params, %{})
+      assert DateTime.to_unix(result.fires_at) == DateTime.to_unix(future)
+    end
+
+    test "non-UTC timezone offset returns error" do
+      params = %{at: "2026-06-15T15:00:00+05:30", task: "test", room_id: "room_1"}
+      assert {:error, msg} = OneShot.run(params, %{})
+      assert msg =~ "Only UTC"
     end
   end
 
@@ -101,10 +134,7 @@ defmodule Goodwizard.Actions.Scheduling.OneShotTest do
       params = %{delay_minutes: 10, task: "check", room_id: "room_1"}
       assert {:ok, r1, _} = OneShot.run(params, %{})
       assert {:ok, r2, _} = OneShot.run(params, %{})
-      # fires_at will be slightly different due to DateTime.utc_now(), so job_ids
-      # may differ by a tiny amount. We verify the prefix is correct.
-      assert to_string(r1.job_id) =~ "oneshot_"
-      assert to_string(r2.job_id) =~ "oneshot_"
+      assert r1.job_id == r2.job_id
     end
 
     test "different params produce different job_ids" do
