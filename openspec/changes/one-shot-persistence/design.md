@@ -41,7 +41,7 @@ The key difference from cron: one-shot jobs have a finite `fires_at` timestamp a
 
 ### 3. Expired jobs discarded on reload (not re-fired)
 
-**Choice:** If `fires_at` is in the past when the loader runs, delete the file and skip the job.
+**Choice:** If `fires_at` is in the past when the loader runs, delete the file and skip the job. MUST log this action.
 
 **Rationale:** One-shot tasks are time-sensitive. A "send daily report at 9am" that fires at 2pm is worse than not firing at all. The agent can be informed via a log warning. Re-firing expired tasks would require a separate "missed task" recovery policy that's out of scope.
 
