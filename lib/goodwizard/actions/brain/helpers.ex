@@ -106,6 +106,12 @@ defmodule Goodwizard.Actions.Brain.Helpers do
   end
 
   @doc """
+  Strips internal-only fields (e.g. metadata) from entity data before returning to callers.
+  """
+  @spec sanitize_entity_data(map()) :: map()
+  def sanitize_entity_data(data) when is_map(data), do: Map.drop(data, ["metadata"])
+
+  @doc """
   Formats error reasons into safe, user-friendly messages.
 
   Returns specific messages for known error atoms and a generic
@@ -122,6 +128,7 @@ defmodule Goodwizard.Actions.Brain.Helpers do
   def format_error({:duplicate_id, _id}), do: "Duplicate entity ID"
   def format_error({:parse_error, _file, _reason}), do: "Failed to parse entity file"
   def format_error({:schema_resolution_error, _msg}), do: "Schema resolution failed"
+
   def format_error({:validation, errors}) when is_list(errors),
     do: format_validation_errors(errors)
 

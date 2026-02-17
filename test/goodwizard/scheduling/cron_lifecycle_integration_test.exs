@@ -64,7 +64,9 @@ defmodule Goodwizard.Scheduling.CronLifecycleIntegrationTest do
   test "scheduling multiple jobs and cancelling one preserves others" do
     # Schedule two jobs
     assert {:ok, r1} = Cron.run(%{schedule: "0 9 * * *", task: "job one", room_id: "room_1"}, %{})
-    assert {:ok, r2} = Cron.run(%{schedule: "0 10 * * *", task: "job two", room_id: "room_1"}, %{})
+
+    assert {:ok, r2} =
+             Cron.run(%{schedule: "0 10 * * *", task: "job two", room_id: "room_1"}, %{})
 
     assert {:ok, jobs} = CronStore.list()
     assert length(jobs) == 2

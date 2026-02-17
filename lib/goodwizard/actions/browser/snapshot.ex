@@ -23,7 +23,11 @@ defmodule Goodwizard.Actions.Browser.Snapshot do
       include_links: [type: :boolean, default: true, doc: "Include extracted links"],
       include_forms: [type: :boolean, default: true, doc: "Include form field info"],
       include_headings: [type: :boolean, default: true, doc: "Include heading structure"],
-      max_content_length: [type: :integer, default: 50_000, doc: "Truncate content at this length"],
+      max_content_length: [
+        type: :integer,
+        default: 50_000,
+        doc: "Truncate content at this length"
+      ],
       selector: [type: :string, default: "body", doc: "CSS selector to scope extraction"]
     ]
 
@@ -140,15 +144,16 @@ defmodule Goodwizard.Actions.Browser.Snapshot do
       {:ok, %{result: result}} ->
         case extract_marked_json(result) do
           {:ok, decoded} when is_map(decoded) ->
-            {:ok, %{
-              url: decoded["url"] || "",
-              title: decoded["title"] || "",
-              content: decoded["content"] || "",
-              links: [],
-              forms: [],
-              headings: [],
-              fallback: true
-            }}
+            {:ok,
+             %{
+               url: decoded["url"] || "",
+               title: decoded["title"] || "",
+               content: decoded["content"] || "",
+               links: [],
+               forms: [],
+               headings: [],
+               fallback: true
+             }}
 
           _ ->
             {:error, :fallback_json_extraction_failed}

@@ -106,7 +106,9 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
     rescue
       e ->
         Logger.error("Isolated cron task crashed: #{Exception.message(e)}")
-        error_text = "[Cron Error] Cron task encountered an unexpected error. Check server logs for details."
+
+        error_text =
+          "[Cron Error] Cron task encountered an unexpected error. Check server logs for details."
 
         save_error_message(
           room_id,
@@ -128,7 +130,9 @@ defmodule Goodwizard.Actions.Scheduling.CronRunner do
         Logger.info("Cron delivery to #{channel} for room #{room_id} succeeded")
 
       {:error, channel, reason} ->
-        Logger.warning("Cron delivery to #{channel} for room #{room_id} failed: #{inspect(reason)}")
+        Logger.warning(
+          "Cron delivery to #{channel} for room #{room_id} failed: #{inspect(reason)}"
+        )
     end)
   end
 

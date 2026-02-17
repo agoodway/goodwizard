@@ -24,7 +24,7 @@ defmodule Goodwizard.Actions.Brain.ReadEntity do
 
     case Goodwizard.Brain.read(workspace, params.entity_type, params.id) do
       {:ok, {data, body}} ->
-        {:ok, %{data: Map.drop(data, ["metadata"]), body: body}}
+        {:ok, %{data: Helpers.sanitize_entity_data(data), body: body}}
 
       {:error, reason} ->
         {:error, Helpers.format_error(reason)}

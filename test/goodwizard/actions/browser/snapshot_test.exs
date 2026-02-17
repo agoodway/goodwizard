@@ -11,6 +11,7 @@ defmodule Goodwizard.Actions.Browser.SnapshotTest do
 
     test "decodes clean JSON string" do
       json = ~s({"url":"https://example.com","title":"Test"})
+
       assert {:ok, %{"url" => "https://example.com", "title" => "Test"}} =
                Snapshot.extract_marked_json(json)
     end

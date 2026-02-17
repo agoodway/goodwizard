@@ -28,10 +28,22 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
         "Exactly one must be given. The task fires once and is not recurring. " <>
         "The job is persisted to disk and survives application restarts.",
     schema: [
-      delay_minutes: [type: :integer, required: false, doc: "Minutes from now to fire (positive integer)"],
-      at: [type: :string, required: false, doc: "ISO 8601 UTC datetime to fire at (e.g. \"2026-02-15T15:00:00Z\")"],
+      delay_minutes: [
+        type: :integer,
+        required: false,
+        doc: "Minutes from now to fire (positive integer)"
+      ],
+      at: [
+        type: :string,
+        required: false,
+        doc: "ISO 8601 UTC datetime to fire at (e.g. \"2026-02-15T15:00:00Z\")"
+      ],
       task: [type: :string, required: true, doc: "Description of the task to execute"],
-      room_id: [type: :string, required: false, doc: "Target Messaging room identifier. Auto-resolved from agent context when omitted."]
+      room_id: [
+        type: :string,
+        required: false,
+        doc: "Target Messaging room identifier. Auto-resolved from agent context when omitted."
+      ]
     ]
 
   alias Goodwizard.Actions.Brain.Helpers
@@ -163,7 +175,8 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
         {:error, "delay_minutes must be a positive integer, got: #{inspect(delay_minutes)}"}
 
       delay_minutes > @max_delay_minutes ->
-        {:error, "delay_minutes exceeds maximum of #{@max_delay_minutes} (1 year), got: #{inspect(delay_minutes)}"}
+        {:error,
+         "delay_minutes exceeds maximum of #{@max_delay_minutes} (1 year), got: #{inspect(delay_minutes)}"}
 
       true ->
         delay_ms = delay_minutes * 60_000
@@ -175,7 +188,8 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   defp compute_delay(nil, at_string) when is_binary(at_string) do
     case DateTime.from_iso8601(at_string) do
       {:ok, _at_dt, offset} when offset != 0 ->
-        {:error, "Only UTC datetimes are supported (use Z suffix), got offset: #{inspect(at_string)}"}
+        {:error,
+         "Only UTC datetimes are supported (use Z suffix), got offset: #{inspect(at_string)}"}
 
       {:ok, at_dt, _offset} ->
         now = DateTime.utc_now()

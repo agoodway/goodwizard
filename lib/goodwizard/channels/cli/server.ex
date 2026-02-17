@@ -81,7 +81,8 @@ defmodule Goodwizard.Channels.CLI.Server do
   end
 
   defp start_cli_agent(workspace) do
-    session_key = "cli-direct-#{System.os_time(:millisecond)}-#{System.unique_integer([:positive, :monotonic])}"
+    session_key =
+      "cli-direct-#{System.os_time(:millisecond)}-#{System.unique_integer([:positive, :monotonic])}"
 
     Goodwizard.Jido.start_agent(GoodwizardAgent,
       id: "cli:direct:#{System.unique_integer([:positive])}",

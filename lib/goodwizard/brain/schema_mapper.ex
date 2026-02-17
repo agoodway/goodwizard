@@ -37,7 +37,9 @@ defmodule Goodwizard.Brain.SchemaMapper do
 
           {atom_name, opts}
         end)
-        |> Kernel.++([{:body, [type: :string, default: "", doc: "Optional markdown body content"]}])
+        |> Kernel.++([
+          {:body, [type: :string, default: "", doc: "Optional markdown body content"]}
+        ])
 
       {:ok, schema}
     end
@@ -64,7 +66,8 @@ defmodule Goodwizard.Brain.SchemaMapper do
       schema =
         [{:id, [type: :string, required: true, doc: "The entity ID to update"]} | entity_fields]
         |> Kernel.++([
-          {:body, [type: :string, doc: "Optional new markdown body content (nil preserves existing)"]}
+          {:body,
+           [type: :string, doc: "Optional new markdown body content (nil preserves existing)"]}
         ])
 
       {:ok, schema}
@@ -79,7 +82,9 @@ defmodule Goodwizard.Brain.SchemaMapper do
         if Regex.match?(@valid_property_name, name) do
           {:cont, [{String.to_atom(name), {name, prop}} | acc]}
         else
-          {:halt, {:error, "Invalid property name: #{inspect(name)}. Names must match [a-z][a-z0-9_]* and be at most 64 characters."}}
+          {:halt,
+           {:error,
+            "Invalid property name: #{inspect(name)}. Names must match [a-z][a-z0-9_]* and be at most 64 characters."}}
         end
       end)
 

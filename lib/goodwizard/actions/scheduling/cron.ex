@@ -168,7 +168,8 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
 
     case CronStore.list() do
       {:ok, jobs} when length(jobs) >= max_jobs ->
-        {:error, "Cron job limit reached (#{max_jobs}). Cancel existing jobs before scheduling new ones."}
+        {:error,
+         "Cron job limit reached (#{max_jobs}). Cancel existing jobs before scheduling new ones."}
 
       _ ->
         :ok

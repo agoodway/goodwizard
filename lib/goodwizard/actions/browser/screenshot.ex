@@ -12,7 +12,11 @@ defmodule Goodwizard.Actions.Browser.Screenshot do
     vsn: "1.0.0",
     schema: [
       full_page: [type: :boolean, default: false, doc: "Capture the full scrollable page"],
-      format: [type: :string, default: "png", doc: "Image format (only PNG is currently supported)"],
+      format: [
+        type: :string,
+        default: "png",
+        doc: "Image format (only PNG is currently supported)"
+      ],
       save_path: [type: :string, doc: "Optional file path to save the screenshot"]
     ]
 

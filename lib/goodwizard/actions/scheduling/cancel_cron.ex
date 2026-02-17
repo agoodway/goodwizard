@@ -15,7 +15,11 @@ defmodule Goodwizard.Actions.Scheduling.CancelCron do
         "Job IDs look like \"cron_12345678\". Cancellation is idempotent — " <>
         "cancelling a job that doesn't exist is safe and returns success.",
     schema: [
-      job_id: [type: :string, required: true, doc: "The job_id to cancel (e.g. \"cron_12345678\")"]
+      job_id: [
+        type: :string,
+        required: true,
+        doc: "The job_id to cancel (e.g. \"cron_12345678\")"
+      ]
     ]
 
   alias Goodwizard.Scheduling.{CronStore, CronRegistry}

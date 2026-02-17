@@ -237,7 +237,9 @@ defmodule Goodwizard.Brain.Seeds do
       },
       "metadata" => %{
         "type" => "object",
-        "additionalProperties" => %{"type" => "string"},
+        "additionalProperties" => %{"type" => "string", "maxLength" => 1000},
+        "propertyNames" => %{"pattern" => "^[a-zA-Z0-9_.-]{1,64}$"},
+        "maxProperties" => 50,
         "description" => "Arbitrary key-value string metadata"
       },
       "created_at" => %{

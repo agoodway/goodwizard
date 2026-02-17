@@ -297,7 +297,9 @@ defmodule Goodwizard.Config do
         Application.put_env(:jido_browser, :vibium, binary_path: wrapper)
 
       :error ->
-        Logger.warning("Vibium binary not found. Browser actions will fail. Install with: npm install -g vibium @vibium/darwin-arm64")
+        Logger.warning(
+          "Vibium binary not found. Browser actions will fail. Install with: npm install -g vibium @vibium/darwin-arm64"
+        )
     end
   end
 

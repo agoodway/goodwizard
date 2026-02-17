@@ -15,5 +15,6 @@ defmodule Goodwizard.Actions.Browser.WaitForNavigation do
   alias Goodwizard.Actions.Browser.Helpers
 
   @impl true
-  def run(params, context), do: Helpers.run_serialized(JidoBrowser.Actions.WaitForNavigation, params, context)
+  def run(params, context),
+    do: Helpers.run_serialized(JidoBrowser.Actions.WaitForNavigation, params, context)
 end

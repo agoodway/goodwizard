@@ -88,7 +88,10 @@ defmodule Goodwizard.Brain.Entity do
     inner =
       value
       |> Enum.sort_by(fn {k, _} -> k end)
-      |> Enum.map_join(", ", fn {k, v} -> "#{k}: #{encode_yaml_value(v)}" end)
+      |> Enum.map_join(", ", fn {k, v} ->
+        encoded_key = encode_yaml_value(to_string(k))
+        "#{encoded_key}: #{encode_yaml_value(v)}"
+      end)
 
     "{#{inner}}"
   end

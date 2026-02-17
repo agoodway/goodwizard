@@ -12,7 +12,11 @@ defmodule Goodwizard.Actions.Browser.WaitForSelector do
     vsn: "1.0.0",
     schema: [
       selector: [type: :string, required: true, doc: "CSS selector to wait for"],
-      state: [type: :string, default: "visible", doc: "State to wait for: attached, visible, hidden, or detached"],
+      state: [
+        type: :string,
+        default: "visible",
+        doc: "State to wait for: attached, visible, hidden, or detached"
+      ],
       timeout: [type: :integer, default: 30_000, doc: "Maximum wait time in milliseconds"]
     ]
 

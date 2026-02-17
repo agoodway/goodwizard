@@ -117,12 +117,11 @@ defmodule Goodwizard.Brain do
         try do
           with {:ok, content} <- read_file(path),
                {:ok, {existing_data, existing_body}} <- Entity.parse(content),
+               existing_data = Map.put_new(existing_data, "metadata", %{}),
                safe_data =
                  new_data
                  |> Map.drop(["id", "created_at", "updated_at"])
-                 |> then(fn d ->
-                   if Map.get(d, "metadata") == nil, do: Map.delete(d, "metadata"), else: d
-                 end),
+                 |> sanitize_metadata(),
                merged = Map.merge(existing_data, safe_data) |> Map.put("updated_at", now),
                final_body = if(body != nil, do: body, else: existing_body),
                :ok <- Schema.validate(schema, merged) do
@@ -146,6 +145,19 @@ defmodule Goodwizard.Brain do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  # Sanitizes metadata in update data:
+  # - absent key: drop it so existing metadata is preserved via Map.merge
+  # - nil value: same as absent — treat as "no change"
+  # - map value: keep it to replace existing metadata
+  defp sanitize_metadata(data) do
+    case Map.fetch(data, "metadata") do
+      :error -> data
+      {:ok, nil} -> Map.delete(data, "metadata")
+      {:ok, val} when is_map(val) -> data
+      {:ok, _} -> Map.delete(data, "metadata")
     end
   end
 

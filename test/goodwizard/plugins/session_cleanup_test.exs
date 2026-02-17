@@ -4,7 +4,9 @@ defmodule Goodwizard.Plugins.SessionCleanupTest do
   alias Goodwizard.Plugins.Session
 
   setup do
-    workspace = Path.join(System.tmp_dir!(), "gw_cleanup_test_#{System.unique_integer([:positive])}")
+    workspace =
+      Path.join(System.tmp_dir!(), "gw_cleanup_test_#{System.unique_integer([:positive])}")
+
     sessions_dir = Path.join(workspace, "sessions")
     File.mkdir_p!(sessions_dir)
 
@@ -122,7 +124,9 @@ defmodule Goodwizard.Plugins.SessionCleanupTest do
 
     test "returns :ok when sessions directory does not exist" do
       # Point Config at a nonexistent workspace
-      nonexistent = Path.join(System.tmp_dir!(), "gw_nonexistent_#{System.unique_integer([:positive])}")
+      nonexistent =
+        Path.join(System.tmp_dir!(), "gw_nonexistent_#{System.unique_integer([:positive])}")
+
       Goodwizard.Config.put(["agent", "workspace"], nonexistent)
 
       refute File.exists?(Path.join(nonexistent, "sessions"))

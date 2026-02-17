@@ -21,7 +21,7 @@ defmodule Goodwizard.Browser.Serializer do
   The timeout is set high (120s) to accommodate queued commands — up to
   4 commands at 30s each can be waiting in the mailbox.
   """
-  @spec execute((() -> term()), timeout()) :: term()
+  @spec execute((-> term()), timeout()) :: term()
   def execute(fun, timeout \\ @default_timeout) when is_function(fun, 0) do
     GenServer.call(__MODULE__, {:execute, fun}, timeout)
   end

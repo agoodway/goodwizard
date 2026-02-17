@@ -36,7 +36,7 @@ defmodule Goodwizard.Actions.Brain.CreateEntity do
 
     case Goodwizard.Brain.create(workspace, params.entity_type, data, body) do
       {:ok, {id, data, body}} ->
-        {:ok, %{id: id, data: data, body: body}}
+        {:ok, %{id: id, data: Helpers.sanitize_entity_data(data), body: body}}
 
       {:error, reason} ->
         {:error, Helpers.format_error(reason)}

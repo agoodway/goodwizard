@@ -104,9 +104,7 @@ defmodule Goodwizard.Scheduling.CronLoader do
           :ok
 
         {:error, reason} ->
-          Logger.warning(
-            "CronLoader: failed to register #{job_id}: #{inspect(reason)}"
-          )
+          Logger.warning("CronLoader: failed to register #{job_id}: #{inspect(reason)}")
 
           :skip
       end
