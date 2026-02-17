@@ -4,27 +4,35 @@
 The system SHALL provide a `Brain.References.ref_fields/1` function that extracts reference field metadata from a resolved JSON Schema.
 
 #### Scenario: Single entity ref field detected
-- **WHEN** a schema has a property with `"type" => "string"` and `"pattern"` matching `^<type>/[a-z0-9]{8,}$`
+- **WHEN** a schema has a property with `"type" => "string"` and `"pattern"` matching a UUIDv7 entity reference (e.g. `^companies/[0-9a-f]{8}-...$`)
 - **THEN** `ref_fields/1` SHALL return it as a single ref with the target type extracted
 
 #### Scenario: Entity ref list field detected
-- **WHEN** a schema has a property with `"type" => "array"` and `"items"."pattern"` matching `^<type>/[a-z0-9]{8,}$`
+- **WHEN** a schema has a property with `"type" => "array"` and `"items"."pattern"` matching a UUIDv7 entity reference (e.g. `^people/[0-9a-f]{8}-...$`)
 - **THEN** `ref_fields/1` SHALL return it as a list ref with the target type extracted
 
+#### Scenario: Polymorphic ref list field detected
+- **WHEN** a schema has a property with `"type" => "array"` and `"items"."pattern"` matching `^[a-z_]+/` followed by a UUIDv7 pattern
+- **THEN** `ref_fields/1` SHALL return it as a polymorphic ref list (target type resolved at runtime from each value)
+
 #### Scenario: Non-reference fields ignored
-- **WHEN** a schema has properties without entity reference patterns
+- **WHEN** a schema has properties without entity reference patterns (e.g. `name`, `email`, `metadata`, `url`)
 - **THEN** `ref_fields/1` SHALL not include them in the result
 
 ### Requirement: Stale reference cleaning on read
 The system SHALL remove stale entity references from data returned by `Brain.read/3` and `Brain.list/2`.
 
 #### Scenario: Single ref pointing to deleted entity
-- **WHEN** an entity has a single ref field (e.g. `"company" => "companies/abcd1234"`) and the referenced entity does not exist on disk
+- **WHEN** an entity has a single ref field (e.g. `"company" => "companies/019c68dd-..."`) and the referenced entity does not exist on disk
 - **THEN** the returned data SHALL have that field set to `nil`
 
 #### Scenario: Ref list with mix of valid and stale refs
 - **WHEN** an entity has a ref list field containing both existing and deleted entity references
 - **THEN** the returned data SHALL include only the existing references, with stale ones removed
+
+#### Scenario: Polymorphic ref list with stale refs
+- **WHEN** a notes entity has a `related_to` field containing references to entities of various types, and some referenced entities have been deleted
+- **THEN** the returned data SHALL include only the references to existing entities, with stale ones removed
 
 #### Scenario: All references valid
 - **WHEN** all entity references in a read entity point to existing entities
@@ -40,6 +48,10 @@ The system SHALL provide a `Brain.References.validate/3` function that returns a
 #### Scenario: Validate entity with stale references
 - **WHEN** `validate/3` is called for an entity with stale references
 - **THEN** it SHALL return a list of `{field_name, stale_ref}` tuples
+
+#### Scenario: Validate entity with stale polymorphic references
+- **WHEN** `validate/3` is called for a notes entity with stale entries in `related_to`
+- **THEN** it SHALL return `{field_name, stale_ref}` tuples for each stale polymorphic reference
 
 #### Scenario: Validate entity with no stale references
 - **WHEN** `validate/3` is called for an entity where all references exist
@@ -60,9 +72,13 @@ After a successful entity deletion, the system SHALL spawn an async task that sc
 - **WHEN** the sweep finds an entity with a ref list containing the deleted entity's reference
 - **THEN** it SHALL rewrite that entity's file with the stale reference removed from the list
 
-#### Scenario: Sweep only scans types that reference the deleted type
+#### Scenario: Sweep removes deleted entity from polymorphic ref list
+- **WHEN** the sweep finds a notes entity with a `related_to` list containing a reference to the deleted entity
+- **THEN** it SHALL rewrite that entity's file with the stale reference removed from the list
+
+#### Scenario: Sweep only scans types that could reference the deleted type
 - **WHEN** the sweep runs after deleting a `tasks` entity
-- **THEN** it SHALL only scan entity types whose schema has ref fields pointing at `tasks`, not all types
+- **THEN** it SHALL scan entity types whose schema has typed ref fields pointing at `tasks` AND entity types with polymorphic ref fields (e.g. notes with `related_to`)
 
 #### Scenario: Sweep failure does not affect delete result
 - **WHEN** the async sweep encounters an error (e.g. file permission issue)
