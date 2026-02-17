@@ -47,18 +47,38 @@ defmodule Goodwizard.Character.PreambleTest do
 
       orientation_pos = :binary.match(result, "## System Orientation")
       directories_pos = :binary.match(result, "### Workspace Directories")
+      memory_pos = :binary.match(result, "### Memory System")
       bootstrap_pos = :binary.match(result, "### Bootstrap Files")
 
       assert orientation_pos != :nomatch
       assert directories_pos != :nomatch
+      assert memory_pos != :nomatch
       assert bootstrap_pos != :nomatch
 
       {o, _} = orientation_pos
       {d, _} = directories_pos
+      {m, _} = memory_pos
       {b, _} = bootstrap_pos
 
       assert o < d
-      assert d < b
+      assert d < m
+      assert m < b
+    end
+
+    test "describes semantic, episodic, and procedural memory types" do
+      result = Preamble.generate()
+
+      assert result =~ "Semantic Memory"
+      assert result =~ "Episodic Memory"
+      assert result =~ "Procedural Memory"
+    end
+
+    test "includes memory storage locations" do
+      result = Preamble.generate()
+
+      assert result =~ "memory/MEMORY.md"
+      assert result =~ "memory/episodic/"
+      assert result =~ "memory/procedural/"
     end
 
     test "does not end with a newline" do
