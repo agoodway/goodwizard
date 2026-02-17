@@ -32,6 +32,7 @@ config.toml
 
 # Scratchpad
 /scratchpad/
+.scratchpad/
 
 # Generated on host
 *.ez
