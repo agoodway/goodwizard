@@ -24,7 +24,7 @@
 
 ## 5. System Prompt Guidance
 
-- [x] 5.1 Add default `TOOLS.md` content with "Scheduling & Monitoring" section to `mix goodwizard.setup` bootstrap file seeding (heartbeat vs cron decision guidance)
+- [x] 5.1 Verify default `TOOLS.md` bootstrap content already includes "Scheduling & Monitoring" guidance in `mix goodwizard.setup` (pre-existing on main; no additional branch code change required)
 
 ## 6. Tests
 
