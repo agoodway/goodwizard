@@ -27,6 +27,7 @@ defmodule Goodwizard.Memory.Procedural do
   @auto_managed_fields ~w(id created_at usage_count success_count failure_count last_used)
 
   @max_file_scan 1_000
+  @max_list_limit 200
   @default_list_limit 20
   @default_recall_limit 5
 
@@ -75,8 +76,10 @@ defmodule Goodwizard.Memory.Procedural do
          :ok <- validate_required(frontmatter),
          :ok <- validate_type(frontmatter),
          :ok <- validate_source(frontmatter),
-         :ok <- validate_confidence(frontmatter) do
-      {:ok, id} = Id.generate()
+         :ok <- validate_confidence(frontmatter),
+         {:ok, id} <- Id.generate(),
+         dir = Paths.procedural_dir(memory_dir),
+         :ok <- File.mkdir_p(dir) do
       timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
 
       enriched =
@@ -91,17 +94,11 @@ defmodule Goodwizard.Memory.Procedural do
         |> Map.put("failure_count", 0)
         |> Map.put("last_used", nil)
 
-      dir = Paths.procedural_dir(memory_dir)
+      content = Entry.serialize(enriched, body)
+      path = Path.join(dir, "#{id}.md")
 
-      with :ok <- File.mkdir_p(dir) do
-        content = Entry.serialize(enriched, body)
-        path = Path.join(dir, "#{id}.md")
-
-        case File.write(path, content) do
-          :ok -> {:ok, enriched}
-          {:error, reason} -> {:error, {:fs_error, reason}}
-        end
-      else
+      case File.write(path, content) do
+        :ok -> {:ok, enriched}
         {:error, reason} -> {:error, {:fs_error, reason}}
       end
     end
@@ -112,7 +109,7 @@ defmodule Goodwizard.Memory.Procedural do
 
   Returns `{:ok, {frontmatter_map, body_string}}` or `{:error, :not_found}`.
   """
-  @spec read(String.t(), String.t()) :: {:ok, {map(), String.t()}} | {:error, :not_found}
+  @spec read(String.t(), String.t()) :: {:ok, {map(), String.t()}} | {:error, term()}
   def read(memory_dir, id) do
     with {:ok, _} <- Paths.validate_memory_dir(memory_dir),
          {:ok, path} <- Paths.procedure_path(memory_dir, id) do
@@ -122,6 +119,9 @@ defmodule Goodwizard.Memory.Procedural do
 
         {:error, :enoent} ->
           {:error, :not_found}
+
+        {:error, reason} ->
+          {:error, {:fs_error, reason}}
       end
     end
   end
@@ -141,28 +141,30 @@ defmodule Goodwizard.Memory.Procedural do
   @spec update(String.t(), String.t(), map(), String.t() | nil) ::
           {:ok, map()} | {:error, term()}
   def update(memory_dir, id, frontmatter_updates, body \\ nil) do
-    with {:ok, _} <- Paths.validate_memory_dir(memory_dir),
-         {:ok, path} <- Paths.procedure_path(memory_dir, id),
-         {:ok, {existing_fm, existing_body}} <- read_file(path) do
-      # Strip auto-managed fields from caller updates
-      safe_updates = Map.drop(frontmatter_updates, @auto_managed_fields)
+    with_file_lock(id, fn ->
+      with {:ok, _} <- Paths.validate_memory_dir(memory_dir),
+           {:ok, path} <- Paths.procedure_path(memory_dir, id),
+           {:ok, {existing_fm, existing_body}} <- read_file(path) do
+        # Strip auto-managed fields from caller updates
+        safe_updates = Map.drop(frontmatter_updates, @auto_managed_fields)
 
-      merged = Map.merge(existing_fm, safe_updates)
-      timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
-      merged = Map.put(merged, "updated_at", timestamp)
+        merged = Map.merge(existing_fm, safe_updates)
+        timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
+        merged = Map.put(merged, "updated_at", timestamp)
 
-      with :ok <- validate_type(merged),
-           :ok <- validate_source(merged),
-           :ok <- validate_confidence(merged) do
-        final_body = if body != nil, do: body, else: existing_body
-        content = Entry.serialize(merged, final_body)
+        with :ok <- validate_type(merged),
+             :ok <- validate_source(merged),
+             :ok <- validate_confidence(merged) do
+          final_body = if body != nil, do: body, else: existing_body
+          content = Entry.serialize(merged, final_body)
 
-        case File.write(path, content) do
-          :ok -> {:ok, merged}
-          {:error, reason} -> {:error, {:fs_error, reason}}
+          case File.write(path, content) do
+            :ok -> {:ok, merged}
+            {:error, reason} -> {:error, {:fs_error, reason}}
+          end
         end
       end
-    end
+    end)
   end
 
   @doc """
@@ -198,17 +200,18 @@ defmodule Goodwizard.Memory.Procedural do
   @spec list(String.t(), keyword()) :: {:ok, [map()]} | {:error, term()}
   def list(memory_dir, opts \\ []) do
     with {:ok, _} <- Paths.validate_memory_dir(memory_dir) do
-      limit = Keyword.get(opts, :limit, @default_list_limit)
+      limit = opts |> Keyword.get(:limit, @default_list_limit) |> min(@max_list_limit)
       dir = Paths.procedural_dir(memory_dir)
 
       entries =
         dir
         |> list_procedure_files()
-        |> read_frontmatters()
-        |> filter_by_type(Keyword.get(opts, :type))
-        |> filter_by_confidence(Keyword.get(opts, :confidence))
-        |> filter_by_tags(Keyword.get(opts, :tags))
-        |> filter_by_min_usage(Keyword.get(opts, :min_usage_count))
+        |> read_entries()
+        |> filter_entries_by_type(Keyword.get(opts, :type))
+        |> filter_entries_by_confidence(Keyword.get(opts, :confidence))
+        |> filter_entries_by_tags(Keyword.get(opts, :tags))
+        |> filter_entries_by_min_usage(Keyword.get(opts, :min_usage_count))
+        |> Enum.map(fn {fm, _body} -> fm end)
         |> sort_by_updated_at_desc()
         |> Enum.take(limit)
 
@@ -235,7 +238,7 @@ defmodule Goodwizard.Memory.Procedural do
   @spec recall(String.t(), String.t(), keyword()) :: {:ok, [map()]} | {:error, term()}
   def recall(memory_dir, situation, opts \\ []) do
     with {:ok, _} <- Paths.validate_memory_dir(memory_dir) do
-      limit = Keyword.get(opts, :limit, @default_recall_limit)
+      limit = opts |> Keyword.get(:limit, @default_recall_limit) |> min(@max_list_limit)
       query_tags = Keyword.get(opts, :tags, [])
       dir = Paths.procedural_dir(memory_dir)
 
@@ -266,8 +269,7 @@ defmodule Goodwizard.Memory.Procedural do
     compute_score(frontmatter, situation, query_tags, "")
   end
 
-  @doc false
-  def compute_score(frontmatter, situation, query_tags, body) do
+  defp compute_score(frontmatter, situation, query_tags, body) do
     tag_score = tag_match_score(frontmatter["tags"] || [], query_tags)
     text_score = text_relevance_score(situation, frontmatter, body)
     conf_score = confidence_score(frontmatter["confidence"])
@@ -291,27 +293,43 @@ defmodule Goodwizard.Memory.Procedural do
   @spec record_usage(String.t(), String.t(), :success | :failure) ::
           {:ok, map()} | {:error, term()}
   def record_usage(memory_dir, id, outcome) when outcome in [:success, :failure] do
-    with {:ok, _} <- Paths.validate_memory_dir(memory_dir),
-         {:ok, path} <- Paths.procedure_path(memory_dir, id),
-         {:ok, {fm, body}} <- read_file(path) do
-      timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
+    with_file_lock(id, fn ->
+      with {:ok, _} <- Paths.validate_memory_dir(memory_dir),
+           {:ok, path} <- Paths.procedure_path(memory_dir, id),
+           {:ok, {fm, body}} <- read_file(path) do
+        timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
 
-      updated =
-        fm
-        |> Map.update("usage_count", 1, &((&1 || 0) + 1))
-        |> increment_outcome(outcome)
-        |> Map.put("last_used", timestamp)
-        |> Map.put("updated_at", timestamp)
+        updated =
+          fm
+          |> Map.update("usage_count", 1, &((&1 || 0) + 1))
+          |> increment_outcome(outcome)
+          |> Map.put("last_used", timestamp)
+          |> Map.put("updated_at", timestamp)
 
-      updated = Map.put(updated, "confidence", adjust_confidence(updated))
+        old_confidence = fm["confidence"] || "medium"
+        new_confidence = adjust_confidence(updated)
 
-      content = Entry.serialize(updated, body)
+        # Reset opposing counter on transition to prevent oscillation
+        updated =
+          cond do
+            confidence_level_value(new_confidence) > confidence_level_value(old_confidence) ->
+              updated |> Map.put("confidence", new_confidence) |> Map.put("failure_count", 0)
 
-      case File.write(path, content) do
-        :ok -> {:ok, updated}
-        {:error, reason} -> {:error, {:fs_error, reason}}
+            confidence_level_value(new_confidence) < confidence_level_value(old_confidence) ->
+              updated |> Map.put("confidence", new_confidence) |> Map.put("success_count", 0)
+
+            true ->
+              Map.put(updated, "confidence", new_confidence)
+          end
+
+        content = Entry.serialize(updated, body)
+
+        case File.write(path, content) do
+          :ok -> {:ok, updated}
+          {:error, reason} -> {:error, {:fs_error, reason}}
+        end
       end
-    end
+    end)
   end
 
   @doc """
@@ -357,12 +375,16 @@ defmodule Goodwizard.Memory.Procedural do
     matches / length(query_tags)
   end
 
+  # Minimum word length for text relevance matching (filters common short words)
+  @min_relevance_word_length 3
+
   @doc false
   def text_relevance_score(situation, frontmatter, body \\ "") do
     words =
       situation
       |> String.downcase()
       |> String.split(~r/\s+/, trim: true)
+      |> Enum.filter(&(String.length(&1) >= @min_relevance_word_length))
       |> Enum.uniq()
 
     if words == [] do
@@ -373,7 +395,12 @@ defmodule Goodwizard.Memory.Procedural do
         |> Enum.join(" ")
         |> String.downcase()
 
-      matches = Enum.count(words, &String.contains?(searchable, &1))
+      searchable_words =
+        searchable
+        |> String.split(~r/[\s\p{P}]+/u, trim: true)
+        |> MapSet.new()
+
+      matches = Enum.count(words, &MapSet.member?(searchable_words, &1))
       matches / length(words)
     end
   end
@@ -390,17 +417,23 @@ defmodule Goodwizard.Memory.Procedural do
   def recency_score(last_used) when is_binary(last_used) do
     case DateTime.from_iso8601(last_used) do
       {:ok, dt, _offset} ->
-        days_ago = DateTime.diff(DateTime.utc_now(), dt, :day)
+        seconds_ago = DateTime.diff(DateTime.utc_now(), dt, :second)
 
-        if days_ago <= 0 do
+        if seconds_ago <= 0 do
           1.0
         else
-          max(0.0, 1.0 - days_ago / @recency_decay_days)
+          decay_seconds = @recency_decay_days * 86_400
+          max(0.0, 1.0 - seconds_ago / decay_seconds)
         end
 
       _ ->
         0.0
     end
+  end
+
+  # Serializes read-then-write operations per procedure ID using :global.trans/2
+  defp with_file_lock(id, fun) do
+    :global.trans({__MODULE__, id}, fn -> fun.() end)
   end
 
   # --- Validation helpers ---
@@ -437,6 +470,7 @@ defmodule Goodwizard.Memory.Procedural do
     case File.read(path) do
       {:ok, content} -> Entry.parse(content)
       {:error, :enoent} -> {:error, :not_found}
+      {:error, reason} -> {:error, {:fs_error, reason}}
     end
   end
 
@@ -448,37 +482,31 @@ defmodule Goodwizard.Memory.Procedural do
     Map.update(fm, "failure_count", 1, &((&1 || 0) + 1))
   end
 
+  # Scans up to @max_file_scan procedure files, sorted by filename (UUID7 creation
+  # order) descending. If the directory contains more files than @max_file_scan,
+  # older procedures are silently excluded from list/recall results. This is a
+  # pragmatic ceiling to bound memory/IO for very large stores.
   defp list_procedure_files(dir) do
     case File.ls(dir) do
       {:ok, files} ->
-        files
-        |> Enum.filter(&String.ends_with?(&1, ".md"))
-        |> Enum.sort(:desc)
+        md_files =
+          files
+          |> Enum.filter(&String.ends_with?(&1, ".md"))
+          |> Enum.sort(:desc)
+
+        if length(md_files) > @max_file_scan do
+          Logger.warning(
+            "Procedural store has #{length(md_files)} files, scanning only the newest #{@max_file_scan}"
+          )
+        end
+
+        md_files
         |> Enum.take(@max_file_scan)
         |> Enum.map(&Path.join(dir, &1))
 
       {:error, :enoent} ->
         []
     end
-  end
-
-  defp read_frontmatters(paths) do
-    Enum.flat_map(paths, fn path ->
-      case File.read(path) do
-        {:ok, content} ->
-          case Entry.parse(content) do
-            {:ok, {frontmatter, _body}} ->
-              [frontmatter]
-
-            _ ->
-              Logger.warning("Skipping corrupted procedure file: #{path}")
-              []
-          end
-
-        _ ->
-          []
-      end
-    end)
   end
 
   defp read_entries(paths) do
@@ -500,38 +528,7 @@ defmodule Goodwizard.Memory.Procedural do
     end)
   end
 
-  # --- List filters (operate on frontmatter maps) ---
-
-  defp filter_by_type(entries, nil), do: entries
-
-  defp filter_by_type(entries, type) do
-    Enum.filter(entries, &(&1["type"] == type))
-  end
-
-  defp filter_by_confidence(entries, nil), do: entries
-
-  defp filter_by_confidence(entries, min_confidence) do
-    min_level = confidence_level_value(min_confidence)
-    Enum.filter(entries, &(confidence_level_value(&1["confidence"]) >= min_level))
-  end
-
-  defp filter_by_tags(entries, nil), do: entries
-  defp filter_by_tags(entries, []), do: entries
-
-  defp filter_by_tags(entries, tags) do
-    Enum.filter(entries, fn fm ->
-      entry_tags = fm["tags"] || []
-      Enum.all?(tags, &(&1 in entry_tags))
-    end)
-  end
-
-  defp filter_by_min_usage(entries, nil), do: entries
-
-  defp filter_by_min_usage(entries, min_count) do
-    Enum.filter(entries, &((&1["usage_count"] || 0) >= min_count))
-  end
-
-  # --- Recall filters (operate on {frontmatter, body} tuples) ---
+  # --- Entry filters (operate on {frontmatter, body} tuples) ---
 
   defp filter_entries_by_type(entries, nil), do: entries
 
@@ -548,6 +545,24 @@ defmodule Goodwizard.Memory.Procedural do
       confidence_level_value(fm["confidence"]) >= min_level
     end)
   end
+
+  defp filter_entries_by_tags(entries, nil), do: entries
+  defp filter_entries_by_tags(entries, []), do: entries
+
+  defp filter_entries_by_tags(entries, tags) do
+    Enum.filter(entries, fn {fm, _body} ->
+      entry_tags = fm["tags"] || []
+      Enum.all?(tags, &(&1 in entry_tags))
+    end)
+  end
+
+  defp filter_entries_by_min_usage(entries, nil), do: entries
+
+  defp filter_entries_by_min_usage(entries, min_count) when is_integer(min_count) do
+    Enum.filter(entries, fn {fm, _body} -> (fm["usage_count"] || 0) >= min_count end)
+  end
+
+  defp filter_entries_by_min_usage(entries, _non_integer), do: entries
 
   defp confidence_level_value("high"), do: 3
   defp confidence_level_value("medium"), do: 2
