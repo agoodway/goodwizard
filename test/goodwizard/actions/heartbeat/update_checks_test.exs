@@ -30,7 +30,7 @@ defmodule Goodwizard.Actions.Heartbeat.UpdateChecksTest do
                UpdateChecks.run(%{operation: "add", text: "Check inbox"}, context)
 
       content = File.read!(Path.join(@test_workspace, "HEARTBEAT.md"))
-      assert content == "- [ ] Check inbox"
+      assert content == "- [ ] Check inbox\n"
     end
 
     test "appends check to existing file", %{context: context, heartbeat_path: path} do
@@ -150,6 +150,34 @@ defmodule Goodwizard.Actions.Heartbeat.UpdateChecksTest do
 
     test "does not require text for list operation", %{context: context} do
       assert {:ok, _} = UpdateChecks.run(%{operation: "list"}, context)
+    end
+
+    test "rejects text with newlines", %{context: context} do
+      assert {:error, msg} = UpdateChecks.run(%{operation: "add", text: "line1\nline2"}, context)
+      assert msg =~ "newlines or null bytes"
+    end
+
+    test "rejects text with carriage returns", %{context: context} do
+      assert {:error, msg} = UpdateChecks.run(%{operation: "add", text: "line1\rline2"}, context)
+      assert msg =~ "newlines or null bytes"
+    end
+
+    test "rejects text with null bytes", %{context: context} do
+      assert {:error, msg} = UpdateChecks.run(%{operation: "add", text: "line1\0line2"}, context)
+      assert msg =~ "newlines or null bytes"
+    end
+
+    test "rejects text exceeding 500 bytes", %{context: context} do
+      long_text = String.duplicate("a", 501)
+      assert {:error, msg} = UpdateChecks.run(%{operation: "add", text: long_text}, context)
+      assert msg =~ "exceeds maximum length"
+    end
+
+    test "trims whitespace from text before operations", %{context: context, heartbeat_path: path} do
+      assert {:ok, _} = UpdateChecks.run(%{operation: "add", text: "  Check inbox  "}, context)
+      content = File.read!(path)
+      assert content =~ "- [ ] Check inbox"
+      refute content =~ "  Check inbox  "
     end
   end
 end

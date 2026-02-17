@@ -82,7 +82,7 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
       try do
         String.to_existing_atom(job_id_str)
       rescue
-        ArgumentError -> String.to_atom(job_id_str)
+        ArgumentError -> job_id_str
       end
 
     message = %{type: "cron.task", task: task, room_id: room_id}
