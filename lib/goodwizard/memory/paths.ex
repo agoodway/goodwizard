@@ -19,10 +19,17 @@ defmodule Goodwizard.Memory.Paths do
   def memory_path(memory_dir), do: Path.join(memory_dir, "MEMORY.md")
 
   @doc """
-  Ensures the memory directory exists.
+  Ensures the memory directory exists, after validating the path.
+
+  Validates via `validate_memory_dir/1` before creating. Returns `:ok` or
+  `{:error, reason}`.
   """
   @spec ensure_dir(String.t()) :: :ok | {:error, term()}
-  def ensure_dir(memory_dir), do: File.mkdir_p(memory_dir)
+  def ensure_dir(memory_dir) do
+    with {:ok, expanded} <- validate_memory_dir(memory_dir) do
+      File.mkdir_p(expanded)
+    end
+  end
 
   @doc """
   Returns the path to the episodic memory subdirectory.
@@ -38,15 +45,44 @@ defmodule Goodwizard.Memory.Paths do
 
   @doc """
   Returns the path to a specific episode entry file by ID.
+
+  Validates the ID to prevent path traversal. Returns `{:ok, path}` or
+  `{:error, :invalid_id}`.
   """
-  @spec episode_path(String.t(), String.t()) :: String.t()
-  def episode_path(memory_dir, id), do: Path.join(episodic_dir(memory_dir), "#{id}.md")
+  @spec episode_path(String.t(), String.t()) :: {:ok, String.t()} | {:error, :invalid_id}
+  def episode_path(memory_dir, id) do
+    with :ok <- validate_id(id) do
+      {:ok, Path.join(episodic_dir(memory_dir), "#{id}.md")}
+    end
+  end
 
   @doc """
   Returns the path to a specific procedure entry file by ID.
+
+  Validates the ID to prevent path traversal. Returns `{:ok, path}` or
+  `{:error, :invalid_id}`.
   """
-  @spec procedure_path(String.t(), String.t()) :: String.t()
-  def procedure_path(memory_dir, id), do: Path.join(procedural_dir(memory_dir), "#{id}.md")
+  @spec procedure_path(String.t(), String.t()) :: {:ok, String.t()} | {:error, :invalid_id}
+  def procedure_path(memory_dir, id) do
+    with :ok <- validate_id(id) do
+      {:ok, Path.join(procedural_dir(memory_dir), "#{id}.md")}
+    end
+  end
+
+  @doc """
+  Validates an entry ID. Rejects IDs containing `..`, `/`, `\\`, null bytes,
+  or empty strings.
+  """
+  @spec validate_id(String.t()) :: :ok | {:error, :invalid_id}
+  def validate_id(id) when is_binary(id) and byte_size(id) > 0 do
+    if String.contains?(id, ["..", "/", "\\", "\0"]) do
+      {:error, :invalid_id}
+    else
+      :ok
+    end
+  end
+
+  def validate_id(_), do: {:error, :invalid_id}
 
   @valid_subdirs ~w(episodic procedural)
 
@@ -64,18 +100,27 @@ defmodule Goodwizard.Memory.Paths do
 
   def validate_memory_subdir(_memory_dir, _subdir), do: {:error, :invalid_subdir}
 
+  # 4096 bytes — common filesystem path length limit
+  @max_path_length 4096
+
   @doc """
   Validates that the given memory_dir is a safe path without traversal components.
-  Rejects paths containing `..`, null bytes, or non-printable characters.
+  Rejects empty strings, paths with `..` as a path component, null bytes,
+  non-printable characters, and paths exceeding #{@max_path_length} bytes.
   Returns {:ok, expanded_path} or {:error, reason}.
   """
   @spec validate_memory_dir(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def validate_memory_dir(""), do: {:error, "memory_dir is empty"}
+
   def validate_memory_dir(memory_dir) do
     cond do
+      byte_size(memory_dir) > @max_path_length ->
+        {:error, "memory_dir exceeds maximum path length"}
+
       String.contains?(memory_dir, "\0") ->
         {:error, "memory_dir contains null bytes"}
 
-      String.contains?(memory_dir, "..") ->
+      has_traversal_component?(memory_dir) ->
         {:error, "memory_dir contains path traversal"}
 
       not String.printable?(memory_dir) ->
@@ -84,5 +129,13 @@ defmodule Goodwizard.Memory.Paths do
       true ->
         {:ok, Path.expand(memory_dir)}
     end
+  end
+
+  # Checks for ".." as an actual path component, not as a substring.
+  # "/tmp/app..v2/data" is valid; "/tmp/../etc" is not.
+  defp has_traversal_component?(path) do
+    path
+    |> Path.split()
+    |> Enum.any?(&(&1 == ".."))
   end
 end

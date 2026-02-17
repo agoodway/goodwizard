@@ -141,6 +141,33 @@ defmodule Goodwizard.Memory.EntryTest do
       assert {:ok, {meta, _}} = Entry.parse(content)
       assert meta["notes"] == nil
     end
+
+    test "rejects YAML anchor with space after &" do
+      content = "---\nname: & anchor value\n---\nbody"
+      assert {:error, :yaml_anchors_not_allowed} = Entry.parse(content)
+    end
+
+    test "rejects YAML alias with space after *" do
+      content = "---\nname: * alias\n---\nbody"
+      assert {:error, :yaml_anchors_not_allowed} = Entry.parse(content)
+    end
+
+    test "accepts URL with ampersand in quoted value" do
+      content = "---\nurl: \"https://example.com?a=1&b=2\"\n---\nbody"
+      assert {:ok, {meta, _}} = Entry.parse(content)
+      assert meta["url"] == "https://example.com?a=1&b=2"
+    end
+
+    test "rejects content exceeding combined size limit" do
+      large = String.duplicate("x", 1_200_000)
+      content = "---\ntype: test\n---\n#{large}"
+      assert {:error, :content_too_large} = Entry.parse(content)
+    end
+
+    test "returns :invalid_frontmatter for non-map YAML" do
+      content = "---\n- item1\n- item2\n---\nbody"
+      assert {:error, :invalid_frontmatter} = Entry.parse(content)
+    end
   end
 
   describe "serialize/2" do
@@ -237,6 +264,26 @@ defmodule Goodwizard.Memory.EntryTest do
     test "roundtrips with special characters in values" do
       meta = %{"summary" => "deploy: step [1] with {braces}"}
       body = "Content"
+
+      serialized = Entry.serialize(meta, body)
+      assert {:ok, {parsed_meta, parsed_body}} = Entry.parse(serialized)
+      assert parsed_meta == meta
+      assert parsed_body == body
+    end
+
+    test "roundtrips with --- in values" do
+      meta = %{"s" => "has --- dashes"}
+      body = "body"
+
+      serialized = Entry.serialize(meta, body)
+      assert {:ok, {parsed_meta, parsed_body}} = Entry.parse(serialized)
+      assert parsed_meta == meta
+      assert parsed_body == body
+    end
+
+    test "roundtrips with keys containing special characters" do
+      meta = %{"normal" => "value"}
+      body = "body"
 
       serialized = Entry.serialize(meta, body)
       assert {:ok, {parsed_meta, parsed_body}} = Entry.parse(serialized)
