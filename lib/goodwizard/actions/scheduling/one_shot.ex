@@ -201,7 +201,8 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
             {:error, "Scheduled time is in the past: #{inspect(at_string)}"}
 
           delay_ms > max_delay_ms ->
-            {:error, "Scheduled time exceeds maximum of 1 year in the future: #{inspect(at_string)}"}
+            {:error,
+             "Scheduled time exceeds maximum of 1 year in the future: #{inspect(at_string)}"}
 
           true ->
             {:ok, delay_ms, at_dt, "at"}

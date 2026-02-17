@@ -33,6 +33,8 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Scheduling.OneShot,
       Goodwizard.Actions.Scheduling.CancelOneShot,
       Goodwizard.Actions.Scheduling.ListOneShotJobs,
+      # Heartbeat
+      Goodwizard.Actions.Heartbeat.UpdateChecks,
       # Browser (serialized wrappers around JidoBrowser.Actions.*)
       Goodwizard.Actions.Browser.Navigate,
       Goodwizard.Actions.Browser.Back,

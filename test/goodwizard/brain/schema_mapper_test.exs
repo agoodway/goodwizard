@@ -167,7 +167,11 @@ defmodule Goodwizard.Brain.SchemaMapperTest do
     end
 
     test "maps array of objects to {:list, :map}" do
-      prop = %{"type" => "array", "items" => %{"type" => "object", "properties" => %{"value" => %{"type" => "string"}}}}
+      prop = %{
+        "type" => "array",
+        "items" => %{"type" => "object", "properties" => %{"value" => %{"type" => "string"}}}
+      }
+
       assert SchemaMapper.map_property(prop) == [type: {:list, :map}]
     end
 

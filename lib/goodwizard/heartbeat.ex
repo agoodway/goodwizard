@@ -12,6 +12,7 @@ defmodule Goodwizard.Heartbeat do
   require Logger
 
   alias Goodwizard.Agent, as: GoodwizardAgent
+  alias Goodwizard.Heartbeat.Parser
   alias Goodwizard.Messaging
 
   @default_interval_ms :timer.minutes(5)
@@ -98,7 +99,14 @@ defmodule Goodwizard.Heartbeat do
         if content == "" do
           Logger.debug("Heartbeat: HEARTBEAT.md is empty, skipping")
         else
-          dispatch_heartbeat(content, state)
+          case Parser.parse(content) do
+            {:structured, checks} ->
+              prompt = Parser.build_prompt(checks)
+              dispatch_heartbeat(prompt, state, checks)
+
+            {:plain, plain_content} ->
+              dispatch_heartbeat(plain_content, state)
+          end
         end
 
         %{state | last_mtime: mtime}
@@ -109,15 +117,24 @@ defmodule Goodwizard.Heartbeat do
     end
   end
 
-  defp dispatch_heartbeat(content, state) do
+  defp dispatch_heartbeat(content, state, checks \\ nil) do
     Logger.info("Heartbeat: processing HEARTBEAT.md")
 
-    Messaging.save_message(%{
+    user_message = %{
       room_id: state.room_id,
       sender_id: "heartbeat",
       role: :user,
       content: [%{type: "text", text: content}]
-    })
+    }
+
+    user_message =
+      if checks do
+        Map.put(user_message, :metadata, %{checks: checks})
+      else
+        user_message
+      end
+
+    Messaging.save_message(user_message)
 
     case GoodwizardAgent.ask_sync(state.agent_pid, content, timeout: resolve_timeout()) do
       {:ok, response} ->

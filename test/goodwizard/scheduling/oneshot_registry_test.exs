@@ -24,7 +24,8 @@ defmodule Goodwizard.Scheduling.OneShotRegistryTest do
     end
 
     test "lookup returns :error for unregistered job" do
-      assert :error = OneShotRegistry.lookup(:"oneshot_missing_#{System.unique_integer([:positive])}")
+      assert :error =
+               OneShotRegistry.lookup(:"oneshot_missing_#{System.unique_integer([:positive])}")
     end
 
     test "overwrites existing registration" do
@@ -85,7 +86,10 @@ defmodule Goodwizard.Scheduling.OneShotRegistryTest do
     end
 
     test "returns :ok for unregistered job" do
-      assert :ok = OneShotRegistry.deregister(:"oneshot_nothing_#{System.unique_integer([:positive])}")
+      assert :ok =
+               OneShotRegistry.deregister(
+                 :"oneshot_nothing_#{System.unique_integer([:positive])}"
+               )
     end
   end
 end

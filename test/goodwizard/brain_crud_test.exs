@@ -773,7 +773,12 @@ defmodule Goodwizard.BrainCrudTest do
           ],
           "phones" => [%{"type" => "mobile", "value" => "555-0100"}],
           "addresses" => [
-            %{"type" => "home", "street" => "123 Main St", "city" => "Springfield", "state" => "IL"}
+            %{
+              "type" => "home",
+              "street" => "123 Main St",
+              "city" => "Springfield",
+              "state" => "IL"
+            }
           ],
           "socials" => [%{"type" => "twitter", "value" => "@alice"}]
         })

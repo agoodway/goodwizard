@@ -16,7 +16,11 @@ defmodule Goodwizard.Actions.Scheduling.CancelOneShot do
         "Job IDs look like \"oneshot_abcdef1234567890\". Cancellation is idempotent — " <>
         "cancelling a job that doesn't exist or has already fired is safe and returns success.",
     schema: [
-      job_id: [type: :string, required: true, doc: "The job_id to cancel (e.g. \"oneshot_abcdef1234567890\")"]
+      job_id: [
+        type: :string,
+        required: true,
+        doc: "The job_id to cancel (e.g. \"oneshot_abcdef1234567890\")"
+      ]
     ]
 
   alias Goodwizard.Scheduling.{OneShotStore, OneShotRegistry}
