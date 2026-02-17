@@ -706,6 +706,65 @@ defmodule Goodwizard.Memory.ProceduralTest do
       {:ok, updated} = Procedural.record_usage(dir, fm["id"], :failure)
       assert updated["confidence"] == "high"
     end
+
+    test "resets failure_count on promotion", %{memory_dir: dir} do
+      {:ok, fm} = create_procedure(dir, %{"confidence" => "low"})
+
+      # Add a failure first
+      {:ok, _} = Procedural.record_usage(dir, fm["id"], :failure)
+      # Then enough successes to promote
+      {:ok, _} = Procedural.record_usage(dir, fm["id"], :success)
+      {:ok, _} = Procedural.record_usage(dir, fm["id"], :success)
+      {:ok, updated} = Procedural.record_usage(dir, fm["id"], :success)
+
+      assert updated["confidence"] == "medium"
+      assert updated["failure_count"] == 0
+    end
+
+    test "resets success_count on demotion", %{memory_dir: dir} do
+      {:ok, fm} = create_procedure(dir, %{"confidence" => "high"})
+
+      # Add successes first
+      {:ok, _} = Procedural.record_usage(dir, fm["id"], :success)
+      {:ok, _} = Procedural.record_usage(dir, fm["id"], :success)
+      # Then enough failures to demote
+      {:ok, _} = Procedural.record_usage(dir, fm["id"], :failure)
+      {:ok, updated} = Procedural.record_usage(dir, fm["id"], :failure)
+
+      assert updated["confidence"] == "medium"
+      assert updated["success_count"] == 0
+    end
+
+    test "prevents oscillation after promotion", %{memory_dir: dir} do
+      {:ok, fm} = create_procedure(dir, %{"confidence" => "medium"})
+
+      # Promote to high
+      for _ <- 1..5, do: Procedural.record_usage(dir, fm["id"], :success)
+      {:ok, promoted} = Procedural.read(dir, fm["id"])
+      {promoted_fm, _} = promoted
+      assert promoted_fm["confidence"] == "high"
+
+      # One failure should NOT immediately demote (old failures were reset)
+      {:ok, after_fail} = Procedural.record_usage(dir, fm["id"], :failure)
+      assert after_fail["confidence"] == "high"
+    end
+
+    test "allows recovery from low after counter reset", %{memory_dir: dir} do
+      {:ok, fm} = create_procedure(dir, %{"confidence" => "medium"})
+
+      # Demote to low
+      for _ <- 1..3, do: Procedural.record_usage(dir, fm["id"], :failure)
+      {:ok, demoted} = Procedural.read(dir, fm["id"])
+      {demoted_fm, _} = demoted
+      assert demoted_fm["confidence"] == "low"
+
+      # Success count was reset, so 3 new successes should promote back
+      {:ok, _} = Procedural.record_usage(dir, fm["id"], :success)
+      {:ok, _} = Procedural.record_usage(dir, fm["id"], :success)
+      {:ok, recovered} = Procedural.record_usage(dir, fm["id"], :success)
+
+      assert recovered["confidence"] == "medium"
+    end
   end
 
   # =====================
@@ -742,6 +801,14 @@ defmodule Goodwizard.Memory.ProceduralTest do
     test "low returns 0.3" do
       assert Procedural.confidence_score("low") == 0.3
     end
+
+    test "nil returns 0.0" do
+      assert Procedural.confidence_score(nil) == 0.0
+    end
+
+    test "unknown string returns 0.0" do
+      assert Procedural.confidence_score("super") == 0.0
+    end
   end
 
   describe "recency_score/1" do
@@ -764,6 +831,15 @@ defmodule Goodwizard.Memory.ProceduralTest do
     test "90+ days ago returns 0" do
       very_old = DateTime.utc_now() |> DateTime.add(-100, :day) |> DateTime.to_iso8601()
       assert Procedural.recency_score(very_old) == 0.0
+    end
+
+    test "malformed timestamp string returns 0" do
+      assert Procedural.recency_score("not-a-timestamp") == 0.0
+    end
+
+    test "future timestamp returns 1.0" do
+      future = DateTime.utc_now() |> DateTime.add(10, :day) |> DateTime.to_iso8601()
+      assert Procedural.recency_score(future) == 1.0
     end
   end
 
@@ -814,6 +890,124 @@ defmodule Goodwizard.Memory.ProceduralTest do
                "success_count" => 10,
                "failure_count" => 1
              }) == "high"
+    end
+
+    test "handles nil counts gracefully" do
+      assert Procedural.adjust_confidence(%{
+               "confidence" => "medium",
+               "success_count" => nil,
+               "failure_count" => nil
+             }) == "medium"
+    end
+
+    test "handles missing count keys" do
+      assert Procedural.adjust_confidence(%{"confidence" => "low"}) == "low"
+    end
+
+    test "passes through unknown confidence level" do
+      assert Procedural.adjust_confidence(%{
+               "confidence" => "ultra",
+               "success_count" => 10,
+               "failure_count" => 10
+             }) == "ultra"
+    end
+
+    test "defaults to medium when confidence is nil" do
+      assert Procedural.adjust_confidence(%{
+               "confidence" => nil,
+               "success_count" => 0,
+               "failure_count" => 0
+             }) == "medium"
+    end
+  end
+
+  describe "compute_score/3" do
+    test "returns a float score" do
+      fm = %{
+        "tags" => ["deploy"],
+        "summary" => "How to deploy",
+        "confidence" => "high",
+        "last_used" => DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+
+      score = Procedural.compute_score(fm, "deploy the app", ["deploy"])
+      assert is_float(score)
+      assert score > 0
+    end
+
+    test "higher tag match produces higher score" do
+      base = %{
+        "summary" => "Generic procedure",
+        "confidence" => "medium",
+        "last_used" => nil
+      }
+
+      with_tags = Map.put(base, "tags", ["deploy", "docker"])
+      without_tags = Map.put(base, "tags", [])
+
+      score_with = Procedural.compute_score(with_tags, "deploy", ["deploy", "docker"])
+      score_without = Procedural.compute_score(without_tags, "deploy", ["deploy", "docker"])
+
+      assert score_with > score_without
+    end
+
+    test "returns 0 for empty inputs" do
+      fm = %{"tags" => [], "summary" => "", "confidence" => nil, "last_used" => nil}
+      score = Procedural.compute_score(fm, "", [])
+      assert score == 0.0
+    end
+
+    test "body text is not used when called via /3" do
+      # compute_score/3 passes "" as body, so only summary matters
+      fm = %{
+        "tags" => [],
+        "summary" => "deploy workflow",
+        "confidence" => "medium",
+        "last_used" => nil
+      }
+
+      score = Procedural.compute_score(fm, "deploy", [])
+      assert score > 0
+    end
+  end
+
+  describe "text_relevance_score/3" do
+    test "returns 0 for empty situation" do
+      assert Procedural.text_relevance_score("", %{"summary" => "some text"}) == 0.0
+    end
+
+    test "returns 0 for whitespace-only situation" do
+      assert Procedural.text_relevance_score("   ", %{"summary" => "some text"}) == 0.0
+    end
+
+    test "handles nil summary gracefully" do
+      score = Procedural.text_relevance_score("deploy", %{"summary" => nil})
+      assert is_float(score)
+    end
+
+    test "matches words in summary" do
+      fm = %{"summary" => "How to deploy the application"}
+      score = Procedural.text_relevance_score("deploy application", fm)
+      assert score == 1.0
+    end
+
+    test "partial word match in summary" do
+      fm = %{"summary" => "How to deploy the application"}
+      score = Procedural.text_relevance_score("deploy testing", fm)
+      assert score == 0.5
+    end
+
+    test "includes body content in search" do
+      fm = %{"summary" => "Generic procedure"}
+      body = "Use Docker to containerize the service"
+      score = Procedural.text_relevance_score("docker", fm, body)
+      assert score == 1.0
+    end
+
+    test "case insensitive matching" do
+      fm = %{"summary" => "DEPLOY THE APP"}
+      score = Procedural.text_relevance_score("deploy app", fm)
+      assert score == 1.0
     end
   end
 
