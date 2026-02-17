@@ -24,6 +24,7 @@ defmodule Goodwizard.Application do
       Goodwizard.BrowserSessionStore,
       Goodwizard.Browser.Serializer,
       Goodwizard.Scheduling.CronRegistry,
+      Goodwizard.Scheduling.OneShotRegistry,
       Goodwizard.Jido,
       Supervisor.child_spec({Task, &generate_brain_tools/0}, id: :brain_tools),
       Goodwizard.Messaging,
@@ -64,6 +65,7 @@ defmodule Goodwizard.Application do
     end
 
     reload_cron_jobs()
+    reload_oneshot_jobs()
     maybe_start_telegram()
     maybe_start_heartbeat()
   end
@@ -82,6 +84,22 @@ defmodule Goodwizard.Application do
   rescue
     e ->
       Logger.warning("Cron job reload error: #{Exception.message(e)} — continuing startup")
+  end
+
+  defp reload_oneshot_jobs do
+    case Goodwizard.Scheduling.OneShotLoader.reload() do
+      {:ok, count} when count > 0 ->
+        Logger.info("Reloaded #{count} persisted one-shot job(s)")
+
+      {:ok, 0} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("One-shot job reload failed: #{inspect(reason)} — continuing startup")
+    end
+  rescue
+    e ->
+      Logger.warning("One-shot job reload error: #{Exception.message(e)} — continuing startup")
   end
 
   defp maybe_start_telegram do

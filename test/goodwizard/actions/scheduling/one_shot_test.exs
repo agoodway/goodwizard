@@ -1,7 +1,26 @@
 defmodule Goodwizard.Actions.Scheduling.OneShotTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Goodwizard.Actions.Scheduling.OneShot
+  alias Goodwizard.Scheduling.{OneShotStore, OneShotRegistry}
+
+  @test_workspace Path.join(System.tmp_dir!(), "oneshot_action_test_#{System.unique_integer([:positive])}")
+
+  setup do
+    oneshot_dir = Path.join(@test_workspace, "scheduling/oneshot")
+    File.rm_rf!(@test_workspace)
+    File.mkdir_p!(oneshot_dir)
+
+    original_workspace = Goodwizard.Config.workspace()
+    Goodwizard.Config.put(["agent", "workspace"], @test_workspace)
+
+    on_exit(fn ->
+      File.rm_rf!(@test_workspace)
+      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+    end)
+
+    %{oneshot_dir: oneshot_dir}
+  end
 
   describe "delay mode" do
     test "schedules with correct delay" do
@@ -108,25 +127,67 @@ defmodule Goodwizard.Actions.Scheduling.OneShotTest do
   end
 
   describe "job ID" do
-    test "same params produce same job_id" do
-      params = %{delay_minutes: 10, task: "check", room_id: "room_1"}
-      assert {:ok, r1} = OneShot.run(params, %{})
-      assert {:ok, r2} = OneShot.run(params, %{})
-      assert r1.job_id == r2.job_id
-    end
-
-    test "different params produce different job_ids" do
-      params1 = %{delay_minutes: 10, task: "check", room_id: "room_1"}
-      params2 = %{delay_minutes: 10, task: "other", room_id: "room_1"}
-      assert {:ok, r1} = OneShot.run(params1, %{})
-      assert {:ok, r2} = OneShot.run(params2, %{})
-      assert r1.job_id != r2.job_id
-    end
-
-    test "job_id uses oneshot_ prefix" do
+    test "uses oneshot_ prefix with 16 hex chars" do
       params = %{delay_minutes: 5, task: "test", room_id: "room_1"}
       assert {:ok, result} = OneShot.run(params, %{})
-      assert to_string(result.job_id) =~ ~r/^oneshot_\d+$/
+      assert to_string(result.job_id) =~ ~r/^oneshot_[0-9a-f]{16}$/
+    end
+
+    test "same fires_at/task/room_id produce same job_id" do
+      fires_at = ~U[2026-06-15 09:00:00Z]
+      id1 = OneShot.generate_job_id(fires_at, "check", "room_1")
+      id2 = OneShot.generate_job_id(fires_at, "check", "room_1")
+      assert id1 == id2
+    end
+
+    test "different inputs produce different job_ids" do
+      fires_at = ~U[2026-06-15 09:00:00Z]
+      id1 = OneShot.generate_job_id(fires_at, "check", "room_1")
+      id2 = OneShot.generate_job_id(fires_at, "other", "room_1")
+      assert id1 != id2
+    end
+  end
+
+  describe "persistence" do
+    test "saves job to OneShotStore after scheduling", %{oneshot_dir: oneshot_dir} do
+      params = %{delay_minutes: 30, task: "persist test", room_id: "cli:main"}
+      assert {:ok, result} = OneShot.run(params, %{})
+
+      path = Path.join(oneshot_dir, "#{result.job_id}.json")
+      assert File.exists?(path)
+
+      {:ok, content} = File.read(path)
+      {:ok, data} = Jason.decode(content)
+      assert data["task"] == "persist test"
+      assert data["room_id"] == "cli:main"
+      assert data["fires_at"] != nil
+    end
+
+    test "registers timer in OneShotRegistry after scheduling" do
+      params = %{delay_minutes: 30, task: "registry test", room_id: "cli:main"}
+      assert {:ok, result} = OneShot.run(params, %{})
+
+      assert {:ok, _tref} = OneShotRegistry.lookup(result.job_id)
+
+      # Cleanup
+      OneShotRegistry.cancel(result.job_id)
+    end
+
+    test "deliver/3 cleans up persisted file and registry entry", %{oneshot_dir: oneshot_dir} do
+      params = %{delay_minutes: 30, task: "cleanup test", room_id: "cli:main"}
+      assert {:ok, result} = OneShot.run(params, %{})
+
+      job_id = result.job_id
+      path = Path.join(oneshot_dir, "#{job_id}.json")
+      assert File.exists?(path)
+      assert {:ok, _} = OneShotRegistry.lookup(job_id)
+
+      # Simulate delivery (agent won't be found but cleanup should still happen)
+      signal = %{type: "test"}
+      OneShot.deliver("nonexistent_agent", signal, job_id)
+
+      refute File.exists?(path)
+      assert :error = OneShotRegistry.lookup(job_id)
     end
   end
 end

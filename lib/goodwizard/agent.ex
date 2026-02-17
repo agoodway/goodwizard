@@ -31,6 +31,8 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Scheduling.CancelCron,
       Goodwizard.Actions.Scheduling.ListCronJobs,
       Goodwizard.Actions.Scheduling.OneShot,
+      Goodwizard.Actions.Scheduling.CancelOneShot,
+      Goodwizard.Actions.Scheduling.ListOneShotJobs,
       # Browser (serialized wrappers around JidoBrowser.Actions.*)
       Goodwizard.Actions.Browser.Navigate,
       Goodwizard.Actions.Browser.Back,

@@ -7,8 +7,10 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   signal so the existing signal pipeline processes it identically to recurring
   cron tasks.
 
-  Note: one-shot tasks cannot be cancelled after scheduling. The returned
-  `job_id` is informational only — there is no corresponding cancel action.
+  Jobs are persisted to disk via `OneShotStore` and their timer references
+  are tracked in `OneShotRegistry`. After firing, the persisted file is
+  deleted and the registry entry is removed. Use `CancelOneShot` to cancel
+  a pending job, or `ListOneShotJobs` to view all scheduled jobs.
   """
 
   require Logger
@@ -20,7 +22,8 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
     description:
       "Schedule a single-fire task. Provide either delay_minutes (positive integer, " <>
         "minutes from now) OR at (ISO 8601 UTC datetime, e.g. \"2026-02-15T15:00:00Z\"). " <>
-        "Exactly one must be given. The task fires once and is not recurring.",
+        "Exactly one must be given. The task fires once and is not recurring. " <>
+        "The job is persisted to disk and survives application restarts.",
     schema: [
       delay_minutes: [type: :integer, required: false, doc: "Minutes from now to fire (positive integer)"],
       at: [type: :string, required: false, doc: "ISO 8601 UTC datetime to fire at (e.g. \"2026-02-15T15:00:00Z\")"],
@@ -29,6 +32,7 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
     ]
 
   alias Goodwizard.Actions.Brain.Helpers
+  alias Goodwizard.Scheduling.{OneShotStore, OneShotRegistry}
 
   @impl true
   def run(params, context) do
@@ -43,12 +47,23 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
          :ok <- validate_exclusivity(delay_minutes, at),
          {:ok, delay_ms, fires_at, mode} <- compute_delay(delay_minutes, at) do
       message = %{type: "cron.task", task: task, room_id: room_id}
-      hash_input = if delay_minutes, do: {delay_minutes, task, room_id}, else: {at, task, room_id}
-      job_id = :"oneshot_#{:erlang.phash2(hash_input)}"
+      job_id = generate_job_id(fires_at, task, room_id)
 
       signal = build_cron_tick_signal(message, job_id, agent_id)
 
-      :timer.apply_after(delay_ms, __MODULE__, :deliver, [agent_id, signal])
+      {:ok, tref} = :timer.apply_after(delay_ms, __MODULE__, :deliver, [agent_id, signal, job_id])
+
+      # Persist to disk for restart recovery
+      OneShotStore.save(%{
+        job_id: job_id,
+        task: task,
+        room_id: room_id,
+        fires_at: fires_at,
+        created_at: DateTime.utc_now()
+      })
+
+      # Track timer reference for cancellation
+      OneShotRegistry.register(job_id, tref)
 
       {:ok,
        %{
@@ -63,11 +78,37 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   end
 
   @doc false
+  def deliver(agent_id, signal, job_id) do
+    # Clean up persisted file and registry entry after firing
+    OneShotStore.delete(job_id)
+    OneShotRegistry.deregister(job_id)
+
+    case Goodwizard.Jido.whereis(agent_id) do
+      pid when is_pid(pid) -> Jido.AgentServer.cast(pid, signal)
+      nil -> Logger.warning("OneShot: agent #{agent_id} not found, signal dropped")
+    end
+  end
+
+  # Legacy 2-arity deliver for any in-flight timers scheduled before
+  # the persistence upgrade. Safe to remove after one release cycle.
+  @doc false
   def deliver(agent_id, signal) do
     case Goodwizard.Jido.whereis(agent_id) do
       pid when is_pid(pid) -> Jido.AgentServer.cast(pid, signal)
       nil -> Logger.warning("OneShot: agent #{agent_id} not found, signal dropped")
     end
+  end
+
+  @doc """
+  Generate a deterministic job ID from the job's defining attributes.
+
+  Uses SHA256 of `{fires_at, task, room_id}`, takes first 16 hex chars,
+  and prefixes with `oneshot_`.
+  """
+  def generate_job_id(fires_at, task, room_id) do
+    input = :erlang.term_to_binary({DateTime.to_iso8601(fires_at), task, room_id})
+    hash = :crypto.hash(:sha256, input) |> Base.encode16(case: :lower) |> binary_part(0, 16)
+    :"oneshot_#{hash}"
   end
 
   defp validate_exclusivity(nil, nil),
