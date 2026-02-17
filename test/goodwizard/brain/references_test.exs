@@ -12,8 +12,9 @@ defmodule Goodwizard.Brain.ReferencesTest do
       )
 
     on_exit(fn ->
-      # Brief pause to let any async sweep tasks finish before cleanup
-      Process.sleep(50)
+      # Wait for async sweep tasks spawned by Brain.delete to finish before cleanup.
+      # 200ms is generous for the small test datasets involved.
+      Process.sleep(200)
       File.rm_rf!(workspace)
     end)
 
@@ -359,9 +360,9 @@ defmodule Goodwizard.Brain.ReferencesTest do
       Brain.delete(workspace, "companies", company_id)
       References.sweep_stale(workspace, "companies", company_id)
 
-      # Re-read from disk — the ref field should be absent (deleted, not nil)
+      # Re-read from disk — the ref field should be nil (consistent with clean_data)
       {:ok, {data, _body}} = Brain.read(workspace, "people", person_id)
-      refute Map.has_key?(data, "company")
+      assert data["company"] == nil
     end
 
     test "removes stale entries from ref list on disk", %{workspace: workspace} do
@@ -443,6 +444,89 @@ defmodule Goodwizard.Brain.ReferencesTest do
 
       {:ok, {data, _body}} = Brain.read(workspace, "notes", note_id)
       assert data["related_to"] == []
+    end
+  end
+
+  describe "async sweep via Brain.delete" do
+    test "Brain.delete triggers async sweep that cleans refs on disk", %{workspace: workspace} do
+      {:ok, {company_id, _, _}} = Brain.create(workspace, "companies", %{"name" => "Acme"})
+
+      {:ok, {person_id, _, _}} =
+        Brain.create(workspace, "people", %{
+          "name" => "Alice",
+          "company" => "companies/#{company_id}"
+        })
+
+      # Only call Brain.delete — do not call sweep_stale directly
+      :ok = Brain.delete(workspace, "companies", company_id)
+
+      # Wait for async sweep task to complete
+      Process.sleep(150)
+
+      # Read raw from disk to verify sweep actually wrote changes
+      {:ok, {data, _body}} = read_raw(workspace, "people", person_id)
+      assert data["company"] == nil
+    end
+  end
+
+  describe "edge cases" do
+    test "clean_data handles non-string value in single ref field", %{workspace: workspace} do
+      {:ok, schema} = Schema.load(workspace, "people")
+      # Inject a non-string value where a ref field is expected
+      data = %{"name" => "Alice", "company" => 12345}
+      cleaned = References.clean_data(workspace, schema, data)
+      assert cleaned["company"] == 12345
+    end
+
+    test "clean_data handles non-list value in ref list field", %{workspace: workspace} do
+      {:ok, schema} = Schema.load(workspace, "people")
+      data = %{"name" => "Alice", "notes" => "not-a-list"}
+      cleaned = References.clean_data(workspace, schema, data)
+      assert cleaned["notes"] == "not-a-list"
+    end
+
+    test "clean_data handles empty data map", %{workspace: workspace} do
+      {:ok, schema} = Schema.load(workspace, "people")
+      cleaned = References.clean_data(workspace, schema, %{})
+      assert cleaned == %{}
+    end
+
+    test "validate handles non-string ref in single ref field", %{workspace: workspace} do
+      {:ok, schema} = Schema.load(workspace, "people")
+      data = %{"name" => "Alice", "company" => 42}
+      assert References.validate(workspace, schema, data) == []
+    end
+
+    test "validate handles non-list ref list field", %{workspace: workspace} do
+      {:ok, schema} = Schema.load(workspace, "people")
+      data = %{"name" => "Alice", "notes" => "not-a-list"}
+      assert References.validate(workspace, schema, data) == []
+    end
+
+    test "ref with mismatched type prefix returns error from extract", %{workspace: workspace} do
+      {:ok, {_company_id, _, _}} = Brain.create(workspace, "companies", %{"name" => "Acme"})
+      {:ok, schema} = Schema.load(workspace, "people")
+      # Wrong prefix — "people/" instead of "companies/"
+      data = %{"name" => "Alice", "company" => "people/00000000-0000-7000-8000-000000000000"}
+      stale = References.validate(workspace, schema, data)
+      assert {"company", "people/00000000-0000-7000-8000-000000000000"} in stale
+    end
+
+    test "poly ref without slash is treated as stale", %{workspace: workspace} do
+      {:ok, schema} = Schema.load(workspace, "notes")
+      data = %{"title" => "Test", "related_to" => ["no-slash-here"]}
+      stale = References.validate(workspace, schema, data)
+      assert {"related_to", "no-slash-here"} in stale
+    end
+
+    test "ref_fields returns empty list for schema with no ref fields", %{workspace: workspace} do
+      {:ok, schema} = Schema.load(workspace, "webpages")
+      refs = References.ref_fields(schema)
+      ref_names = Enum.map(refs, &elem(&1, 0))
+      # webpages should only have notes/webpages base refs, not url/title/description
+      refute "url" in ref_names
+      refute "title" in ref_names
+      refute "description" in ref_names
     end
   end
 end

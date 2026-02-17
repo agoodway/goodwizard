@@ -80,8 +80,15 @@ defmodule Goodwizard.Brain do
          {:ok, content} <- safe_read(path, workspace),
          {:ok, {data, body}} <- Entity.parse(content) do
       case Schema.load(workspace, entity_type) do
-        {:ok, schema} -> {:ok, {References.clean_data(workspace, schema, data), body}}
-        {:error, _} -> {:ok, {data, body}}
+        {:ok, schema} ->
+          {:ok, {References.clean_data(workspace, schema, data), body}}
+
+        {:error, reason} ->
+          Logger.warning(
+            "[Brain] read: failed to load schema for #{entity_type}/#{id}, returning uncleaned data: #{inspect(reason)}"
+          )
+
+          {:ok, {data, body}}
       end
     end
   end
@@ -176,7 +183,17 @@ defmodule Goodwizard.Brain do
          {:ok, real_path} <- safe_resolve(path, workspace) do
       case File.rm(real_path) do
         :ok ->
-          Task.start(fn -> References.sweep_stale(workspace, entity_type, id) end)
+          Task.start(fn ->
+            try do
+              References.sweep_stale(workspace, entity_type, id)
+            rescue
+              e ->
+                Logger.warning(
+                  "[Brain] sweep_stale crashed for #{entity_type}/#{id}: #{Exception.message(e)}"
+                )
+            end
+          end)
+
           :ok
 
         {:error, :enoent} ->
@@ -203,12 +220,18 @@ defmodule Goodwizard.Brain do
          {:ok, entities} <- read_entity_files(type_dir, files, workspace) do
       case Schema.load(workspace, entity_type) do
         {:ok, schema} ->
+          refs = References.ref_fields(schema)
+
           {:ok,
            Enum.map(entities, fn {data, body} ->
-             {References.clean_data(workspace, schema, data), body}
+             {References.clean_data_with_refs(workspace, refs, data), body}
            end)}
 
-        {:error, _} ->
+        {:error, reason} ->
+          Logger.warning(
+            "[Brain] list: failed to load schema for #{entity_type}, returning uncleaned data: #{inspect(reason)}"
+          )
+
           {:ok, entities}
       end
     end
