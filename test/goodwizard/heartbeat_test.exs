@@ -73,6 +73,66 @@ defmodule Goodwizard.HeartbeatTest do
     end
   end
 
+  describe "structured heartbeat dispatch" do
+    test "structured content is parsed into checks and produces numbered prompt" do
+      content = """
+      - [ ] Check inbox for new messages
+      - [ ] Review calendar for events in the next 2 hours
+      - [ ] Run project health check on goodwizard
+      """
+
+      content = String.trim(content)
+
+      # Verify the parser detects structured format
+      assert Goodwizard.Heartbeat.Parser.structured?(content)
+
+      # Verify parse returns structured checks
+      assert {:structured, checks} = Goodwizard.Heartbeat.Parser.parse(content)
+      assert length(checks) == 3
+      assert Enum.at(checks, 0) == %{index: 1, text: "Check inbox for new messages"}
+      assert Enum.at(checks, 2) == %{index: 3, text: "Run project health check on goodwizard"}
+
+      # Verify the prompt is properly built
+      prompt = Goodwizard.Heartbeat.Parser.build_prompt(checks)
+      assert prompt =~ "Process each of the following awareness checks"
+      assert prompt =~ "1. Check inbox for new messages"
+      assert prompt =~ "2. Review calendar for events in the next 2 hours"
+      assert prompt =~ "3. Run project health check on goodwizard"
+
+      # Verify checks metadata structure matches what dispatch_heartbeat would pass
+      assert Enum.all?(checks, fn c -> is_integer(c.index) and is_binary(c.text) end)
+    end
+
+    test "structured heartbeat with checked items parses all items" do
+      content = "- [x] Already done\n- [ ] Still pending"
+
+      assert {:structured, checks} = Goodwizard.Heartbeat.Parser.parse(content)
+      assert length(checks) == 2
+      assert Enum.at(checks, 0).text == "Already done"
+      assert Enum.at(checks, 1).text == "Still pending"
+    end
+  end
+
+  describe "backwards compatibility: plain text heartbeat" do
+    test "plain text content is not parsed as structured" do
+      content = "Check on all active projects and summarize status"
+
+      refute Goodwizard.Heartbeat.Parser.structured?(content)
+      assert {:plain, ^content} = Goodwizard.Heartbeat.Parser.parse(content)
+    end
+
+    test "plain text with regular bullet points is not structured" do
+      content = """
+      - Check inbox
+      - Review calendar
+      """
+
+      content = String.trim(content)
+      refute Goodwizard.Heartbeat.Parser.structured?(content)
+      assert {:plain, ^content} = Goodwizard.Heartbeat.Parser.parse(content)
+    end
+  end
+
   describe "integration: tick handling" do
     test "tick with missing HEARTBEAT.md does not crash", %{workspace: workspace} do
       Application.ensure_all_started(:goodwizard)
