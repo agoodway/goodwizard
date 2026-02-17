@@ -74,11 +74,11 @@ defmodule Goodwizard.Memory.Paths do
   or empty strings.
   """
   @spec validate_id(String.t()) :: :ok | {:error, :invalid_id}
-  def validate_id(id) when is_binary(id) and byte_size(id) > 0 do
-    if String.contains?(id, ["..", "/", "\\", "\0"]) do
-      {:error, :invalid_id}
-    else
+  def validate_id(id) when is_binary(id) do
+    if Regex.match?(~r/^[0-9a-f\-]{1,64}$/i, id) do
       :ok
+    else
+      {:error, :invalid_id}
     end
   end
 
@@ -109,22 +109,22 @@ defmodule Goodwizard.Memory.Paths do
   non-printable characters, and paths exceeding #{@max_path_length} bytes.
   Returns {:ok, expanded_path} or {:error, reason}.
   """
-  @spec validate_memory_dir(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def validate_memory_dir(""), do: {:error, "memory_dir is empty"}
+  @spec validate_memory_dir(String.t()) :: {:ok, String.t()} | {:error, atom()}
+  def validate_memory_dir(""), do: {:error, :empty_path}
 
   def validate_memory_dir(memory_dir) do
     cond do
       byte_size(memory_dir) > @max_path_length ->
-        {:error, "memory_dir exceeds maximum path length"}
+        {:error, :path_too_long}
 
       String.contains?(memory_dir, "\0") ->
-        {:error, "memory_dir contains null bytes"}
+        {:error, :null_byte_in_path}
 
       has_traversal_component?(memory_dir) ->
-        {:error, "memory_dir contains path traversal"}
+        {:error, :path_traversal}
 
       not String.printable?(memory_dir) ->
-        {:error, "memory_dir contains non-printable characters"}
+        {:error, :non_printable_path}
 
       true ->
         {:ok, Path.expand(memory_dir)}

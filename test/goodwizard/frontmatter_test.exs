@@ -51,6 +51,11 @@ defmodule Goodwizard.FrontmatterTest do
       assert {:ok, {meta, _}} = Frontmatter.parse(content)
       assert meta["note"] == "C*programming"
     end
+
+    test "rejects anchor immediately after colon without space (key:&anchor)" do
+      content = "---\nname:&anchor value\n---\nbody"
+      assert {:error, :yaml_anchors_not_allowed} = Frontmatter.parse(content)
+    end
   end
 
   describe "parse/1 frontmatter splitting" do
@@ -138,6 +143,14 @@ defmodule Goodwizard.FrontmatterTest do
       assert {:ok, {parsed, _}} = Frontmatter.parse(serialized)
       assert parsed == meta
     end
+
+    test "roundtrips nested map values" do
+      meta = %{"config" => %{"host" => "localhost", "port" => 8080}}
+      serialized = Frontmatter.serialize(meta, "body")
+      assert {:ok, {parsed, _}} = Frontmatter.parse(serialized)
+      assert parsed["config"]["host"] == "localhost"
+      assert parsed["config"]["port"] == 8080
+    end
   end
 
   describe "boundary conditions for size limits" do
@@ -183,17 +196,14 @@ defmodule Goodwizard.FrontmatterTest do
       assert {:error, :body_too_large} = Frontmatter.parse(content, max_body_bytes: 1_048_576)
     end
 
-    test "body at exactly 1048576 bytes is not rejected (when max_body_bytes set)" do
-      # Guard is >, so exactly 1_048_576 should NOT trigger
+    test "body at exactly 1048576 bytes is rejected due to leading newline from split" do
       body = String.duplicate("x", 1_048_576)
       content = "---\ntype: test\n---\n#{body}"
 
-      # The body from the split includes the leading \n
+      # The body from the split includes the leading \n, making it 1 byte over the limit
       [_, _, body_part] = String.split(content, ~r/^---$/m, parts: 3)
       assert byte_size(body_part) == 1_048_577
 
-      # Actually the body part includes the \n prefix from after ---, so it's larger
-      # Let me adjust: with max_body = 1_048_576, body_part of 1_048_577 > limit -> rejected
       assert {:error, :body_too_large} = Frontmatter.parse(content, max_body_bytes: 1_048_576)
     end
 

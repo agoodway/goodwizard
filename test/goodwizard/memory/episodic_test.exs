@@ -150,6 +150,13 @@ defmodule Goodwizard.Memory.EpisodicTest do
       end
     end
 
+    test "truncates multibyte summary by grapheme count, not byte count", %{memory_dir: dir} do
+      # Each emoji is 4 bytes but 1 grapheme
+      emoji_summary = String.duplicate("\u{1F600}", 210)
+      assert {:ok, fm} = create_episode(dir, %{"summary" => emoji_summary})
+      assert String.length(fm["summary"]) == 200
+    end
+
     test "written file is parseable", %{memory_dir: dir} do
       assert {:ok, fm} = create_episode(dir)
       assert {:ok, {read_fm, read_body}} = Episodic.read(dir, fm["id"])
@@ -174,7 +181,7 @@ defmodule Goodwizard.Memory.EpisodicTest do
     end
 
     test "returns not_found for non-existent id", %{memory_dir: dir} do
-      assert {:error, :not_found} = Episodic.read(dir, "nonexistent-id")
+      assert {:error, :not_found} = Episodic.read(dir, "00000000-0000-0000-0000-000000000000")
     end
 
     test "returns full frontmatter and body", %{memory_dir: dir} do
@@ -184,6 +191,10 @@ defmodule Goodwizard.Memory.EpisodicTest do
       assert read_fm["tags"] == ["elixir"]
       assert read_fm["timestamp"] == fm["timestamp"]
       assert is_binary(body)
+    end
+
+    test "rejects path-traversal ID", %{memory_dir: dir} do
+      assert {:error, :invalid_id} = Episodic.read(dir, "../../etc/passwd")
     end
   end
 
@@ -199,7 +210,7 @@ defmodule Goodwizard.Memory.EpisodicTest do
     end
 
     test "returns not_found for non-existent id", %{memory_dir: dir} do
-      assert {:error, :not_found} = Episodic.delete(dir, "nonexistent-id")
+      assert {:error, :not_found} = Episodic.delete(dir, "00000000-0000-0000-0000-000000000000")
     end
 
     test "file is removed from disk", %{memory_dir: dir} do
@@ -208,6 +219,10 @@ defmodule Goodwizard.Memory.EpisodicTest do
       assert File.exists?(path)
       assert :ok = Episodic.delete(dir, fm["id"])
       refute File.exists?(path)
+    end
+
+    test "rejects path-traversal ID", %{memory_dir: dir} do
+      assert {:error, :invalid_id} = Episodic.delete(dir, "../../etc/passwd")
     end
   end
 
@@ -322,6 +337,16 @@ defmodule Goodwizard.Memory.EpisodicTest do
 
       assert {:ok, episodes} = Episodic.list(dir, after: "2026-02-10T10:00:00Z")
       assert length(episodes) == 1
+    end
+
+    test "before-only filter excludes episodes at or after boundary", %{memory_dir: dir} do
+      create_episode_with_timestamp(dir, "2026-02-01T10:00:00Z", %{"summary" => "Early"})
+      create_episode_with_timestamp(dir, "2026-02-10T10:00:00Z", %{"summary" => "At boundary"})
+      create_episode_with_timestamp(dir, "2026-02-15T10:00:00Z", %{"summary" => "After boundary"})
+
+      assert {:ok, episodes} = Episodic.list(dir, before: "2026-02-10T10:00:00Z")
+      assert length(episodes) == 1
+      assert hd(episodes)["summary"] == "Early"
     end
 
     test "combines multiple filters", %{memory_dir: dir} do
@@ -459,6 +484,38 @@ defmodule Goodwizard.Memory.EpisodicTest do
       assert {:ok, results} = Episodic.search(dir, "liveview")
       assert length(results) == 1
       assert hd(results)["summary"] == "Tagged episode"
+    end
+
+    test "combines text search with tags filter", %{memory_dir: dir} do
+      create_episode(dir, %{
+        "tags" => ["elixir"],
+        "summary" => "Deploy fix with elixir"
+      })
+
+      create_episode(dir, %{
+        "tags" => ["python"],
+        "summary" => "Deploy fix with python"
+      })
+
+      assert {:ok, results} = Episodic.search(dir, "deploy", tags: ["elixir"])
+      assert length(results) == 1
+      assert hd(results)["tags"] == ["elixir"]
+    end
+
+    test "combines text search with outcome filter", %{memory_dir: dir} do
+      create_episode(dir, %{
+        "outcome" => "success",
+        "summary" => "Deploy succeeded"
+      })
+
+      create_episode(dir, %{
+        "outcome" => "failure",
+        "summary" => "Deploy failed"
+      })
+
+      assert {:ok, results} = Episodic.search(dir, "deploy", outcome: "failure")
+      assert length(results) == 1
+      assert hd(results)["outcome"] == "failure"
     end
   end
 
