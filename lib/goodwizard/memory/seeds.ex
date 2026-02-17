@@ -7,6 +7,10 @@ defmodule Goodwizard.Memory.Seeds do
   times without errors or data loss.
   """
 
+  alias Goodwizard.Memory.Paths
+
+  @subdirs [:episodic, :procedural]
+
   @doc """
   Seeds the memory directory structure under `workspace`.
 
@@ -15,22 +19,44 @@ defmodule Goodwizard.Memory.Seeds do
   - `memory/procedural/`
   - `memory/MEMORY.md` (only if the file does not already exist)
 
-  Returns `:ok` on success. Raises on filesystem failures since seeding
-  runs at setup time, not in the agent hot loop.
+  Returns `{:ok, created}` where `created` is a list of items that were
+  newly created (e.g. `["episodic", "procedural", "MEMORY.md"]`).
+  Returns `{:error, term}` on filesystem failures.
   """
-  @spec seed(String.t()) :: :ok
+  @spec seed(String.t()) :: {:ok, [String.t()]} | {:error, term()}
   def seed(workspace) do
     memory_dir = Path.join(workspace, "memory")
 
-    File.mkdir_p!(Path.join(memory_dir, "episodic"))
-    File.mkdir_p!(Path.join(memory_dir, "procedural"))
-
-    memory_md = Path.join(memory_dir, "MEMORY.md")
-
-    unless File.exists?(memory_md) do
-      File.write!(memory_md, "")
+    with {:ok, dir_created} <- create_subdirs(memory_dir),
+         {:ok, file_created} <- create_memory_md(memory_dir) do
+      {:ok, dir_created ++ file_created}
     end
+  end
 
-    :ok
+  defp create_subdirs(memory_dir) do
+    Enum.reduce_while(@subdirs, {:ok, []}, fn subdir, {:ok, created} ->
+      dir = apply(Paths, :"#{subdir}_dir", [memory_dir])
+
+      case File.mkdir_p(dir) do
+        :ok -> {:cont, {:ok, created ++ [to_string(subdir)]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp create_memory_md(memory_dir) do
+    path = Paths.memory_path(memory_dir)
+
+    case File.open(path, [:write, :exclusive]) do
+      {:ok, file} ->
+        File.close(file)
+        {:ok, ["MEMORY.md"]}
+
+      {:error, :eexist} ->
+        {:ok, []}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 end
