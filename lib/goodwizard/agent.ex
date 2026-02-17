@@ -22,6 +22,11 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Memory.AppendHistory,
       Goodwizard.Actions.Memory.SearchHistory,
       Goodwizard.Actions.Memory.Consolidate,
+      # Episodic memory
+      Goodwizard.Actions.Memory.Episodic.RecordEpisode,
+      Goodwizard.Actions.Memory.Episodic.SearchEpisodes,
+      Goodwizard.Actions.Memory.Episodic.ReadEpisode,
+      Goodwizard.Actions.Memory.Episodic.ListEpisodes,
       Goodwizard.Actions.Skills.ActivateSkill,
       Goodwizard.Actions.Skills.LoadSkillResource,
       Goodwizard.Actions.Skills.CreateSkill,
