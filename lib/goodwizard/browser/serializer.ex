@@ -11,6 +11,8 @@ defmodule Goodwizard.Browser.Serializer do
 
   @default_timeout 120_000
 
+  @doc "Starts the serializer GenServer."
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(_opts \\ []) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end

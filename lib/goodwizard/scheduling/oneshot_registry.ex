@@ -10,18 +10,20 @@ defmodule Goodwizard.Scheduling.OneShotRegistry do
 
   # --- Public API ---
 
+  @type timer_ref :: :timer.tref() | reference()
+
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, :ok, Keyword.put_new(opts, :name, __MODULE__))
   end
 
   @doc "Register a timer reference for the given job_id."
-  @spec register(atom(), reference()) :: :ok
+  @spec register(atom(), timer_ref()) :: :ok
   def register(job_id, timer_ref) when is_atom(job_id) do
     GenServer.call(__MODULE__, {:register, job_id, timer_ref})
   end
 
   @doc "Look up the timer reference for a job_id."
-  @spec lookup(atom() | binary()) :: {:ok, reference()} | :error
+  @spec lookup(atom() | binary()) :: {:ok, timer_ref()} | :error
   def lookup(job_id) do
     GenServer.call(__MODULE__, {:lookup, job_id})
   end

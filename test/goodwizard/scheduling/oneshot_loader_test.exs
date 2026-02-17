@@ -9,6 +9,8 @@ defmodule Goodwizard.Scheduling.OneShotLoaderTest do
                   )
 
   setup do
+    ensure_config_started()
+
     oneshot_dir = Path.join(@test_workspace, "scheduling/oneshot")
     File.rm_rf!(@test_workspace)
     File.mkdir_p!(oneshot_dir)
@@ -18,10 +20,22 @@ defmodule Goodwizard.Scheduling.OneShotLoaderTest do
 
     on_exit(fn ->
       File.rm_rf!(@test_workspace)
-      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+
+      if Process.whereis(Goodwizard.Config) do
+        Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+      end
     end)
 
     %{oneshot_dir: oneshot_dir}
+  end
+
+  defp ensure_config_started do
+    if Process.whereis(Goodwizard.Config) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Config)
+      :ok
+    end
   end
 
   describe "reload/0" do

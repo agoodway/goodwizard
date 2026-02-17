@@ -6,6 +6,13 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
   `Jido.Scheduler.run_every`, bypassing the executor's directive pipeline.
   The scheduler pid is tracked in `CronRegistry` for later cancellation.
 
+  ## Delivery Targeting
+
+  Jobs are addressed to a **channel** (e.g. `"telegram"`) and an
+  **external_id** (e.g. a Telegram chat_id) rather than a Messaging room
+  UUID. The room is resolved at delivery time, which survives app restarts
+  that wipe the in-memory ETS room store.
+
   ## Execution Modes
 
   - `"isolated"` (default) — each cron tick spawns a child agent with its own
@@ -27,10 +34,17 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
     schema: [
       schedule: [type: :string, required: true, doc: "Cron expression (e.g. \"0 9 * * *\")"],
       task: [type: :string, required: true, doc: "Description of the task to execute"],
-      room_id: [
+      channel: [
         type: :string,
         required: false,
-        doc: "Target Messaging room identifier. Auto-resolved from agent context when omitted."
+        doc:
+          "Delivery channel (e.g. \"telegram\", \"cli\"). Auto-resolved from agent context when omitted."
+      ],
+      external_id: [
+        type: :string,
+        required: false,
+        doc:
+          "Channel-specific target ID (e.g. Telegram chat_id). Auto-resolved from agent context when omitted."
       ],
       mode: [
         type: :string,
@@ -56,7 +70,6 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
   @high_frequency_patterns ["* * * * *", "*/1 * * * *"]
   @default_max_jobs 50
 
-  alias Goodwizard.Actions.Brain.Helpers
   alias Jido.AgentServer.Signal.CronTick
 
   @impl true
@@ -66,17 +79,20 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
     model = Map.get(params, :model)
     agent_id = context[:agent_id]
 
-    with {:ok, room_id} <- resolve_room(params, context),
+    with {:ok, channel, external_id} <- resolve_channel(params, context),
          :ok <- validate_mode(mode),
          :ok <- validate_model(model),
          :ok <- validate_cron(schedule),
          :ok <- check_job_limit() do
       warn_high_frequency(schedule)
 
-      message = build_message(task, room_id, mode, model)
+      message = build_message(task, channel, external_id, mode, model)
 
       hash =
-        :crypto.hash(:sha256, "#{schedule}:#{task}:#{room_id}:#{mode}:#{model || "default"}")
+        :crypto.hash(
+          :sha256,
+          "#{schedule}:#{task}:#{channel}:#{external_id}:#{mode}:#{model || "default"}"
+        )
         |> Base.encode16(case: :lower)
         |> binary_part(0, 16)
 
@@ -84,14 +100,60 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
 
       signal = build_cron_tick_signal(message, job_id, agent_id)
 
-      register_and_persist(agent_id, signal, schedule, task, room_id, mode, model, job_id)
+      register_and_persist(agent_id, signal, %{
+        schedule: schedule,
+        task: task,
+        channel: channel,
+        external_id: external_id,
+        mode: mode,
+        model: model,
+        job_id: job_id
+      })
     end
   end
 
-  defp resolve_room(%{room_id: room_id}, _context) when is_binary(room_id) and room_id != "",
-    do: {:ok, room_id}
+  # Explicit channel/external_id params take priority.
+  defp resolve_channel(%{channel: channel} = params, _context)
+       when is_binary(channel) and channel != "" do
+    case Map.get(params, :external_id) do
+      external_id when is_binary(external_id) and external_id != "" ->
+        {:ok, channel, external_id}
 
-  defp resolve_room(_params, context), do: Helpers.resolve_room_id(context)
+      _ ->
+        {:error, "external_id is required when channel is provided"}
+    end
+  end
+
+  defp resolve_channel(%{external_id: external_id}, _context)
+       when is_binary(external_id) and external_id != "" do
+    {:error, "channel is required when external_id is provided"}
+  end
+
+  defp resolve_channel(_params, context) do
+    case channel_from_agent_id(context[:agent_id]) do
+      {:ok, _, _} = ok -> ok
+      :error -> channel_from_config()
+    end
+  end
+
+  defp channel_from_agent_id("telegram:" <> chat_id), do: {:ok, "telegram", chat_id}
+  defp channel_from_agent_id("cli:direct:" <> _), do: {:ok, "cli", "direct"}
+  defp channel_from_agent_id(_), do: :error
+
+  defp channel_from_config do
+    channel = Goodwizard.Config.get(["scheduling", "channel"])
+    external_id = Goodwizard.Config.get(["scheduling", "chat_id"])
+
+    case {channel, external_id} do
+      {ch, id} when is_binary(ch) and ch != "" and is_binary(id) and id != "" ->
+        {:ok, ch, id}
+
+      _ ->
+        {:error,
+         "Cannot resolve delivery target: agent context not recognized and no [scheduling] config found. " <>
+           "Set channel and chat_id under [scheduling] in config.toml, or provide channel/external_id params."}
+    end
+  end
 
   defp validate_model(nil), do: :ok
 
@@ -109,8 +171,14 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
   defp validate_mode(mode),
     do: {:error, "Invalid mode #{inspect(mode)} — must be \"main\" or \"isolated\""}
 
-  defp build_message(task, room_id, mode, model) do
-    base = %{type: "cron.task", task: task, room_id: room_id, mode: mode}
+  defp build_message(task, channel, external_id, mode, model) do
+    base = %{
+      type: "cron.task",
+      task: task,
+      channel: channel,
+      external_id: external_id,
+      mode: mode
+    }
 
     if mode == "isolated" && model do
       Map.put(base, :model, model)
@@ -149,13 +217,13 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
     end
   end
 
-  defp register_and_persist(agent_id, signal, schedule, task, room_id, mode, model, job_id) do
+  defp register_and_persist(agent_id, signal, job) do
     tick_fn = fn ->
       dispatch_tick(agent_id, signal)
       :ok
     end
 
-    case Jido.Scheduler.run_every(tick_fn, schedule, []) do
+    case Jido.Scheduler.run_every(tick_fn, job.schedule, []) do
       {:ok, sched_pid} ->
         # SchedEx.Runner uses GenServer.start_link, which links the runner
         # to the calling process. When called from the jido_ai executor
@@ -163,26 +231,28 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
         # die when the short-lived Task exits. Unlinking lets the SchedEx
         # runner outlive the caller. CronRegistry monitors it independently.
         Process.unlink(sched_pid)
-        CronRegistry.register(job_id, sched_pid)
+        CronRegistry.register(job.job_id, sched_pid)
 
         CronStore.save(%{
-          job_id: job_id,
-          schedule: schedule,
-          task: task,
-          room_id: room_id,
-          mode: mode,
-          model: model,
+          job_id: job.job_id,
+          schedule: job.schedule,
+          task: job.task,
+          channel: job.channel,
+          external_id: job.external_id,
+          mode: job.mode,
+          model: job.model,
           created_at: DateTime.utc_now() |> DateTime.to_iso8601()
         })
 
         {:ok,
          %{
            scheduled: true,
-           schedule: schedule,
-           task: task,
-           room_id: room_id,
-           mode: mode,
-           job_id: job_id
+           schedule: job.schedule,
+           task: job.task,
+           channel: job.channel,
+           external_id: job.external_id,
+           mode: job.mode,
+           job_id: job.job_id
          }}
 
       {:error, reason} ->

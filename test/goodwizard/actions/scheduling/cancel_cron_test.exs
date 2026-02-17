@@ -10,6 +10,9 @@ defmodule Goodwizard.Actions.Scheduling.CancelCronTest do
                   )
 
   setup do
+    ensure_config_started()
+    ensure_cron_registry_started()
+
     cron_dir = Path.join(@test_workspace, "scheduling/cron")
     File.rm_rf!(@test_workspace)
     File.mkdir_p!(cron_dir)
@@ -20,10 +23,31 @@ defmodule Goodwizard.Actions.Scheduling.CancelCronTest do
 
     on_exit(fn ->
       File.rm_rf!(@test_workspace)
-      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+
+      if Process.whereis(Goodwizard.Config) do
+        Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+      end
     end)
 
     %{cron_dir: cron_dir}
+  end
+
+  defp ensure_config_started do
+    if Process.whereis(Goodwizard.Config) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Config)
+      :ok
+    end
+  end
+
+  defp ensure_cron_registry_started do
+    if Process.whereis(Goodwizard.Scheduling.CronRegistry) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Scheduling.CronRegistry)
+      :ok
+    end
   end
 
   describe "run/2" do

@@ -4,6 +4,8 @@ defmodule Goodwizard.Plugins.SessionCleanupTest do
   alias Goodwizard.Plugins.Session
 
   setup do
+    ensure_config_started()
+
     workspace =
       Path.join(System.tmp_dir!(), "gw_cleanup_test_#{System.unique_integer([:positive])}")
 
@@ -15,11 +17,23 @@ defmodule Goodwizard.Plugins.SessionCleanupTest do
     Goodwizard.Config.put(["agent", "workspace"], workspace)
 
     on_exit(fn ->
-      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+      if Process.whereis(Goodwizard.Config) do
+        Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+      end
+
       File.rm_rf!(workspace)
     end)
 
     {:ok, sessions_dir: sessions_dir}
+  end
+
+  defp ensure_config_started do
+    if Process.whereis(Goodwizard.Config) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Config)
+      :ok
+    end
   end
 
   describe "cleanup_old_sessions/0" do

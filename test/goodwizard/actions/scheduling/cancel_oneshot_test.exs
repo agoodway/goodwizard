@@ -2,7 +2,7 @@ defmodule Goodwizard.Actions.Scheduling.CancelOneShotTest do
   use ExUnit.Case, async: false
 
   alias Goodwizard.Actions.Scheduling.{CancelOneShot, OneShot}
-  alias Goodwizard.Scheduling.{OneShotRegistry, OneShotStore}
+  alias Goodwizard.Scheduling.OneShotRegistry
 
   @test_workspace Path.join(
                     System.tmp_dir!(),
@@ -10,6 +10,10 @@ defmodule Goodwizard.Actions.Scheduling.CancelOneShotTest do
                   )
 
   setup do
+    ensure_goodwizard_started()
+    ensure_config_started()
+    ensure_oneshot_registry_started()
+
     oneshot_dir = Path.join(@test_workspace, "scheduling/oneshot")
     File.rm_rf!(@test_workspace)
     File.mkdir_p!(oneshot_dir)
@@ -19,16 +23,44 @@ defmodule Goodwizard.Actions.Scheduling.CancelOneShotTest do
 
     on_exit(fn ->
       File.rm_rf!(@test_workspace)
-      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+
+      if Process.whereis(Goodwizard.Config) do
+        Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+      end
     end)
 
     %{oneshot_dir: oneshot_dir}
   end
 
+  defp ensure_config_started do
+    if Process.whereis(Goodwizard.Config) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Config)
+      :ok
+    end
+  end
+
+  defp ensure_goodwizard_started do
+    case Application.ensure_all_started(:goodwizard) do
+      {:ok, _apps} -> :ok
+      {:error, reason} -> raise "failed to start :goodwizard for test: #{inspect(reason)}"
+    end
+  end
+
+  defp ensure_oneshot_registry_started do
+    if Process.whereis(Goodwizard.Scheduling.OneShotRegistry) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Scheduling.OneShotRegistry)
+      :ok
+    end
+  end
+
   describe "run/2" do
     test "cancels a pending one-shot job", %{oneshot_dir: oneshot_dir} do
       # Schedule a job first
-      params = %{delay_minutes: 60, task: "cancel me", room_id: "cli:main"}
+      params = %{delay_minutes: 60, task: "cancel me", channel: "cli", external_id: "direct"}
       assert {:ok, result} = OneShot.run(params, %{})
 
       job_id = result.job_id
@@ -39,7 +71,7 @@ defmodule Goodwizard.Actions.Scheduling.CancelOneShotTest do
       assert {:ok, _tref} = OneShotRegistry.lookup(job_id)
 
       # Cancel it
-      assert {:ok, %{cancelled: true, job_id: ^job_id}} =
+      assert {:ok, %{cancelled: true, job_id: ^job_id_str}} =
                CancelOneShot.run(%{job_id: job_id_str}, %{})
 
       # Verify cleanup

@@ -14,6 +14,15 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
     workspace = Path.join(System.tmp_dir!(), "gw_tg_test_#{System.unique_integer([:positive])}")
     File.mkdir_p!(workspace)
     on_exit(fn -> File.rm_rf!(workspace) end)
+
+    original_config = :sys.get_state(Goodwizard.Config)
+    open_config = put_in(original_config, ["channels", "telegram", "allow_from"], [])
+    :sys.replace_state(Goodwizard.Config, fn _ -> open_config end)
+
+    on_exit(fn ->
+      :sys.replace_state(Goodwizard.Config, fn _ -> original_config end)
+    end)
+
     {:ok, workspace: workspace}
   end
 

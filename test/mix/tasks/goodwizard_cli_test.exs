@@ -3,6 +3,18 @@ defmodule Mix.Tasks.Goodwizard.CliTest do
 
   alias Mix.Tasks.Goodwizard.Cli
 
+  setup do
+    ensure_goodwizard_started()
+    :ok
+  end
+
+  defp ensure_goodwizard_started do
+    case Application.ensure_all_started(:goodwizard) do
+      {:ok, _apps} -> :ok
+      {:error, reason} -> raise "failed to start :goodwizard for test: #{inspect(reason)}"
+    end
+  end
+
   describe "run/1" do
     test "starts CLI server and returns when server stops" do
       # Run the task in a separate process so it doesn't block the test

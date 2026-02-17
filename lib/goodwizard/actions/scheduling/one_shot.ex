@@ -11,13 +11,19 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   are tracked in `OneShotRegistry`. After firing, the persisted file is
   deleted and the registry entry is removed. Use `CancelOneShot` to cancel
   a pending job, or `ListOneShotJobs` to view all scheduled jobs.
+
+  ## Delivery Targeting
+
+  Jobs are addressed to a **channel** and **external_id** rather than a
+  Messaging room UUID. The room is resolved at delivery time by the
+  CronScheduler plugin, which survives app restarts.
   """
 
   require Logger
 
   @max_delay_minutes 525_600
   @max_task_length 2000
-  @max_room_id_length 256
+  @max_external_id_length 256
   @max_pending_jobs 500
 
   use Jido.Action,
@@ -39,14 +45,20 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
         doc: "ISO 8601 UTC datetime to fire at (e.g. \"2026-02-15T15:00:00Z\")"
       ],
       task: [type: :string, required: true, doc: "Description of the task to execute"],
-      room_id: [
+      channel: [
         type: :string,
         required: false,
-        doc: "Target Messaging room identifier. Auto-resolved from agent context when omitted."
+        doc:
+          "Delivery channel (e.g. \"telegram\", \"cli\"). Auto-resolved from agent context when omitted."
+      ],
+      external_id: [
+        type: :string,
+        required: false,
+        doc:
+          "Channel-specific target ID (e.g. Telegram chat_id). Auto-resolved from agent context when omitted."
       ]
     ]
 
-  alias Goodwizard.Actions.Brain.Helpers
   alias Goodwizard.Scheduling.{OneShotRegistry, OneShotStore}
   alias Jido.AgentServer.Signal.CronTick
 
@@ -60,13 +72,13 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
     Logger.debug("[OneShot] params=#{inspect(params)} agent_id=#{inspect(agent_id)}")
 
     with :ok <- validate_length(task, "task", @max_task_length),
-         {:ok, room_id} <- resolve_room(params, context),
-         :ok <- validate_length(room_id, "room_id", @max_room_id_length),
+         {:ok, channel, external_id} <- resolve_channel(params, context),
+         :ok <- validate_length(external_id, "external_id", @max_external_id_length),
          :ok <- validate_exclusivity(delay_minutes, at),
          :ok <- check_pending_job_cap(),
          {:ok, delay_ms, fires_at, mode} <- compute_delay(delay_minutes, at) do
-      message = %{type: "cron.task", task: task, room_id: room_id}
-      job_id = generate_job_id(fires_at, task, room_id)
+      message = %{type: "cron.task", task: task, channel: channel, external_id: external_id}
+      job_id = generate_job_id(fires_at, task, channel, external_id)
 
       signal = build_cron_tick_signal(message, job_id, agent_id)
 
@@ -76,7 +88,8 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
       case OneShotStore.save(%{
              job_id: job_id,
              task: task,
-             room_id: room_id,
+             channel: channel,
+             external_id: external_id,
              agent_id: agent_id,
              fires_at: fires_at,
              created_at: DateTime.utc_now()
@@ -89,7 +102,8 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
            %{
              scheduled: true,
              task: task,
-             room_id: room_id,
+             channel: channel,
+             external_id: external_id,
              job_id: job_id,
              fires_at: fires_at,
              mode: mode
@@ -127,12 +141,12 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   @doc """
   Generate a deterministic job ID from the job's defining attributes.
 
-  Uses SHA256 of `{fires_at, task, room_id}`, takes first 16 hex chars,
-  and prefixes with `oneshot_`.
+  Uses SHA256 of `{fires_at, task, channel, external_id}`, takes first 16
+  hex chars, and prefixes with `oneshot_`.
   """
-  @spec generate_job_id(DateTime.t(), String.t(), String.t()) :: atom()
-  def generate_job_id(fires_at, task, room_id) do
-    input = :erlang.term_to_binary({DateTime.to_iso8601(fires_at), task, room_id})
+  @spec generate_job_id(DateTime.t(), String.t(), String.t(), String.t()) :: atom()
+  def generate_job_id(fires_at, task, channel, external_id) do
+    input = :erlang.term_to_binary({DateTime.to_iso8601(fires_at), task, channel, external_id})
     hash = :crypto.hash(:sha256, input) |> Base.encode16(case: :lower) |> binary_part(0, 16)
     :"oneshot_#{hash}"
   end
@@ -165,10 +179,47 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   defp validate_exclusivity(_, _),
     do: {:error, "Exactly one of delay_minutes or at must be provided — got both"}
 
-  defp resolve_room(%{room_id: room_id}, _context) when is_binary(room_id) and room_id != "",
-    do: {:ok, room_id}
+  # Explicit channel/external_id params take priority.
+  defp resolve_channel(%{channel: channel} = params, _context)
+       when is_binary(channel) and channel != "" do
+    case Map.get(params, :external_id) do
+      external_id when is_binary(external_id) and external_id != "" ->
+        {:ok, channel, external_id}
 
-  defp resolve_room(_params, context), do: Helpers.resolve_room_id(context)
+      _ ->
+        {:error, "external_id is required when channel is provided"}
+    end
+  end
+
+  defp resolve_channel(%{external_id: external_id}, _context)
+       when is_binary(external_id) and external_id != "" do
+    {:error, "channel is required when external_id is provided"}
+  end
+
+  defp resolve_channel(_params, context) do
+    case channel_from_agent_id(context[:agent_id]) do
+      {:ok, _, _} = ok -> ok
+      :error -> channel_from_config()
+    end
+  end
+
+  defp channel_from_agent_id("telegram:" <> chat_id), do: {:ok, "telegram", chat_id}
+  defp channel_from_agent_id("cli:direct:" <> _), do: {:ok, "cli", "direct"}
+  defp channel_from_agent_id(_), do: :error
+
+  defp channel_from_config do
+    channel = Goodwizard.Config.get(["scheduling", "channel"])
+    external_id = Goodwizard.Config.get(["scheduling", "chat_id"])
+
+    case {channel, external_id} do
+      {ch, id} when is_binary(ch) and ch != "" and is_binary(id) and id != "" ->
+        {:ok, ch, id}
+
+      _ ->
+        {:error,
+         "Cannot resolve delivery target: agent context not recognized and no [scheduling] config found."}
+    end
+  end
 
   defp compute_delay(delay_minutes, nil) when is_integer(delay_minutes) do
     cond do

@@ -14,6 +14,11 @@ defmodule Goodwizard.Scheduling.CronLifecycleIntegrationTest do
                   )
 
   setup do
+    ensure_goodwizard_started()
+    ensure_config_started()
+    ensure_cron_registry_started()
+    ensure_jido_runtime_started()
+
     cron_dir = Path.join(@test_workspace, "scheduling/cron")
     File.rm_rf!(@test_workspace)
     File.mkdir_p!(cron_dir)
@@ -23,10 +28,77 @@ defmodule Goodwizard.Scheduling.CronLifecycleIntegrationTest do
 
     on_exit(fn ->
       File.rm_rf!(@test_workspace)
-      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+
+      if Process.whereis(Goodwizard.Config) do
+        Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+      end
     end)
 
     %{cron_dir: cron_dir}
+  end
+
+  defp ensure_config_started do
+    if Process.whereis(Goodwizard.Config) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Config)
+      :ok
+    end
+  end
+
+  defp ensure_cron_registry_started do
+    if Process.whereis(Goodwizard.Scheduling.CronRegistry) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Scheduling.CronRegistry)
+      :ok
+    end
+  end
+
+  defp ensure_goodwizard_started do
+    case Application.ensure_all_started(:goodwizard) do
+      {:ok, _apps} -> :ok
+      {:error, reason} -> raise "failed to start :goodwizard for test: #{inspect(reason)}"
+    end
+  end
+
+  defp ensure_jido_runtime_started do
+    ensure_registry_started()
+    ensure_task_supervisor_started()
+    ensure_agent_supervisor_started()
+    :ok
+  end
+
+  defp ensure_registry_started do
+    if Process.whereis(Goodwizard.Jido.Registry) do
+      :ok
+    else
+      start_supervised!({Registry, keys: :unique, name: Goodwizard.Jido.Registry})
+      :ok
+    end
+  end
+
+  defp ensure_task_supervisor_started do
+    name = Goodwizard.Jido.task_supervisor_name()
+
+    if Process.whereis(name) do
+      :ok
+    else
+      start_supervised!({Task.Supervisor, name: name})
+      :ok
+    end
+  end
+
+  defp ensure_agent_supervisor_started do
+    if Process.whereis(Goodwizard.Jido.AgentSupervisor) do
+      :ok
+    else
+      start_supervised!(
+        {DynamicSupervisor, strategy: :one_for_one, name: Goodwizard.Jido.AgentSupervisor}
+      )
+
+      :ok
+    end
   end
 
   test "full lifecycle: schedule, persist, list, reload, cancel", %{cron_dir: cron_dir} do

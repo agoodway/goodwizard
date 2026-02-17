@@ -1,5 +1,5 @@
 defmodule Goodwizard.Brain.ToolGeneratorTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
 
   alias Goodwizard.Brain.ToolGenerator
 

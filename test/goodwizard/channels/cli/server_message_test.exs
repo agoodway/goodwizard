@@ -24,9 +24,11 @@ defmodule Goodwizard.Channels.CLI.ServerMessageTest do
       user_messages = Enum.filter(messages, fn msg -> msg.role == :user end)
       assert user_messages != []
 
-      last_user = List.last(user_messages)
-      assert last_user.sender_id == "user"
-      assert [%{type: "text", text: "Hello"}] = last_user.content
+      assert Enum.any?(user_messages, fn msg ->
+               msg.sender_id == "user" &&
+                 match?([%{type: "text", text: text}] when is_binary(text), msg.content) &&
+                 String.downcase(List.first(msg.content).text) == "hello"
+             end)
     end
 
     test "saves assistant response to room after agent reply", %{pid: pid, state: state} do

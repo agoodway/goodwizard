@@ -75,12 +75,12 @@ defmodule Goodwizard.Scheduling.CronLoader do
   defp register_job(_pid, agent_id, job) do
     with {:ok, schedule} <- extract_field(job, "schedule"),
          {:ok, task} <- extract_field(job, "task"),
-         {:ok, room_id} <- extract_field(job, "room_id"),
+         {:ok, channel, external_id} <- extract_channel(job),
          {:ok, job_id} <- validate_job_id(job["job_id"]) do
       mode = job["mode"] || "isolated"
       model = job["model"]
 
-      message = build_message(task, room_id, mode, model)
+      message = build_message(task, channel, external_id, mode, model)
       directive = Directive.cron(schedule, message, job_id: job_id)
 
       # Use the Jido scheduler directly to register the job,
@@ -94,6 +94,24 @@ defmodule Goodwizard.Scheduling.CronLoader do
         :skip
     end
   end
+
+  # New format: channel + external_id stored directly on the job.
+  defp extract_channel(%{"channel" => ch, "external_id" => eid})
+       when is_binary(ch) and ch != "" and is_binary(eid) and eid != "" do
+    {:ok, ch, eid}
+  end
+
+  # Legacy format: room_id only. Pass through as-is so old jobs still load
+  # (they'll have the same restart-delivery issue until re-scheduled).
+  defp extract_channel(%{"room_id" => room_id}) when is_binary(room_id) and room_id != "" do
+    Logger.warning(
+      "CronLoader: job uses legacy room_id format — re-schedule to get restart-safe delivery"
+    )
+
+    {:ok, "_legacy", room_id}
+  end
+
+  defp extract_channel(_), do: {:error, "missing channel/external_id (or legacy room_id)"}
 
   defp validate_job_id(nil), do: {:error, "missing field: job_id"}
 
@@ -113,8 +131,14 @@ defmodule Goodwizard.Scheduling.CronLoader do
     end
   end
 
-  defp build_message(task, room_id, mode, model) do
-    base = %{type: "cron.task", task: task, room_id: room_id, mode: mode}
+  defp build_message(task, channel, external_id, mode, model) do
+    base = %{
+      type: "cron.task",
+      task: task,
+      channel: channel,
+      external_id: external_id,
+      mode: mode
+    }
 
     if mode == "isolated" && model do
       Map.put(base, :model, model)

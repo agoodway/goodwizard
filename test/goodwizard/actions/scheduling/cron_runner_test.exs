@@ -9,6 +9,9 @@ defmodule Goodwizard.Actions.Scheduling.CronRunnerTest do
                   )
 
   setup do
+    ensure_config_started()
+    ensure_jido_registry_started()
+
     File.rm_rf!(@test_workspace)
     File.mkdir_p!(@test_workspace)
 
@@ -17,10 +20,31 @@ defmodule Goodwizard.Actions.Scheduling.CronRunnerTest do
 
     on_exit(fn ->
       File.rm_rf!(@test_workspace)
-      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+
+      if Process.whereis(Goodwizard.Config) do
+        Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+      end
     end)
 
     :ok
+  end
+
+  defp ensure_config_started do
+    if Process.whereis(Goodwizard.Config) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Config)
+      :ok
+    end
+  end
+
+  defp ensure_jido_registry_started do
+    if Process.whereis(Goodwizard.Jido.Registry) do
+      :ok
+    else
+      start_supervised!({Registry, keys: :unique, name: Goodwizard.Jido.Registry})
+      :ok
+    end
   end
 
   describe "run_isolated/3" do

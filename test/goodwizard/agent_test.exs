@@ -45,7 +45,6 @@ defmodule Goodwizard.AgentTest do
       assert Goodwizard.Actions.Brain.GetSchema in tools
       assert Goodwizard.Actions.Brain.SaveSchema in tools
       assert Goodwizard.Actions.Brain.ListEntityTypes in tools
-      assert Goodwizard.Actions.Brain.RefreshTools in tools
     end
 
     test "uses correct model" do
@@ -312,6 +311,35 @@ defmodule Goodwizard.AgentTest do
         end)
 
       assert log =~ "on_before_cmd error"
+    end
+
+    test "ignores stale generated brain modules without triggering rescue" do
+      import ExUnit.CaptureLog
+
+      # Simulate stale generated tool cache containing an unloaded module.
+      stale_module = Module.concat(Goodwizard.Actions.Brain.Generated, "UpdateCompany")
+      cache_key = "brain_tools:generated_modules"
+      original = Goodwizard.Cache.get(cache_key) || []
+
+      on_exit(fn -> Goodwizard.Cache.put(cache_key, original) end)
+      Goodwizard.Cache.put(cache_key, [stale_module])
+
+      workspace = Path.join(System.tmp_dir!(), "gw_test_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(workspace)
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      agent = GoodwizardAgent.new(state: %{workspace: workspace})
+      action = {:react_start, %{query: "Hello", request_id: "req_stale_module"}}
+
+      log =
+        capture_log(fn ->
+          {:ok, _updated_agent, {:react_start, params}} =
+            GoodwizardAgent.on_before_cmd(agent, action)
+
+          assert is_binary(params.system_prompt)
+        end)
+
+      refute log =~ "on_before_cmd error"
     end
   end
 

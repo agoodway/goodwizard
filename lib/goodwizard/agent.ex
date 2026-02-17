@@ -363,8 +363,13 @@ defmodule Goodwizard.Agent do
       config = Map.get(strategy_state, :config, %{})
       current_tools = config[:tools] || []
 
-      # Merge: generated tools first (preferred), then static tools, dedup by module
-      all_tools = Enum.uniq(brain_tools ++ current_tools)
+      # Merge: generated tools first (preferred), then static tools, dedup by module.
+      # Generated modules can become stale between runs; keep only currently loaded actions.
+      all_tools =
+        brain_tools
+        |> Kernel.++(current_tools)
+        |> Enum.uniq()
+        |> Enum.filter(&valid_action_module?/1)
 
       if length(all_tools) == length(current_tools) do
         agent
@@ -383,6 +388,12 @@ defmodule Goodwizard.Agent do
       end
     end
   end
+
+  defp valid_action_module?(module) when is_atom(module) do
+    Code.ensure_loaded?(module) and function_exported?(module, :name, 0)
+  end
+
+  defp valid_action_module?(_), do: false
 
   defp build_skills_state(agent) do
     prompt_skills = Map.get(agent.state, :prompt_skills, %{})

@@ -8,6 +8,12 @@ defmodule Goodwizard.Plugins.CronScheduler do
     is processed inline through the main agent's ReAct pipeline.
   - `"isolated"` (default) — spawns a child SubAgent via `CronRunner`,
     runs the task in isolation, and saves the result to the target room.
+
+  ## Room Resolution
+
+  Jobs are addressed to a channel + external_id (e.g. `telegram` / `7041440974`).
+  The Messaging room is resolved at tick time via `get_or_create_room_by_external_binding`,
+  which survives app restarts that wipe the in-memory ETS room store.
   """
 
   use Jido.Plugin,
@@ -22,6 +28,10 @@ defmodule Goodwizard.Plugins.CronScheduler do
   alias Goodwizard.Actions.Scheduling.CronRunner
   alias Goodwizard.Messaging
 
+  # Instance IDs must match what each channel handler uses when creating rooms.
+  @telegram_instance_id to_string(Goodwizard.Channels.Telegram.Handler)
+  @cli_instance_id "goodwizard"
+
   @impl Jido.Plugin
   def mount(_agent, _config) do
     {:ok, %{}}
@@ -31,26 +41,58 @@ defmodule Goodwizard.Plugins.CronScheduler do
   def handle_signal(%{type: "jido.cron_tick"} = signal, context) do
     message = (signal.data[:message] || %{}) |> normalize_keys()
     task = message[:task]
-    room_id = message[:room_id]
+    channel = message[:channel]
+    external_id = message[:external_id]
     mode = message[:mode] || "isolated"
     model = message[:model]
 
     Logger.info(
-      "Cron tick received: mode=#{mode}, task=#{inspect(task)}, room_id=#{inspect(room_id)}"
+      "Cron tick received: mode=#{mode}, task=#{inspect(task)}, " <>
+        "channel=#{inspect(channel)}, external_id=#{inspect(external_id)}"
     )
 
-    case mode do
-      "main" ->
-        dispatch_main(task, room_id, context)
+    case resolve_room(channel, external_id) do
+      {:ok, room_id} ->
+        case mode do
+          "main" -> dispatch_main(task, room_id, context)
+          _ -> dispatch_isolated(task, room_id, model)
+        end
 
-      _ ->
-        dispatch_isolated(task, room_id, model)
+      {:error, reason} ->
+        Logger.error("Cron tick: failed to resolve room: #{inspect(reason)}")
+        {:ok, {:override, Jido.Actions.Control.Noop}}
     end
   end
 
   def handle_signal(_signal, _context) do
     {:ok, :continue}
   end
+
+  # Resolve the Messaging room from channel + external_id. Creates the room
+  # with proper external_bindings if it doesn't exist (e.g. after restart).
+  defp resolve_room(channel, external_id)
+       when is_binary(channel) and is_binary(external_id) do
+    with {:ok, instance_id, channel_atom} <- channel_info(channel) do
+      case Messaging.get_or_create_room_by_external_binding(
+             channel_atom,
+             instance_id,
+             external_id,
+             %{type: :direct, name: "Cron Target"}
+           ) do
+        {:ok, room} -> {:ok, room.id}
+        {:error, _} = err -> err
+      end
+    end
+  end
+
+  # Legacy fallback: room_id passed directly (old-format jobs).
+  defp resolve_room(nil, nil), do: {:error, "no channel/external_id in cron message"}
+
+  defp resolve_room(_, _), do: {:error, "invalid channel/external_id in cron message"}
+
+  defp channel_info("telegram"), do: {:ok, @telegram_instance_id, :telegram}
+  defp channel_info("cli"), do: {:ok, @cli_instance_id, :cli}
+  defp channel_info(other), do: {:error, "unsupported channel: #{inspect(other)}"}
 
   # Main mode: override the signal to route through react.input so the
   # main agent processes the task inline in its own pipeline.
@@ -94,7 +136,8 @@ defmodule Goodwizard.Plugins.CronScheduler do
 
   @known_keys %{
     "task" => :task,
-    "room_id" => :room_id,
+    "channel" => :channel,
+    "external_id" => :external_id,
     "mode" => :mode,
     "model" => :model,
     "type" => :type

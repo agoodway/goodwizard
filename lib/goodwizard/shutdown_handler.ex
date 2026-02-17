@@ -46,7 +46,7 @@ defmodule Goodwizard.ShutdownHandler do
 
     Logger.info("Flushing sessions for #{length(agents)} agent(s)")
 
-    sessions_dir = Goodwizard.Config.sessions_dir()
+    sessions_dir = resolve_sessions_dir()
 
     task =
       Task.async(fn ->
@@ -79,5 +79,27 @@ defmodule Goodwizard.ShutdownHandler do
       {:ok, _} -> :ok
       nil -> Logger.warning("Session flush timed out after #{@shutdown_timeout}ms")
     end
+  end
+
+  defp resolve_sessions_dir do
+    Goodwizard.Config.sessions_dir()
+  rescue
+    _ ->
+      fallback = Path.expand("priv/workspace/sessions")
+
+      Logger.warning(
+        "Config unavailable during shutdown; using fallback sessions_dir=#{fallback}"
+      )
+
+      fallback
+  catch
+    :exit, _ ->
+      fallback = Path.expand("priv/workspace/sessions")
+
+      Logger.warning(
+        "Config unavailable during shutdown; using fallback sessions_dir=#{fallback}"
+      )
+
+      fallback
   end
 end

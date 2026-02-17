@@ -3,6 +3,20 @@ defmodule Goodwizard.Scheduling.CronRegistryTest do
 
   alias Goodwizard.Scheduling.CronRegistry
 
+  setup do
+    ensure_cron_registry_started()
+    :ok
+  end
+
+  defp ensure_cron_registry_started do
+    if Process.whereis(Goodwizard.Scheduling.CronRegistry) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Scheduling.CronRegistry)
+      :ok
+    end
+  end
+
   describe "register/2 and lookup/1" do
     test "registers a pid and looks it up" do
       pid = spawn(fn -> Process.sleep(:infinity) end)

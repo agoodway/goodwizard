@@ -10,6 +10,8 @@ defmodule Goodwizard.Actions.Scheduling.ListOneShotJobsTest do
                   )
 
   setup do
+    ensure_config_started()
+
     oneshot_dir = Path.join(@test_workspace, "scheduling/oneshot")
     File.rm_rf!(@test_workspace)
     File.mkdir_p!(oneshot_dir)
@@ -19,26 +21,40 @@ defmodule Goodwizard.Actions.Scheduling.ListOneShotJobsTest do
 
     on_exit(fn ->
       File.rm_rf!(@test_workspace)
-      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+
+      if Process.whereis(Goodwizard.Config) do
+        Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+      end
     end)
 
     :ok
   end
 
+  defp ensure_config_started do
+    if Process.whereis(Goodwizard.Config) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Config)
+      :ok
+    end
+  end
+
   describe "run/2" do
     test "returns jobs sorted by fires_at ascending" do
       OneShotStore.save(%{
-        job_id: :oneshot_list_later00000,
+        job_id: :oneshot_aa11bb22cc33dd44,
         task: "second task",
-        room_id: "cli:main",
+        channel: "cli",
+        external_id: "direct",
         fires_at: ~U[2026-04-01 12:00:00Z],
         created_at: "2026-02-15T01:00:00Z"
       })
 
       OneShotStore.save(%{
-        job_id: :oneshot_list_earlier000,
+        job_id: :oneshot_ee55ff66aa77bb88,
         task: "first task",
-        room_id: "cli:main",
+        channel: "cli",
+        external_id: "direct",
         fires_at: ~U[2026-03-01 09:00:00Z],
         created_at: "2026-02-15T00:00:00Z"
       })
@@ -55,17 +71,19 @@ defmodule Goodwizard.Actions.Scheduling.ListOneShotJobsTest do
 
     test "includes all job fields" do
       OneShotStore.save(%{
-        job_id: :oneshot_list_fields000,
+        job_id: :oneshot_1122334455667788,
         task: "check fields",
-        room_id: "telegram:main",
+        channel: "telegram",
+        external_id: "123456",
         fires_at: ~U[2026-05-01 15:30:00Z],
         created_at: "2026-02-15T00:00:00Z"
       })
 
       assert {:ok, %{jobs: [job], count: 1}} = ListOneShotJobs.run(%{}, %{})
-      assert job["job_id"] == "oneshot_list_fields000"
+      assert job["job_id"] == "oneshot_1122334455667788"
       assert job["task"] == "check fields"
-      assert job["room_id"] == "telegram:main"
+      assert job["channel"] == "telegram"
+      assert job["external_id"] == "123456"
       assert job["fires_at"] == "2026-05-01T15:30:00Z"
       assert job["created_at"] == "2026-02-15T00:00:00Z"
     end

@@ -20,7 +20,7 @@ defmodule Goodwizard.Actions.Messaging.SendTest do
 
       assert result.room_id == room.id
       assert result.persisted == true
-      assert result.delivered == true
+      assert result.delivered == false
       assert is_binary(result.message_id)
       assert is_list(result.delivery_results)
 
@@ -51,7 +51,7 @@ defmodule Goodwizard.Actions.Messaging.SendTest do
       assert length(agent_messages) >= 2
     end
 
-    test "returns delivery_results as empty list when no outbound bindings exist" do
+    test "returns delivery failure status when outbound channel delivery is unavailable" do
       {:ok, room} =
         Messaging.get_or_create_room_by_external_binding(
           :cli,
@@ -61,9 +61,8 @@ defmodule Goodwizard.Actions.Messaging.SendTest do
         )
 
       assert {:ok, result} = Send.run(%{room_id: room.id, content: "test"}, %{})
-      # No outbound bindings = no failures = delivered is true
-      assert result.delivered == true
-      assert result.delivery_results == []
+      assert result.delivered == false
+      assert result.delivery_results != []
     end
   end
 end

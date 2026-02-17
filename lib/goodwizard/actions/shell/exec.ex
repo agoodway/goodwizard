@@ -13,16 +13,44 @@ defmodule Goodwizard.Actions.Shell.Exec do
     ]
 
   @max_output 10_000
+  @default_deny_pattern_sources [
+    ~S/\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|--recursive\s+--force|-[a-zA-Z]*f[a-zA-Z]*r)\b/,
+    ~S/\b(shutdown|reboot|poweroff)\b/,
+    ~S/\b(mkfs|diskpart)\b/,
+    ~S/\$\(/,
+    ~S/`/,
+    ~S/\|/,
+    ~S/[<>]\(/,
+    ~S/\bcurl\b/,
+    ~S/\b(sudo|su|doas)\b/,
+    ~S/\b(chmod|chown|chgrp)\b/,
+    ~S/\b(kill|killall|pkill)\b/
+  ]
 
   @impl true
   def run(params, _context) do
     command = params.command
     working_dir = Map.get(params, :working_dir)
     timeout = Map.get(params, :timeout, 60)
+    deny_patterns = build_deny_patterns(params)
+    allow_patterns = build_allow_patterns(params)
 
-    with :ok <- check_deny_patterns(command, deny_patterns_from_config()),
+    with {:ok, deny_patterns} <- deny_patterns,
+         {:ok, allow_patterns} <- allow_patterns,
+         :ok <- check_allow_patterns(command, allow_patterns),
+         :ok <- check_deny_patterns(command, deny_patterns),
          :ok <- check_workspace_restriction(command, working_dir) do
       execute(command, working_dir, timeout)
+    end
+  end
+
+  defp check_allow_patterns(_command, []), do: :ok
+
+  defp check_allow_patterns(command, patterns) do
+    if Enum.any?(patterns, &Regex.match?(&1, command)) do
+      :ok
+    else
+      {:error, "Command '#{String.slice(command, 0, 80)}' not in allowlist"}
     end
   end
 
@@ -34,7 +62,7 @@ defmodule Goodwizard.Actions.Shell.Exec do
       matched ->
         {:error,
          "Command '#{String.slice(command, 0, 80)}' blocked by safety guard " <>
-           "(matched deny pattern: #{Regex.source(matched)})"}
+           "(dangerous pattern detected: #{Regex.source(matched)})"}
     end
   end
 
@@ -65,9 +93,47 @@ defmodule Goodwizard.Actions.Shell.Exec do
     end
   end
 
+  defp build_allow_patterns(params) do
+    patterns =
+      case Map.get(params, :allow_patterns) do
+        list when is_list(list) -> list
+        _ -> []
+      end
+
+    compile_patterns(patterns, "allow")
+  end
+
+  defp build_deny_patterns(params) do
+    custom_patterns =
+      case Map.get(params, :deny_patterns) do
+        list when is_list(list) -> list
+        _ -> []
+      end
+
+    patterns = @default_deny_pattern_sources ++ deny_patterns_from_config() ++ custom_patterns
+    compile_patterns(patterns, "deny")
+  end
+
+  defp compile_patterns(pattern_sources, kind) do
+    Enum.reduce_while(pattern_sources, {:ok, []}, fn source, {:ok, acc} ->
+      source = to_string(source)
+
+      case Regex.compile(source) do
+        {:ok, regex} ->
+          {:cont, {:ok, [regex | acc]}}
+
+        {:error, reason} ->
+          {:halt, {:error, "Invalid regex pattern in #{kind}_patterns: #{inspect(reason)}"}}
+      end
+    end)
+    |> case do
+      {:ok, patterns} -> {:ok, Enum.reverse(patterns)}
+      {:error, _} = error -> error
+    end
+  end
+
   defp deny_patterns_from_config do
-    Goodwizard.Config.get(["tools", "exec", "deny_patterns"])
-    |> Enum.map(&Regex.compile!/1)
+    Goodwizard.Config.get(["tools", "exec", "deny_patterns"]) || []
   catch
     :exit, _ -> []
   end

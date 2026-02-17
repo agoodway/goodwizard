@@ -84,13 +84,13 @@ defmodule Goodwizard.Config do
   @doc "Returns the entire config map."
   @spec get() :: map()
   def get do
-    GenServer.call(__MODULE__, :get)
+    safe_call(:get, @defaults)
   end
 
   @doc "Returns the value at the given key path, or nil if not found."
   @spec get([String.t()]) :: term()
   def get(key_path) when is_list(key_path) do
-    GenServer.call(__MODULE__, {:get, key_path})
+    safe_call({:get, key_path}, get_in(@defaults, key_path))
   end
 
   @spec get(atom()) :: term()
@@ -198,6 +198,14 @@ defmodule Goodwizard.Config do
   defp put_in_path(map, [key | rest], value) do
     child = Map.get(map, key, %{})
     Map.put(map, key, put_in_path(child, rest, value))
+  end
+
+  defp safe_call(message, fallback) do
+    GenServer.call(__MODULE__, message)
+  rescue
+    _ -> fallback
+  catch
+    :exit, _ -> fallback
   end
 
   defp load_toml(path) do

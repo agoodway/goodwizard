@@ -55,13 +55,13 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
   defp reload_job(job, now) do
     with {:ok, job_id_str} <- validate_job_id(job["job_id"]),
          {:ok, task} <- extract_field(job, "task"),
-         {:ok, room_id} <- extract_field(job, "room_id"),
+         {:ok, channel, external_id} <- extract_channel(job),
          {:ok, agent_id} <- extract_field(job, "agent_id"),
          {:ok, fires_at} <- parse_fires_at(job["fires_at"]) do
       remaining_ms = DateTime.diff(fires_at, now, :millisecond)
 
       if remaining_ms > 0 do
-        schedule_job(job_id_str, task, room_id, agent_id, fires_at, remaining_ms)
+        schedule_job(job_id_str, task, channel, external_id, agent_id, fires_at, remaining_ms)
       else
         # Expired — discard the file
         Logger.warning(
@@ -78,7 +78,24 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
     end
   end
 
-  defp schedule_job(job_id_str, task, room_id, agent_id, _fires_at, remaining_ms) do
+  # New format: channel + external_id.
+  defp extract_channel(%{"channel" => ch, "external_id" => eid})
+       when is_binary(ch) and ch != "" and is_binary(eid) and eid != "" do
+    {:ok, ch, eid}
+  end
+
+  # Legacy format: room_id only.
+  defp extract_channel(%{"room_id" => room_id}) when is_binary(room_id) and room_id != "" do
+    Logger.warning(
+      "OneShotLoader: job uses legacy room_id format — delivery may fail after restart"
+    )
+
+    {:ok, "_legacy", room_id}
+  end
+
+  defp extract_channel(_), do: {:error, "missing channel/external_id (or legacy room_id)"}
+
+  defp schedule_job(job_id_str, task, channel, external_id, agent_id, _fires_at, remaining_ms) do
     job_id =
       try do
         String.to_existing_atom(job_id_str)
@@ -86,7 +103,7 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
         ArgumentError -> String.to_atom(job_id_str)
       end
 
-    message = %{type: "cron.task", task: task, room_id: room_id}
+    message = %{type: "cron.task", task: task, channel: channel, external_id: external_id}
 
     signal =
       CronTick.new!(

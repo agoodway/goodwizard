@@ -14,6 +14,10 @@ defmodule Goodwizard.Scheduling.OneShotLifecycleIntegrationTest do
                   )
 
   setup do
+    ensure_goodwizard_started()
+    ensure_config_started()
+    ensure_oneshot_registry_started()
+
     oneshot_dir = Path.join(@test_workspace, "scheduling/oneshot")
     File.rm_rf!(@test_workspace)
     File.mkdir_p!(oneshot_dir)
@@ -23,10 +27,38 @@ defmodule Goodwizard.Scheduling.OneShotLifecycleIntegrationTest do
 
     on_exit(fn ->
       File.rm_rf!(@test_workspace)
-      Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+
+      if Process.whereis(Goodwizard.Config) do
+        Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+      end
     end)
 
     %{oneshot_dir: oneshot_dir}
+  end
+
+  defp ensure_config_started do
+    if Process.whereis(Goodwizard.Config) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Config)
+      :ok
+    end
+  end
+
+  defp ensure_goodwizard_started do
+    case Application.ensure_all_started(:goodwizard) do
+      {:ok, _apps} -> :ok
+      {:error, reason} -> raise "failed to start :goodwizard for test: #{inspect(reason)}"
+    end
+  end
+
+  defp ensure_oneshot_registry_started do
+    if Process.whereis(Goodwizard.Scheduling.OneShotRegistry) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Scheduling.OneShotRegistry)
+      :ok
+    end
   end
 
   test "full lifecycle: schedule, persist, list, reload, cancel", %{oneshot_dir: oneshot_dir} do

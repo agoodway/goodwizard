@@ -13,7 +13,7 @@ defmodule Goodwizard.SubAgentTest do
 
       assert is_binary(updated_params.system_prompt)
       assert updated_params.system_prompt =~ "background research and file processing agent"
-      assert updated_agent == agent
+      assert updated_agent.state.last_query == "test query"
     end
 
     test "injects task context when system_prompt is provided" do

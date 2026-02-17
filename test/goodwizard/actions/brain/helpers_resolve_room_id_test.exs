@@ -3,6 +3,12 @@ defmodule Goodwizard.Actions.Brain.HelpersResolveRoomIdTest do
 
   alias Goodwizard.Actions.Brain.Helpers
 
+  setup do
+    ensure_config_started()
+    ensure_messaging_started()
+    :ok
+  end
+
   describe "resolve_room_id/1" do
     test "resolves room from cli:direct agent_id" do
       context = %{agent_id: "cli:direct:123"}
@@ -41,6 +47,24 @@ defmodule Goodwizard.Actions.Brain.HelpersResolveRoomIdTest do
         {:ok, _room_id} -> :ok
         {:error, msg} -> assert is_binary(msg)
       end
+    end
+  end
+
+  defp ensure_config_started do
+    if Process.whereis(Goodwizard.Config) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Config)
+      :ok
+    end
+  end
+
+  defp ensure_messaging_started do
+    if Process.whereis(Goodwizard.Messaging.Runtime) do
+      :ok
+    else
+      start_supervised!(Goodwizard.Messaging)
+      :ok
     end
   end
 end
