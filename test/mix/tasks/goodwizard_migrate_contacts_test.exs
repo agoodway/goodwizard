@@ -1,8 +1,10 @@
 defmodule Mix.Tasks.Goodwizard.MigrateContactsTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Goodwizard.Brain.{Entity, Paths}
   alias Mix.Tasks.Goodwizard.MigrateContacts
+
+  import ExUnit.CaptureIO
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "migrate_contacts_test_#{:rand.uniform(100_000)}")
@@ -216,6 +218,77 @@ defmodule Mix.Tasks.Goodwizard.MigrateContactsTest do
     test "returns :skip when old field is nil" do
       data = %{"name" => "Test", "email" => nil}
       assert :skip = MigrateContacts.migrate_data(data, %{"email" => "emails"})
+    end
+  end
+
+  describe "run/1 end-to-end" do
+    setup do
+      workspace = Path.join(System.tmp_dir!(), "migrate_e2e_test_#{:rand.uniform(100_000)}")
+      File.mkdir_p!(workspace)
+
+      Application.ensure_all_started(:goodwizard)
+
+      original_workspace = Goodwizard.Config.workspace()
+      Goodwizard.Config.put(["agent", "workspace"], workspace)
+      on_exit(fn ->
+        Goodwizard.Config.put(["agent", "workspace"], original_workspace)
+        File.rm_rf!(workspace)
+      end)
+
+      %{workspace: workspace}
+    end
+
+    test "migrates people and companies and upgrades schemas", %{workspace: workspace} do
+      # Set up a person with scalar email
+      {_id, person_path} = setup_entity(workspace, "people", %{
+        "name" => "E2E Person",
+        "email" => "e2e@example.com",
+        "phone" => "555-0001"
+      })
+
+      # Set up a company with scalar location
+      {_id, company_path} = setup_entity(workspace, "companies", %{
+        "name" => "E2E Corp",
+        "location" => "Austin, TX"
+      })
+
+      output = capture_io(fn ->
+        MigrateContacts.run([])
+      end)
+
+      # Verify shell output
+      assert output =~ "Migrating contact fields"
+      assert output =~ "people: 1 migrated, 0 skipped"
+      assert output =~ "companies: 1 migrated, 0 skipped"
+
+      # Verify person was migrated
+      {:ok, content} = File.read(person_path)
+      {:ok, {data, _body}} = Entity.parse(content)
+      assert data["emails"] == [%{"type" => "primary", "value" => "e2e@example.com"}]
+      assert data["phones"] == [%{"type" => "primary", "value" => "555-0001"}]
+      refute Map.has_key?(data, "email")
+      refute Map.has_key?(data, "phone")
+
+      # Verify company was migrated
+      {:ok, content} = File.read(company_path)
+      {:ok, {data, _body}} = Entity.parse(content)
+      assert data["addresses"] == [%{"type" => "primary", "city" => "Austin, TX"}]
+      refute Map.has_key?(data, "location")
+
+      # Verify schemas were upgraded
+      {:ok, people_schema_path} = Paths.schema_path(workspace, "people")
+      assert File.exists?(people_schema_path)
+      {:ok, schema_json} = File.read(people_schema_path)
+      {:ok, schema} = Jason.decode(schema_json)
+      assert schema["version"] == 2
+      assert Map.has_key?(schema["properties"], "emails")
+
+      {:ok, companies_schema_path} = Paths.schema_path(workspace, "companies")
+      assert File.exists?(companies_schema_path)
+      {:ok, schema_json} = File.read(companies_schema_path)
+      {:ok, schema} = Jason.decode(schema_json)
+      assert schema["version"] == 2
+      assert Map.has_key?(schema["properties"], "emails")
     end
   end
 end
