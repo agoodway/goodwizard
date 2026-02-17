@@ -94,7 +94,7 @@ defmodule Goodwizard.Brain.SeedsTest do
 
     test "people schema has correct required fields and multi-value contact fields" do
       schema = Seeds.schema_for("people")
-      assert schema["required"] == ["id", "name"]
+      assert schema["required"] == ["id", "name", "metadata"]
       assert schema["version"] == 2
       assert Map.has_key?(schema["properties"], "emails")
       assert Map.has_key?(schema["properties"], "phones")
@@ -135,7 +135,7 @@ defmodule Goodwizard.Brain.SeedsTest do
 
     test "tasklists schema has status enum and tasks entity_ref_list" do
       schema = Seeds.schema_for("tasklists")
-      assert schema["required"] == ["id", "title"]
+      assert schema["required"] == ["id", "title", "metadata"]
 
       assert schema["properties"]["status"]["enum"] == ["active", "completed", "archived"]
 
@@ -156,7 +156,7 @@ defmodule Goodwizard.Brain.SeedsTest do
 
     test "webpages schema has correct required fields and url format" do
       schema = Seeds.schema_for("webpages")
-      assert schema["required"] == ["id", "title", "url"]
+      assert schema["required"] == ["id", "title", "url", "metadata"]
       assert schema["properties"]["url"]["format"] == "uri"
       assert schema["properties"]["url"]["pattern"] == "^https?://"
       assert schema["properties"]["url"]["maxLength"] == 2048
@@ -167,6 +167,22 @@ defmodule Goodwizard.Brain.SeedsTest do
     test "webpages schema does not include a webpages self-reference" do
       schema = Seeds.schema_for("webpages")
       refute Map.has_key?(schema["properties"], "webpages")
+    end
+
+    test "all seed schemas include metadata in properties and required" do
+      for type <- Seeds.entity_types() do
+        schema = Seeds.schema_for(type)
+
+        assert Map.has_key?(schema["properties"], "metadata"),
+               "Expected #{type} schema to have metadata property"
+
+        metadata = schema["properties"]["metadata"]
+        assert metadata["type"] == "object"
+        assert metadata["additionalProperties"] == %{"type" => "string"}
+
+        assert "metadata" in schema["required"],
+               "Expected #{type} schema to have metadata in required"
+      end
     end
 
     test "other entity schemas include webpages ref_list property" do
@@ -249,7 +265,7 @@ defmodule Goodwizard.BrainTest do
       assert {:ok, resolved} = Schema.load(workspace, "people")
 
       # 4. Validate data against schema
-      valid_data = %{"id" => id, "name" => "Alice"}
+      valid_data = %{"id" => id, "name" => "Alice", "metadata" => %{}}
       assert :ok = Schema.validate(resolved, valid_data)
 
       # 5. Invalid data should fail

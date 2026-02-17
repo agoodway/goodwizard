@@ -23,7 +23,7 @@ defmodule Goodwizard.Actions.Brain.ListEntities do
 
     case Goodwizard.Brain.list(workspace, params.entity_type) do
       {:ok, entities} ->
-        items = Enum.map(entities, fn {data, body} -> %{data: data, body: body} end)
+        items = Enum.map(entities, fn {data, body} -> %{data: Map.drop(data, ["metadata"]), body: body} end)
         {:ok, %{entities: items}}
 
       {:error, reason} ->

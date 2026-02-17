@@ -214,7 +214,7 @@ defmodule Goodwizard.Brain.Seeds do
       "title" => title,
       "version" => version,
       "type" => "object",
-      "required" => required,
+      "required" => Enum.uniq(required ++ ["metadata"]),
       "properties" => Map.merge(base_properties(), custom_properties),
       "additionalProperties" => false
     }
@@ -234,6 +234,11 @@ defmodule Goodwizard.Brain.Seeds do
         "type" => "array",
         "items" => %{"type" => "string"},
         "description" => "Freeform labels for categorization and search"
+      },
+      "metadata" => %{
+        "type" => "object",
+        "additionalProperties" => %{"type" => "string"},
+        "description" => "Arbitrary key-value string metadata"
       },
       "created_at" => %{
         "type" => "string",
