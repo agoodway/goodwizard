@@ -1,30 +1,30 @@
 ## Context
 
-Prompt skills are discovered from `workspace/skills/<name>/SKILL.md` by the `PromptSkills` plugin at agent startup. Each skill has YAML frontmatter for metadata and markdown body for content. This pattern works well and is the model for subagent discovery.
+Prompt skills are discovered from `workspace/skills/<name>/SKILL.md` by the `PromptSkills` plugin at agent startup. Each skill has YAML frontmatter for metadata and markdown body for content. This pattern works well and is the model for specializedagent discovery.
 
 The current `SubAgent` module has a hardcoded character (`SubAgent.Character`) and a fixed tool list. There is no mechanism to define specialized agent roles without writing Elixir code.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Define a workspace-based convention for subagent role configs
+- Define a workspace-based convention for specializedagent role configs
 - Build a plugin that discovers and indexes configs on startup
 - Ship useful default roles to demonstrate the pattern
 
 **Non-Goals:**
-- Wiring configs into the SubAgent runtime (covered by `subagent-configurable-spawn`)
+- Wiring configs into the SubAgent runtime (covered by `specializedagent-configurable-spawn`)
 - Changing how the Spawn action works
 - Hot-reloading configs during a conversation
 
 ## Decisions
 
-### 1. One directory per subagent role with a SUBAGENT.md file
+### 1. One directory per specializedagent role with a SUBAGENT.md file
 
-**Choice**: `workspace/subagents/<name>/SUBAGENT.md` — same pattern as skills.
+**Choice**: `workspace/specializedagents/<name>/SUBAGENT.md` — same pattern as skills.
 
 **Rationale**: Consistent with existing `workspace/skills/<name>/SKILL.md` convention. Users already understand this pattern. The directory allows additional resource files (reference docs, example outputs) alongside the config.
 
-**Alternative considered**: A single `subagents.toml` config file listing all roles. Rejected because it doesn't scale well for complex system prompts and prevents per-agent resource files.
+**Alternative considered**: A single `specializedagents.toml` config file listing all roles. Rejected because it doesn't scale well for complex system prompts and prevents per-agent resource files.
 
 ### 2. YAML frontmatter for config, markdown body for system prompt
 
@@ -58,16 +58,16 @@ Body is the system prompt / instructions injected into the agent's character.
 
 ### 4. Plugin modeled after PromptSkills
 
-**Choice**: New `Goodwizard.Plugins.Subagents` with `state_key: :subagents` that scans on mount.
+**Choice**: New `Goodwizard.Plugins.Subagents` with `state_key: :specializedagents` that scans on mount.
 
-**Rationale**: Follows established plugin pattern. State is available via `agent.state.subagents` for the Spawn action to use (in the follow-up proposal).
+**Rationale**: Follows established plugin pattern. State is available via `agent.state.specializedagents` for the Spawn action to use (in the follow-up proposal).
 
 ## Risks / Trade-offs
 
-- **Discovery at startup only** — New subagent configs require agent restart to be discovered. Acceptable for now; hot-reload can be added later via a refresh action (like `RefreshTools` for brain schemas).
+- **Discovery at startup only** — New specializedagent configs require agent restart to be discovered. Acceptable for now; hot-reload can be added later via a refresh action (like `RefreshTools` for brain schemas).
 
 ### 5. Default roles seeded by `mix goodwizard.setup`
 
-**Choice**: Add `subagents` to the setup task's `@subdirs` list so the directory is created alongside `memory`, `sessions`, and `skills`. Seed default `SUBAGENT.md` files for each role using the existing `seed_file` pattern, writing into `subagents/<role>/SUBAGENT.md` (skip if already exists).
+**Choice**: Add `specializedagents` to the setup task's `@subdirs` list so the directory is created alongside `memory`, `sessions`, and `skills`. Seed default `SUBAGENT.md` files for each role using the existing `seed_file` pattern, writing into `specializedagents/<role>/SUBAGENT.md` (skip if already exists).
 
-**Rationale**: Follows established setup convention — brain schemas, bootstrap files, and directory structure are all created by the setup task. Users running `mix goodwizard.setup` on a fresh workspace should get working subagent roles out of the box without manual file creation.
+**Rationale**: Follows established setup convention — brain schemas, bootstrap files, and directory structure are all created by the setup task. Users running `mix goodwizard.setup` on a fresh workspace should get working specializedagent roles out of the box without manual file creation.

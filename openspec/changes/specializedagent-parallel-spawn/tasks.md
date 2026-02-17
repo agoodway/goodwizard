@@ -1,11 +1,11 @@
 ## 1. SpawnMany Action
 
-- [ ] 1.1 Create `lib/goodwizard/actions/subagent/spawn_many.ex` with `use Jido.Action`, name `spawn_subagents`, schema: `tasks` (required list of maps), `strategy` (optional, default `:all`)
+- [ ] 1.1 Create `lib/goodwizard/actions/specializedagent/spawn_many.ex` with `use Jido.Action`, name `spawn_specializedagents`, schema: `tasks` (required list of maps), `strategy` (optional, default `:all`)
 - [ ] 1.2 Validate each task entry has a `task` string; `agent_name` and `label` are optional
-- [ ] 1.3 Check concurrency — count active agents via `Goodwizard.Jido.agent_count()`, reject if `active + length(tasks) > max_concurrent_subagents`; include available slot count in error
+- [ ] 1.3 Check concurrency — count active agents via `Goodwizard.Jido.agent_count()`, reject if `active + length(tasks) > max_concurrent_specializedagents`; include available slot count in error
 - [ ] 1.4 Resolve configs for each task — reuse config resolution from shared helpers
-- [ ] 1.5 Emit `Directive.SpawnAgent` for each task (building on signal-based spawn from `subagent-signal-communication`)
-- [ ] 1.6 Implement `:all` strategy — poll Cache for `"subagent:result:#{agent_id}"` entries for all spawned agents until all results arrive or timeout
+- [ ] 1.5 Emit `Directive.SpawnAgent` for each task (building on signal-based spawn from `specializedagent-signal-communication`)
+- [ ] 1.6 Implement `:all` strategy — poll Cache for `"specializedagent:result:#{agent_id}"` entries for all spawned agents until all results arrive or timeout
 - [ ] 1.7 Implement `:any` strategy — poll Cache until first result arrives, then emit `Directive.StopChild` for remaining agents
 - [ ] 1.8 Aggregate results into `%{results: [%{label: string, status: :ok | :error, result: any}]}` preserving task order
 - [ ] 1.9 Guaranteed cleanup — emit `Directive.StopChild` for all spawned agents on completion or error

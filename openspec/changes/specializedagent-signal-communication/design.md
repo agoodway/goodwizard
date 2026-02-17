@@ -6,7 +6,7 @@ Jido's agent system has two ways to spawn child agents:
 
 2. **Directive-based** (what Jido provides): `Directive.SpawnAgent` creates a child with `__parent__` in its state. Parent automatically receives `jido.agent.child.started` and `jido.agent.child.exit` signals. Child can call `Directive.emit_to_parent(agent, signal)` to send signals back.
 
-The current manual approach was fine for a single synchronous subagent. For an AI workforce with parallel agents, progress tracking, and eventual workflow integration, the directive-based model is the right foundation.
+The current manual approach was fine for a single synchronous specializedagent. For an AI workforce with parallel agents, progress tracking, and eventual workflow integration, the directive-based model is the right foundation.
 
 ## Goals / Non-Goals
 
@@ -18,9 +18,9 @@ The current manual approach was fine for a single synchronous subagent. For an A
 - Preserve backwards compatibility — sync mode is the default
 
 **Non-Goals:**
-- Subagent-to-subagent (sibling) communication — future proposal
-- Main agent sending follow-up signals to a running subagent (clarification) — future proposal
-- Streaming subagent output to the user in real-time — depends on channel capabilities
+- Subagent-to-specializedagent (sibling) communication — future proposal
+- Main agent sending follow-up signals to a running specializedagent (clarification) — future proposal
+- Streaming specializedagent output to the user in real-time — depends on channel capabilities
 
 ## Decisions
 
@@ -32,15 +32,15 @@ The current manual approach was fine for a single synchronous subagent. For an A
 
 **Trade-off**: The Spawn action can no longer be a simple "call and return" — it needs to work with the signal system. In sync mode, it blocks on a signal rather than `ask_sync`. In async mode, it returns immediately.
 
-### 2. Three signal types for subagent communication
+### 2. Three signal types for specializedagent communication
 
 **Choice**:
 
 | Signal Type | Direction | Purpose | Data |
 |---|---|---|---|
-| `goodwizard.subagent.progress` | Child → Parent | Intermediate update | `%{agent_id, role, message, iteration}` |
-| `goodwizard.subagent.result` | Child → Parent | Final result | `%{agent_id, role, result}` |
-| `goodwizard.subagent.error` | Child → Parent | Failure | `%{agent_id, role, reason}` |
+| `goodwizard.specializedagent.progress` | Child → Parent | Intermediate update | `%{agent_id, role, message, iteration}` |
+| `goodwizard.specializedagent.result` | Child → Parent | Final result | `%{agent_id, role, result}` |
+| `goodwizard.specializedagent.error` | Child → Parent | Failure | `%{agent_id, role, reason}` |
 
 **Rationale**: Minimal set that covers the useful cases. Progress lets the parent report status. Result replaces the `ask_sync` return value. Error replaces exception handling. All use Jido's `Signal.new!` with CloudEvents-compliant structure.
 
@@ -48,22 +48,22 @@ The current manual approach was fine for a single synchronous subagent. For an A
 
 ### 3. SubagentRouter plugin on main agent
 
-**Choice**: New plugin `Goodwizard.Plugins.SubagentRouter` with signal patterns matching `goodwizard.subagent.*`. Handlers write received data to Cache under `"subagent:signals:#{agent_id}"`.
+**Choice**: New plugin `Goodwizard.Plugins.SubagentRouter` with signal patterns matching `goodwizard.specializedagent.*`. Handlers write received data to Cache under `"specializedagent:signals:#{agent_id}"`.
 
 **Rationale**: Plugins are the standard way to add signal handlers in Jido. The router collects signals in Cache so the Status action and sync-mode Spawn can read them without coupling to the signal handling directly.
 
 **Cache structure**:
 ```elixir
 # Progress — overwritten on each update (latest only)
-Cache.put("subagent:progress:#{agent_id}", %{message: "Found 3 sources", iteration: 4})
+Cache.put("specializedagent:progress:#{agent_id}", %{message: "Found 3 sources", iteration: 4})
 
 # Result — written once on completion
-Cache.put("subagent:result:#{agent_id}", %{result: "...", completed_at: timestamp})
+Cache.put("specializedagent:result:#{agent_id}", %{result: "...", completed_at: timestamp})
 ```
 
 ### 4. Sync mode blocks on Cache polling, not ask_sync
 
-**Choice**: In sync mode, the Spawn action emits `SpawnAgent` + sends the task signal, then polls `Cache.get("subagent:result:#{agent_id}")` with a sleep interval until the result appears or timeout is reached.
+**Choice**: In sync mode, the Spawn action emits `SpawnAgent` + sends the task signal, then polls `Cache.get("specializedagent:result:#{agent_id}")` with a sleep interval until the result appears or timeout is reached.
 
 **Rationale**: This decouples the Spawn action from the signal handling. The SubagentRouter writes results to Cache; the Spawn action reads from Cache. Simple, testable, no complex process coordination.
 
@@ -73,9 +73,9 @@ Cache.put("subagent:result:#{agent_id}", %{result: "...", completed_at: timestam
 
 ### 5. EmitProgress action on SubAgent
 
-**Choice**: New `Goodwizard.Actions.Subagent.EmitProgress` action added to SubAgent's tool list. When the subagent calls it during its ReAct loop, it emits a `goodwizard.subagent.progress` signal to the parent via `Directive.emit_to_parent`.
+**Choice**: New `Goodwizard.Actions.Subagent.EmitProgress` action added to SubAgent's tool list. When the specializedagent calls it during its ReAct loop, it emits a `goodwizard.specializedagent.progress` signal to the parent via `Directive.emit_to_parent`.
 
-**Rationale**: The subagent is an LLM-driven ReAct agent — it can't emit signals directly. It needs a tool/action it can call. The system prompt for each subagent role can instruct it to report progress at natural checkpoints.
+**Rationale**: The specializedagent is an LLM-driven ReAct agent — it can't emit signals directly. It needs a tool/action it can call. The system prompt for each specializedagent role can instruct it to report progress at natural checkpoints.
 
 **Schema**: `%{message: string}` — simple text update. The action enriches it with `agent_id`, `role`, and `iteration` from context before emitting.
 
@@ -87,6 +87,6 @@ Cache.put("subagent:result:#{agent_id}", %{result: "...", completed_at: timestam
 
 ## Risks / Trade-offs
 
-- **Cache polling latency** — 500ms poll interval means up to 500ms delay between subagent completion and result availability in sync mode. Acceptable for 120s+ tasks.
-- **Cache TTL vs orphaned entries** — If a subagent crashes without emitting result/error, the progress entry lingers until TTL expires. The `jido.agent.child.exit` lifecycle signal provides a safety net — the SubagentRouter should handle it and write an error entry.
+- **Cache polling latency** — 500ms poll interval means up to 500ms delay between specializedagent completion and result availability in sync mode. Acceptable for 120s+ tasks.
+- **Cache TTL vs orphaned entries** — If a specializedagent crashes without emitting result/error, the progress entry lingers until TTL expires. The `jido.agent.child.exit` lifecycle signal provides a safety net — the SubagentRouter should handle it and write an error entry.
 - **Signal ordering** — Jido doesn't guarantee signal ordering across processes. Progress signals may arrive at the parent after the result signal in rare cases. The router should handle this gracefully (don't overwrite a result with a progress update).

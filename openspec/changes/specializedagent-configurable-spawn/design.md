@@ -1,6 +1,6 @@
 ## Context
 
-After `subagent-workspace-discovery`, the agent has a map of subagent configs in `agent.state.subagents.agents`. The Spawn action needs to look up a config by name and pass it to the SubAgent process. The SubAgent module currently uses `use JidoAi.ReActAgent` with compile-time `tools:` and `model:` — these need to become runtime-configurable.
+After `specializedagent-workspace-discovery`, the agent has a map of specializedagent configs in `agent.state.specializedagents.agents`. The Spawn action needs to look up a config by name and pass it to the SubAgent process. The SubAgent module currently uses `use JidoAi.ReActAgent` with compile-time `tools:` and `model:` — these need to become runtime-configurable.
 
 The key constraint from CLAUDE.md: Jido does NOT propagate `agent.state` into action context. The Spawn action must read configs from `Goodwizard.Cache` (populated by the plugin) rather than relying on context state.
 
@@ -13,15 +13,15 @@ The key constraint from CLAUDE.md: Jido does NOT propagate `agent.state` into ac
 - Tool categories resolve to concrete module lists at spawn time
 
 **Non-Goals:**
-- Runtime modification of subagent configs (hot-reload)
+- Runtime modification of specializedagent configs (hot-reload)
 - Per-spawn tool overrides beyond what the config defines
-- Subagent-to-subagent communication (covered by a separate proposal)
+- Subagent-to-specializedagent communication (covered by a separate proposal)
 
 ## Decisions
 
 ### 1. Config resolution via Cache, not context.state
 
-**Choice**: Spawn action reads from `Goodwizard.Cache.get("subagents:list")` with a fallback to `Goodwizard.Plugins.Subagents.scan/1` on cache miss.
+**Choice**: Spawn action reads from `Goodwizard.Cache.get("specializedagents:list")` with a fallback to `Goodwizard.Plugins.Subagents.scan/1` on cache miss.
 
 **Rationale**: Jido doesn't propagate agent state into action context (CLAUDE.md). Cache is the reliable path. The plugin populates cache on mount; this action reads from it.
 
@@ -67,4 +67,4 @@ def resolve(:browser), do: [JidoBrowser actions...]
 ## Risks / Trade-offs
 
 - **Tool list mismatch** — If a config references a tool category that doesn't exist, the resolver should warn and skip rather than crash. Log a warning so the user can fix their config.
-- **Model cost** — Configs can specify any model. A subagent config using `anthropic:claude-opus-4-6` would be expensive. No guard rails here — trust the user.
+- **Model cost** — Configs can specify any model. A specializedagent config using `anthropic:claude-opus-4-6` would be expensive. No guard rails here — trust the user.

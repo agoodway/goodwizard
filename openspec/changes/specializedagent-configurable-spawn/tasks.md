@@ -1,13 +1,13 @@
 ## 1. Tool Category Resolver
 
-- [ ] 1.1 Create `lib/goodwizard/actions/subagent/tool_resolver.ex` with `resolve/1` that maps category atoms (`:filesystem`, `:shell`, `:brain`, `:memory`, `:messaging`, `:scheduling`, `:browser`) to lists of action modules
+- [ ] 1.1 Create `lib/goodwizard/actions/specializedagent/tool_resolver.ex` with `resolve/1` that maps category atoms (`:filesystem`, `:shell`, `:brain`, `:memory`, `:messaging`, `:scheduling`, `:browser`) to lists of action modules
 - [ ] 1.2 Add `resolve_many/1` that takes a list of category atoms and returns a flat, deduplicated list of action modules
 - [ ] 1.3 Handle unknown categories — log warning and return empty list
 
 ## 2. Spawn Action Updates
 
 - [ ] 2.1 Add optional `agent_name` parameter to `Spawn` action schema
-- [ ] 2.2 Add config resolution — when `agent_name` is provided, read from `Goodwizard.Cache.get("subagents:list")`, fall back to `Goodwizard.Plugins.Subagents.scan/1` on cache miss
+- [ ] 2.2 Add config resolution — when `agent_name` is provided, read from `Goodwizard.Cache.get("specializedagents:list")`, fall back to `Goodwizard.Plugins.Subagents.scan/1` on cache miss
 - [ ] 2.3 Pass resolved config as `initial_state.role_config` when starting the SubAgent
 - [ ] 2.4 Use config's `timeout` value (with fallback to current `@ask_timeout`) for the Task.await
 - [ ] 2.5 Return error with available agent names when `agent_name` doesn't match any discovered config

@@ -1,6 +1,6 @@
 ## Why
 
-The current Spawn action is synchronous — the main agent blocks until the subagent finishes. For an "AI workforce" pattern, the main agent needs to fan out multiple tasks in parallel (e.g., "research competitors" + "draft pricing copy" + "review existing code" simultaneously) and collect results when they complete.
+The current Spawn action is synchronous — the main agent blocks until the specializedagent finishes. For an "AI workforce" pattern, the main agent needs to fan out multiple tasks in parallel (e.g., "research competitors" + "draft pricing copy" + "review existing code" simultaneously) and collect results when they complete.
 
 Jido provides `await_all` and `await_any` primitives but the Spawn action doesn't expose parallel execution.
 
@@ -16,18 +16,18 @@ Jido provides `await_all` and `await_any` primitives but the Spawn action doesn'
 
 ### New Capabilities
 
-- `subagent-parallel-spawn`: Spawn multiple named subagents in parallel with configurable result collection strategies.
+- `specializedagent-parallel-spawn`: Spawn multiple named specializedagents in parallel with configurable result collection strategies.
 
 ### Modified Capabilities
 
-- `subagent-spawn`: Unchanged. `SpawnMany` is a new action, not a modification of `Spawn`.
+- `specializedagent-spawn`: Unchanged. `SpawnMany` is a new action, not a modification of `Spawn`.
 
 ## Impact
 
-- **New files**: `lib/goodwizard/actions/subagent/spawn_many.ex`
+- **New files**: `lib/goodwizard/actions/specializedagent/spawn_many.ex`
 - **Modified files**: `lib/goodwizard/agent.ex` (add SpawnMany to tools list)
-- **Dependencies**: None new — builds on signal-based spawn from `subagent-signal-communication`
+- **Dependencies**: None new — builds on signal-based spawn from `specializedagent-signal-communication`
 
 ## Prerequisites
 
-- `subagent-signal-communication`
+- `specializedagent-signal-communication`

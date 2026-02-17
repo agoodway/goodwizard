@@ -1,5 +1,7 @@
 # Goodwizard Development Guide
 
+See also [AGENTS.md](AGENTS.md) for Elixir/Mix/test conventions, td task management, and coding guidelines.
+
 ## Action Context Limitation
 
 Jido does NOT propagate `agent.state` into the action `context` map. Actions receive a context with `agent_id`, `call_id`, `action_metadata`, `iteration`, and `thread_id` — but no `:state` key.
