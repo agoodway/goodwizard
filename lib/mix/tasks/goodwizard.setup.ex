@@ -20,7 +20,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   """
   use Mix.Task
 
-  alias Goodwizard.Brain
+  alias Goodwizard.{Brain, Memory}
 
   @shortdoc "Set up Goodwizard workspace directories and default config"
 
@@ -110,6 +110,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
     end
 
     setup_brain(base)
+    setup_memory(base)
     setup_bootstrap_files(base)
     setup_config()
   end
@@ -118,6 +119,13 @@ defmodule Mix.Tasks.Goodwizard.Setup do
     Mix.shell().info("Initializing brain...")
     init_brain(base)
     create_entity_type_dirs(base)
+  end
+
+  defp setup_memory(base) do
+    Mix.shell().info("Initializing memory...")
+    Memory.Seeds.seed(base)
+    Mix.shell().info("Created #{Path.join(base, "memory/episodic")}")
+    Mix.shell().info("Created #{Path.join(base, "memory/procedural")}")
   end
 
   defp init_brain(base) do
