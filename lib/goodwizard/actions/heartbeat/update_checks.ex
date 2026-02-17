@@ -32,6 +32,7 @@ defmodule Goodwizard.Actions.Heartbeat.UpdateChecks do
   alias Goodwizard.Heartbeat.Parser
 
   @valid_operations ~w(add remove list)
+  @max_text_bytes 500
 
   @impl true
   def run(params, context) do
@@ -42,6 +43,7 @@ defmodule Goodwizard.Actions.Heartbeat.UpdateChecks do
 
     with :ok <- validate_operation(operation),
          :ok <- validate_text(operation, text) do
+      text = if is_binary(text), do: String.trim(text), else: text
       execute(operation, text, heartbeat_path)
     end
   end
@@ -52,77 +54,110 @@ defmodule Goodwizard.Actions.Heartbeat.UpdateChecks do
     do: {:error, "Invalid operation #{inspect(op)} — must be \"add\", \"remove\", or \"list\""}
 
   defp validate_text("list", _text), do: :ok
-  defp validate_text(_op, text) when is_binary(text) and text != "", do: :ok
+
+  defp validate_text(_op, text) when is_binary(text) and text != "" do
+    cond do
+      byte_size(text) > @max_text_bytes ->
+        {:error, "text exceeds maximum length of #{@max_text_bytes} bytes"}
+
+      String.contains?(text, ["\n", "\r", "\0"]) ->
+        {:error, "text must not contain newlines or null bytes"}
+
+      true ->
+        :ok
+    end
+  end
+
   defp validate_text(op, _text), do: {:error, "text is required for #{op} operation"}
 
   defp execute("add", text, path) do
-    content = read_file(path)
+    with {:ok, content} <- read_file(path) do
+      case Parser.parse(content) do
+        {:structured, checks} ->
+          if Enum.any?(checks, &matches_check?(&1.text, text)) do
+            {:error, "Check already exists: #{text}"}
+          else
+            new_line = "- [ ] #{text}"
+            updated = if content == "", do: new_line, else: content <> "\n" <> new_line
 
-    case Parser.parse(content) do
-      {:structured, checks} ->
-        if Enum.any?(checks, &(String.downcase(&1.text) == String.downcase(text))) do
-          {:error, "Check already exists: #{text}"}
-        else
+            with :ok <- write_file(path, updated <> "\n") do
+              {:ok, %{added: text, total_checks: length(checks) + 1}}
+            end
+          end
+
+        {:plain, _} ->
           new_line = "- [ ] #{text}"
           updated = if content == "", do: new_line, else: content <> "\n" <> new_line
-          File.write!(path, updated)
-          {:ok, %{added: text, total_checks: length(checks) + 1}}
-        end
 
-      {:plain, _} ->
-        new_line = "- [ ] #{text}"
-        updated = if content == "", do: new_line, else: content <> "\n" <> new_line
-        File.write!(path, updated)
-        {:ok, %{added: text, total_checks: 1}}
+          with :ok <- write_file(path, updated <> "\n") do
+            {:ok, %{added: text, total_checks: 1}}
+          end
+      end
     end
   end
 
   defp execute("remove", text, path) do
-    content = read_file(path)
+    with {:ok, content} <- read_file(path) do
+      case Parser.parse(content) do
+        {:structured, checks} ->
+          if Enum.any?(checks, &matches_check?(&1.text, text)) do
+            lines =
+              content
+              |> String.split("\n")
+              |> Enum.reject(fn line ->
+                case Parser.match_check_line(line) do
+                  {:ok, check_text} -> matches_check?(check_text, text)
+                  :nomatch -> false
+                end
+              end)
 
-    case Parser.parse(content) do
-      {:structured, checks} ->
-        if Enum.any?(checks, &(String.downcase(&1.text) == String.downcase(text))) do
-          lines =
-            content
-            |> String.split("\n")
-            |> Enum.reject(fn line ->
-              case Regex.run(~r/^- \[([ x])\] (.+)$/, line) do
-                [_, _, check_text] ->
-                  String.downcase(String.trim(check_text)) == String.downcase(text)
+            with :ok <- write_file(path, Enum.join(lines, "\n") <> "\n") do
+              {:ok, %{removed: text, total_checks: length(checks) - 1}}
+            end
+          else
+            {:error, "Check not found: #{text}"}
+          end
 
-                _ ->
-                  false
-              end
-            end)
-
-          File.write!(path, Enum.join(lines, "\n"))
-          {:ok, %{removed: text, total_checks: length(checks) - 1}}
-        else
+        {:plain, _} ->
           {:error, "Check not found: #{text}"}
-        end
-
-      {:plain, _} ->
-        {:error, "Check not found: #{text}"}
+      end
     end
   end
 
   defp execute("list", _text, path) do
-    content = read_file(path)
+    with {:ok, content} <- read_file(path) do
+      case Parser.parse(content) do
+        {:structured, checks} ->
+          {:ok, %{checks: Enum.map(checks, & &1.text), total_checks: length(checks)}}
 
-    case Parser.parse(content) do
-      {:structured, checks} ->
-        {:ok, %{checks: Enum.map(checks, & &1.text), total_checks: length(checks)}}
-
-      {:plain, _} ->
-        {:ok, %{checks: [], total_checks: 0}}
+        {:plain, _} ->
+          {:ok, %{checks: [], total_checks: 0}}
+      end
     end
+  end
+
+  defp matches_check?(check_text, user_text) do
+    String.downcase(String.trim(check_text)) == String.downcase(String.trim(user_text))
   end
 
   defp read_file(path) do
     case File.read(path) do
-      {:ok, content} -> String.trim(content)
-      {:error, :enoent} -> ""
+      {:ok, content} -> {:ok, String.trim(content)}
+      {:error, :enoent} -> {:ok, ""}
+      {:error, reason} -> {:error, "Failed to read #{path}: #{inspect(reason)}"}
+    end
+  end
+
+  defp write_file(path, content) do
+    tmp_path = path <> ".tmp"
+
+    with :ok <- File.write(tmp_path, content),
+         :ok <- File.rename(tmp_path, path) do
+      :ok
+    else
+      {:error, reason} ->
+        File.rm(tmp_path)
+        {:error, "Failed to write #{path}: #{inspect(reason)}"}
     end
   end
 end

@@ -21,11 +21,12 @@ defmodule Goodwizard.Heartbeat.Parser do
   Parses content into structured checks or plain text.
 
   Returns `{:structured, checks}` where `checks` is a list of
-  `%{index: integer, text: string}` maps, or `{:plain, content}` if
-  no task-list lines are found.
+  `%{index: integer, text: string, checked: boolean}` maps, or
+  `{:plain, content}` if no task-list lines are found.
   """
   @spec parse(String.t()) ::
-          {:structured, [%{index: pos_integer(), text: String.t()}]} | {:plain, String.t()}
+          {:structured, [%{index: pos_integer(), text: String.t(), checked: boolean()}]}
+          | {:plain, String.t()}
   def parse(content) do
     matches = Regex.scan(@task_list_regex, content)
 
@@ -37,11 +38,24 @@ defmodule Goodwizard.Heartbeat.Parser do
         checks =
           matches
           |> Enum.with_index(1)
-          |> Enum.map(fn {[_full, _status, text], index} ->
-            %{index: index, text: String.trim(text)}
+          |> Enum.map(fn {[_full, status, text], index} ->
+            %{index: index, text: String.trim(text), checked: status == "x"}
           end)
 
         {:structured, checks}
+    end
+  end
+
+  @doc """
+  Matches a single line against the task-list pattern.
+
+  Returns `{:ok, text}` if the line is a check item, or `:nomatch` otherwise.
+  """
+  @spec match_check_line(String.t()) :: {:ok, String.t()} | :nomatch
+  def match_check_line(line) do
+    case Regex.run(@task_list_regex, line) do
+      [_, _status, text] -> {:ok, text}
+      _ -> :nomatch
     end
   end
 

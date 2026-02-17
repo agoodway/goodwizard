@@ -33,13 +33,23 @@ defmodule Goodwizard.Heartbeat do
     # Resolve room binding from config
     {channel, instance_id, external_id} = resolve_room_binding()
 
-    {:ok, room} =
+    room_result =
       Messaging.get_or_create_room_by_external_binding(channel, instance_id, external_id, %{
         type: :direct,
         name: "Heartbeat"
       })
 
-    # Start the agent for heartbeat processing
+    case room_result do
+      {:ok, room} ->
+        start_agent_and_schedule(room, interval, workspace, heartbeat_path)
+
+      {:error, reason} ->
+        Logger.error("Heartbeat failed to create room: #{inspect(reason)}")
+        {:stop, reason}
+    end
+  end
+
+  defp start_agent_and_schedule(room, interval, workspace, heartbeat_path) do
     agent_id = "heartbeat:#{System.unique_integer([:positive])}"
 
     case Goodwizard.Jido.start_agent(GoodwizardAgent,
@@ -102,7 +112,7 @@ defmodule Goodwizard.Heartbeat do
           case Parser.parse(content) do
             {:structured, checks} ->
               prompt = Parser.build_prompt(checks)
-              dispatch_heartbeat(prompt, state, checks)
+              dispatch_heartbeat(prompt, state, checks: checks)
 
             {:plain, plain_content} ->
               dispatch_heartbeat(plain_content, state)
@@ -117,7 +127,7 @@ defmodule Goodwizard.Heartbeat do
     end
   end
 
-  defp dispatch_heartbeat(content, state, checks \\ nil) do
+  defp dispatch_heartbeat(content, state, opts \\ []) do
     Logger.info("Heartbeat: processing HEARTBEAT.md")
 
     user_message = %{
@@ -128,10 +138,9 @@ defmodule Goodwizard.Heartbeat do
     }
 
     user_message =
-      if checks do
-        Map.put(user_message, :metadata, %{checks: checks})
-      else
-        user_message
+      case Keyword.get(opts, :checks) do
+        nil -> user_message
+        checks -> Map.put(user_message, :metadata, %{checks: checks})
       end
 
     Messaging.save_message(user_message)
@@ -145,7 +154,7 @@ defmodule Goodwizard.Heartbeat do
           content: [%{type: "text", text: response}]
         })
 
-        Logger.info("Heartbeat: completed, response length=#{String.length(response)}")
+        Logger.info("Heartbeat: completed, response byte_size=#{byte_size(response)}")
 
       {:error, reason} ->
         Logger.error("Heartbeat: agent error: #{inspect(reason)}")
@@ -156,7 +165,8 @@ defmodule Goodwizard.Heartbeat do
     Process.send_after(self(), :tick, interval)
   end
 
-  defp resolve_interval do
+  @doc false
+  def resolve_interval do
     case Goodwizard.Config.get(["heartbeat", "interval_minutes"]) do
       nil -> @default_interval_ms
       minutes when is_number(minutes) -> trunc(minutes * 60_000)
@@ -164,7 +174,8 @@ defmodule Goodwizard.Heartbeat do
     end
   end
 
-  defp resolve_timeout do
+  @doc false
+  def resolve_timeout do
     case Goodwizard.Config.get(["heartbeat", "timeout_seconds"]) do
       nil -> @default_timeout_ms
       seconds when is_number(seconds) -> trunc(seconds * 1_000)
@@ -174,7 +185,8 @@ defmodule Goodwizard.Heartbeat do
 
   @known_channels ~w(cli telegram)a
 
-  defp resolve_room_binding do
+  @doc false
+  def resolve_room_binding do
     channel = Goodwizard.Config.get(["heartbeat", "channel"])
     chat_id = Goodwizard.Config.get(["heartbeat", "chat_id"])
 
