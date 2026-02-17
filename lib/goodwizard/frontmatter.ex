@@ -66,7 +66,7 @@ defmodule Goodwizard.Frontmatter do
   # Checks after colon (map values), after dash (list items), and at line start.
   # Avoids false positives on URLs and natural text containing & or *.
   defp has_yaml_anchors?(frontmatter) do
-    Regex.match?(~r/(?::\s+|-\s+|^\s*)[&*]/m, frontmatter)
+    Regex.match?(~r/(?::\s*|-\s+|^\s*)[&*]/m, frontmatter)
   end
 
   defp parse_frontmatter(frontmatter, body) do
@@ -137,7 +137,7 @@ defmodule Goodwizard.Frontmatter do
       value
       |> Enum.sort_by(fn {k, _} -> k end)
       |> Enum.map_join(", ", fn {k, v} ->
-        encoded_key = encode_yaml_value(to_string(k))
+        encoded_key = encode_yaml_key(to_string(k))
         "#{encoded_key}: #{encode_yaml_value(v)}"
       end)
 

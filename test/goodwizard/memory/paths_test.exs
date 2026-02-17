@@ -21,7 +21,7 @@ defmodule Goodwizard.Memory.PathsTest do
     end
 
     test "rejects paths with .. as path component" do
-      assert {:error, "memory_dir contains path traversal"} =
+      assert {:error, :path_traversal} =
                Paths.validate_memory_dir("/tmp/memory/../../etc")
     end
 
@@ -30,23 +30,23 @@ defmodule Goodwizard.Memory.PathsTest do
     end
 
     test "rejects empty string" do
-      assert {:error, "memory_dir is empty"} = Paths.validate_memory_dir("")
+      assert {:error, :empty_path} = Paths.validate_memory_dir("")
     end
 
     test "rejects paths exceeding max length" do
       long_path = "/" <> String.duplicate("x", 4097)
 
-      assert {:error, "memory_dir exceeds maximum path length"} =
+      assert {:error, :path_too_long} =
                Paths.validate_memory_dir(long_path)
     end
 
     test "rejects paths with null bytes" do
-      assert {:error, "memory_dir contains null bytes"} =
+      assert {:error, :null_byte_in_path} =
                Paths.validate_memory_dir("/tmp/memory\0/evil")
     end
 
     test "rejects paths with non-printable characters" do
-      assert {:error, "memory_dir contains non-printable characters"} =
+      assert {:error, :non_printable_path} =
                Paths.validate_memory_dir("/tmp/memory\x01/dir")
     end
 
@@ -67,12 +67,12 @@ defmodule Goodwizard.Memory.PathsTest do
     end
 
     test "rejects path with traversal" do
-      assert {:error, "memory_dir contains path traversal"} =
+      assert {:error, :path_traversal} =
                Paths.ensure_dir("/tmp/memory/../../etc")
     end
 
     test "rejects path with null bytes" do
-      assert {:error, "memory_dir contains null bytes"} = Paths.ensure_dir("/tmp/memory\0/evil")
+      assert {:error, :null_byte_in_path} = Paths.ensure_dir("/tmp/memory\0/evil")
     end
   end
 
