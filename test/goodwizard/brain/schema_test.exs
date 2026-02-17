@@ -150,7 +150,18 @@ defmodule Goodwizard.Brain.SchemaTest do
       "properties" => %{
         "id" => %{"type" => "string"},
         "name" => %{"type" => "string"},
-        "email" => %{"type" => "string"},
+        "emails" => %{
+          "type" => "array",
+          "description" => "Email addresses",
+          "items" => %{
+            "type" => "object",
+            "properties" => %{
+              "type" => %{"type" => "string"},
+              "value" => %{"type" => "string"}
+            },
+            "required" => ["value"]
+          }
+        },
         "created_at" => %{"type" => "string"},
         "updated_at" => %{"type" => "string"}
       }
@@ -182,7 +193,7 @@ defmodule Goodwizard.Brain.SchemaTest do
       people = Enum.find(summaries, &(&1.type == "people"))
       assert people.title == "Person"
       assert people.required == ["name"]
-      assert people.optional == ["email"]
+      assert people.optional == ["emails"]
 
       companies = Enum.find(summaries, &(&1.type == "companies"))
       assert companies.title == "Company"

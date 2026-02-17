@@ -33,7 +33,7 @@ defmodule Goodwizard.Brain.SeedsTest do
         content = File.read!(path)
         assert {:ok, schema} = Jason.decode(content)
         assert schema["$schema"] == "http://json-schema.org/draft-07/schema#"
-        assert schema["version"] == 1
+        assert is_integer(schema["version"])
         assert schema["type"] == "object"
         assert is_list(schema["required"])
         assert "id" in schema["required"]
@@ -88,15 +88,31 @@ defmodule Goodwizard.Brain.SeedsTest do
       for type <- Seeds.entity_types() do
         schema = Seeds.schema_for(type)
         assert is_map(schema)
-        assert schema["version"] == 1
+        assert is_integer(schema["version"])
       end
     end
 
-    test "people schema has correct required fields" do
+    test "people schema has correct required fields and multi-value contact fields" do
       schema = Seeds.schema_for("people")
       assert schema["required"] == ["id", "name"]
-      assert Map.has_key?(schema["properties"], "email")
+      assert schema["version"] == 2
+      assert Map.has_key?(schema["properties"], "emails")
+      assert Map.has_key?(schema["properties"], "phones")
+      assert Map.has_key?(schema["properties"], "addresses")
+      assert Map.has_key?(schema["properties"], "socials")
       assert Map.has_key?(schema["properties"], "company")
+      refute Map.has_key?(schema["properties"], "email")
+      refute Map.has_key?(schema["properties"], "phone")
+    end
+
+    test "companies schema has multi-value contact fields" do
+      schema = Seeds.schema_for("companies")
+      assert schema["version"] == 2
+      assert Map.has_key?(schema["properties"], "emails")
+      assert Map.has_key?(schema["properties"], "phones")
+      assert Map.has_key?(schema["properties"], "addresses")
+      assert Map.has_key?(schema["properties"], "socials")
+      refute Map.has_key?(schema["properties"], "location")
     end
 
     test "events schema requires date" do

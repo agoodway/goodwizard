@@ -57,11 +57,14 @@ defmodule Goodwizard.Brain.Seeds do
   @spec schema_for(String.t()) :: map()
   def schema_for("people") do
     build_schema("Person", ["id", "name"], %{
-      "email" => %{"type" => "string", "format" => "email"},
-      "phone" => %{"type" => "string"},
+      "emails" => contact_field("Email addresses"),
+      "phones" => contact_field("Phone numbers"),
+      "addresses" => address_field(),
+      "socials" => contact_field("Social media profiles"),
       "company" => entity_ref("companies"),
       "role" => %{"type" => "string"}
     })
+    |> Map.put("version", 2)
   end
 
   def schema_for("places") do
@@ -125,9 +128,13 @@ defmodule Goodwizard.Brain.Seeds do
       "domain" => %{"type" => "string"},
       "industry" => %{"type" => "string"},
       "size" => %{"type" => "string"},
-      "location" => %{"type" => "string"},
+      "emails" => contact_field("Email addresses"),
+      "phones" => contact_field("Phone numbers"),
+      "addresses" => address_field(),
+      "socials" => contact_field("Social media profiles"),
       "contacts" => entity_ref_list("people")
     })
+    |> Map.put("version", 2)
   end
 
   def schema_for("tasklists") do
@@ -179,6 +186,39 @@ defmodule Goodwizard.Brain.Seeds do
       "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
       "created_at" => %{"type" => "string", "format" => "date-time"},
       "updated_at" => %{"type" => "string", "format" => "date-time"}
+    }
+  end
+
+  defp contact_field(description) do
+    %{
+      "type" => "array",
+      "description" => description,
+      "items" => %{
+        "type" => "object",
+        "properties" => %{
+          "type" => %{"type" => "string"},
+          "value" => %{"type" => "string"}
+        },
+        "required" => ["value"]
+      }
+    }
+  end
+
+  defp address_field do
+    %{
+      "type" => "array",
+      "description" => "Postal addresses",
+      "items" => %{
+        "type" => "object",
+        "properties" => %{
+          "type" => %{"type" => "string"},
+          "street" => %{"type" => "string"},
+          "city" => %{"type" => "string"},
+          "state" => %{"type" => "string"},
+          "zip" => %{"type" => "string"},
+          "country" => %{"type" => "string"}
+        }
+      }
     }
   end
 

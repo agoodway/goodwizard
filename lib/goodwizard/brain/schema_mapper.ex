@@ -105,6 +105,10 @@ defmodule Goodwizard.Brain.SchemaMapper do
   defp map_type(%{"type" => "boolean"}), do: :boolean
   defp map_type(%{"type" => "object"}), do: :map
 
+  defp map_type(%{"type" => "array", "items" => %{"type" => "object"}}) do
+    {:list, :map}
+  end
+
   defp map_type(%{"type" => "array", "items" => %{"type" => "string"}}) do
     {:list, :string}
   end
@@ -141,6 +145,10 @@ defmodule Goodwizard.Brain.SchemaMapper do
       _ ->
         Map.get(prop, "description")
     end
+  end
+
+  defp build_doc(%{"type" => "array", "items" => %{"type" => "object"}} = prop) do
+    Map.get(prop, "description")
   end
 
   defp build_doc(%{"description" => desc}) when is_binary(desc), do: desc

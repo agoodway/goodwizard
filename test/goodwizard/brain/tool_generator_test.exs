@@ -11,7 +11,18 @@ defmodule Goodwizard.Brain.ToolGeneratorTest do
     "properties" => %{
       "id" => %{"type" => "string"},
       "name" => %{"type" => "string"},
-      "email" => %{"type" => "string", "format" => "email"},
+      "emails" => %{
+        "type" => "array",
+        "description" => "Email addresses",
+        "items" => %{
+          "type" => "object",
+          "properties" => %{
+            "type" => %{"type" => "string"},
+            "value" => %{"type" => "string"}
+          },
+          "required" => ["value"]
+        }
+      },
       "created_at" => %{"type" => "string"},
       "updated_at" => %{"type" => "string"}
     }

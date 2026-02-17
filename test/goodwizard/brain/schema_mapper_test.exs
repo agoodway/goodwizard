@@ -5,11 +5,22 @@ defmodule Goodwizard.Brain.SchemaMapperTest do
 
   @person_schema %{
     "type" => "object",
-    "required" => ["id", "name", "email"],
+    "required" => ["id", "name"],
     "properties" => %{
       "id" => %{"type" => "string"},
       "name" => %{"type" => "string"},
-      "email" => %{"type" => "string", "format" => "email"},
+      "emails" => %{
+        "type" => "array",
+        "description" => "Email addresses",
+        "items" => %{
+          "type" => "object",
+          "properties" => %{
+            "type" => %{"type" => "string"},
+            "value" => %{"type" => "string"}
+          },
+          "required" => ["value"]
+        }
+      },
       "age" => %{"type" => "integer"},
       "created_at" => %{"type" => "string", "format" => "date-time"},
       "updated_at" => %{"type" => "string", "format" => "date-time"}
@@ -28,12 +39,12 @@ defmodule Goodwizard.Brain.SchemaMapperTest do
     test "marks required non-system fields as required" do
       {:ok, schema} = SchemaMapper.for_create(@person_schema)
       assert Keyword.get(schema, :name)[:required] == true
-      assert Keyword.get(schema, :email)[:required] == true
     end
 
     test "leaves optional fields without required flag" do
       {:ok, schema} = SchemaMapper.for_create(@person_schema)
       refute Keyword.has_key?(Keyword.get(schema, :age), :required)
+      refute Keyword.has_key?(Keyword.get(schema, :emails), :required)
     end
 
     test "appends body field at the end" do
@@ -150,6 +161,34 @@ defmodule Goodwizard.Brain.SchemaMapperTest do
       prop = %{"type" => "array", "items" => %{"pattern" => "^people/"}}
       opts = SchemaMapper.map_property(prop)
       assert opts[:type] == {:list, :string}
+    end
+
+    test "maps array of objects to {:list, :map}" do
+      prop = %{"type" => "array", "items" => %{"type" => "object", "properties" => %{"value" => %{"type" => "string"}}}}
+      assert SchemaMapper.map_property(prop) == [type: {:list, :map}]
+    end
+
+    test "maps array of objects with description includes doc" do
+      prop = %{
+        "type" => "array",
+        "description" => "Email addresses",
+        "items" => %{"type" => "object", "properties" => %{"value" => %{"type" => "string"}}}
+      }
+
+      opts = SchemaMapper.map_property(prop)
+      assert opts[:type] == {:list, :map}
+      assert opts[:doc] == "Email addresses"
+    end
+
+    test "maps array of objects without description has nil doc" do
+      prop = %{
+        "type" => "array",
+        "items" => %{"type" => "object", "properties" => %{"value" => %{"type" => "string"}}}
+      }
+
+      opts = SchemaMapper.map_property(prop)
+      assert opts[:type] == {:list, :map}
+      refute Keyword.has_key?(opts, :doc)
     end
 
     test "maps generic array to {:list, :any}" do
