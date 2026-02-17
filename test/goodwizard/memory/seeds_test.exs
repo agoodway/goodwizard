@@ -21,16 +21,26 @@ defmodule Goodwizard.Memory.SeedsTest do
       assert File.read!(memory_md) == ""
     end
 
-    test "returns :ok on success", %{tmp_dir: tmp_dir} do
-      assert Seeds.seed(tmp_dir) == :ok
+    test "returns {:ok, created} listing what was created", %{tmp_dir: tmp_dir} do
+      assert {:ok, created} = Seeds.seed(tmp_dir)
+      assert "episodic" in created
+      assert "procedural" in created
+      assert "MEMORY.md" in created
     end
 
     test "is idempotent — calling twice does not error", %{tmp_dir: tmp_dir} do
-      assert Seeds.seed(tmp_dir) == :ok
-      assert Seeds.seed(tmp_dir) == :ok
+      assert {:ok, _} = Seeds.seed(tmp_dir)
+      assert {:ok, _} = Seeds.seed(tmp_dir)
 
       assert File.dir?(Path.join(tmp_dir, "memory/episodic"))
       assert File.dir?(Path.join(tmp_dir, "memory/procedural"))
+    end
+
+    test "reports empty list when everything already exists", %{tmp_dir: tmp_dir} do
+      {:ok, _} = Seeds.seed(tmp_dir)
+
+      assert {:ok, created} = Seeds.seed(tmp_dir)
+      refute "MEMORY.md" in created
     end
 
     test "preserves existing MEMORY.md content", %{tmp_dir: tmp_dir} do
@@ -42,6 +52,17 @@ defmodule Goodwizard.Memory.SeedsTest do
       Seeds.seed(tmp_dir)
 
       assert File.read!(memory_md) == "User prefers dark mode"
+    end
+
+    test "returns {:error, reason} on filesystem failure", %{tmp_dir: tmp_dir} do
+      # Create a file where the memory directory should be, so mkdir_p fails
+      memory_dir = Path.join(tmp_dir, "memory")
+      episodic_dir = Path.join(memory_dir, "episodic")
+      File.mkdir_p!(memory_dir)
+      # Create a regular file at "episodic" so mkdir_p cannot create a directory there
+      File.write!(episodic_dir, "not a directory")
+
+      assert {:error, _reason} = Seeds.seed(tmp_dir)
     end
   end
 end

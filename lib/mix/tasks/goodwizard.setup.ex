@@ -6,6 +6,9 @@ defmodule Mix.Tasks.Goodwizard.Setup do
 
   Creates:
     - priv/workspace/memory/
+    - priv/workspace/memory/episodic/
+    - priv/workspace/memory/procedural/
+    - priv/workspace/memory/MEMORY.md (agent-authored learned context, if missing)
     - priv/workspace/sessions/
     - priv/workspace/skills/
     - priv/workspace/brain/schemas/ (with default schemas)
@@ -123,9 +126,20 @@ defmodule Mix.Tasks.Goodwizard.Setup do
 
   defp setup_memory(base) do
     Mix.shell().info("Initializing memory...")
-    Memory.Seeds.seed(base)
-    Mix.shell().info("Created #{Path.join(base, "memory/episodic")}")
-    Mix.shell().info("Created #{Path.join(base, "memory/procedural")}")
+
+    case Memory.Seeds.seed(base) do
+      {:ok, []} ->
+        Mix.shell().info("Memory already initialized")
+
+      {:ok, created} ->
+        Enum.each(created, fn item ->
+          Mix.shell().info("Created memory/#{item}")
+        end)
+
+      {:error, reason} ->
+        Mix.shell().error("Failed to initialize memory: #{inspect(reason)}")
+        Mix.raise("Setup failed: could not initialize memory")
+    end
   end
 
   defp init_brain(base) do
