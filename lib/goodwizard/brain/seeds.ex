@@ -5,6 +5,15 @@ defmodule Goodwizard.Brain.Seeds do
   Ships initial entity type schemas as Elixir maps and writes them
   to disk on first use via `seed/1`.
 
+  ## Schema versioning
+
+  Each schema includes an advisory `"version"` integer (default 1).
+  Schema upgrades for existing installations are handled by migration
+  tasks (e.g. `mix goodwizard.migrate_contacts`) which overwrite
+  on-disk schemas after migrating entity data. The version field is
+  not read at runtime — it serves as metadata for operators inspecting
+  schema files on disk.
+
   ## Security: SSRF considerations for webpages URLs
 
   The webpages entity stores user-provided URLs restricted to http/https schemes.
@@ -63,8 +72,7 @@ defmodule Goodwizard.Brain.Seeds do
       "socials" => contact_field("Social media profiles"),
       "company" => entity_ref("companies"),
       "role" => %{"type" => "string"}
-    })
-    |> Map.put("version", 2)
+    }, 2)
   end
 
   def schema_for("places") do
@@ -133,8 +141,7 @@ defmodule Goodwizard.Brain.Seeds do
       "addresses" => address_field(),
       "socials" => contact_field("Social media profiles"),
       "contacts" => entity_ref_list("people")
-    })
-    |> Map.put("version", 2)
+    }, 2)
   end
 
   def schema_for("tasklists") do
@@ -165,11 +172,11 @@ defmodule Goodwizard.Brain.Seeds do
     Map.update!(schema, "properties", &Map.delete(&1, "webpages"))
   end
 
-  defp build_schema(title, required, custom_properties) do
+  defp build_schema(title, required, custom_properties, version \\ 1) do
     %{
       "$schema" => "http://json-schema.org/draft-07/schema#",
       "title" => title,
-      "version" => 1,
+      "version" => version,
       "type" => "object",
       "required" => required,
       "properties" => Map.merge(base_properties(), custom_properties),
@@ -217,7 +224,8 @@ defmodule Goodwizard.Brain.Seeds do
           "state" => %{"type" => "string"},
           "zip" => %{"type" => "string"},
           "country" => %{"type" => "string"}
-        }
+        },
+        "required" => ["city"]
       }
     }
   end

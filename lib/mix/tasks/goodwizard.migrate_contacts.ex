@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Goodwizard.MigrateContacts do
   """
   use Mix.Task
 
-  alias Goodwizard.Brain.{Entity, Paths}
+  alias Goodwizard.Brain.{Entity, Paths, Schema, Seeds}
 
   @shortdoc "Migrate scalar email/phone/location fields to multi-value arrays"
 
@@ -27,8 +27,12 @@ defmodule Mix.Tasks.Goodwizard.MigrateContacts do
     "location" => "addresses"
   }
 
+  @schema_types ~w(people companies)
+
   @impl Mix.Task
   def run(_args) do
+    Mix.Task.run("app.start")
+
     workspace = Goodwizard.Config.workspace()
 
     Mix.shell().info("Migrating contact fields in #{workspace}...")
@@ -36,25 +40,31 @@ defmodule Mix.Tasks.Goodwizard.MigrateContacts do
     people_result = migrate_type(workspace, "people", @people_fields)
     company_result = migrate_type(workspace, "companies", @company_fields)
 
+    upgrade_schemas(workspace)
+
     report(people_result, "people")
     report(company_result, "companies")
   end
 
   @doc false
   def migrate_type(workspace, entity_type, field_map) do
-    {:ok, type_dir} = Paths.entity_type_dir(workspace, entity_type)
+    case Paths.entity_type_dir(workspace, entity_type) do
+      {:ok, type_dir} ->
+        case File.ls(type_dir) do
+          {:ok, files} ->
+            files
+            |> Enum.filter(&String.ends_with?(&1, ".md"))
+            |> Enum.reduce(%{migrated: 0, skipped: 0, errors: []}, fn file, acc ->
+              path = Path.join(type_dir, file)
+              migrate_file(path, field_map, acc)
+            end)
 
-    case File.ls(type_dir) do
-      {:ok, files} ->
-        files
-        |> Enum.filter(&String.ends_with?(&1, ".md"))
-        |> Enum.reduce(%{migrated: 0, skipped: 0, errors: []}, fn file, acc ->
-          path = Path.join(type_dir, file)
-          migrate_file(path, field_map, acc)
-        end)
+          {:error, :enoent} ->
+            %{migrated: 0, skipped: 0, errors: []}
+        end
 
-      {:error, :enoent} ->
-        %{migrated: 0, skipped: 0, errors: []}
+      {:error, reason} ->
+        %{migrated: 0, skipped: 0, errors: [{"entity_type:#{entity_type}", reason}]}
     end
   end
 
@@ -64,8 +74,7 @@ defmodule Mix.Tasks.Goodwizard.MigrateContacts do
       case migrate_data(data, field_map) do
         {:migrated, new_data} ->
           serialized = Entity.serialize(new_data, body)
-          File.write!(path, serialized)
-          %{acc | migrated: acc.migrated + 1}
+          atomic_write(path, serialized, acc)
 
         :skip ->
           %{acc | skipped: acc.skipped + 1}
@@ -74,6 +83,27 @@ defmodule Mix.Tasks.Goodwizard.MigrateContacts do
       {:error, reason} ->
         %{acc | errors: [{path, reason} | acc.errors]}
     end
+  end
+
+  defp atomic_write(path, content, acc) do
+    tmp_path = path <> ".tmp"
+
+    with :ok <- File.write(tmp_path, content),
+         {:ok, _content} <- File.read(tmp_path),
+         :ok <- File.rename(tmp_path, path) do
+      %{acc | migrated: acc.migrated + 1}
+    else
+      {:error, reason} ->
+        File.rm(tmp_path)
+        %{acc | errors: [{path, reason} | acc.errors]}
+    end
+  end
+
+  defp upgrade_schemas(workspace) do
+    Enum.each(@schema_types, fn type ->
+      schema = Seeds.schema_for(type)
+      Schema.save(workspace, type, schema)
+    end)
   end
 
   @doc false
