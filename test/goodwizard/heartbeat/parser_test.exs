@@ -63,7 +63,12 @@ defmodule Goodwizard.Heartbeat.ParserTest do
 
       assert {:structured, checks} = Parser.parse(content)
       assert length(checks) == 3
-      assert Enum.at(checks, 0) == %{index: 1, text: "Check inbox for new messages", checked: false}
+
+      assert Enum.at(checks, 0) == %{
+               index: 1,
+               text: "Check inbox for new messages",
+               checked: false
+             }
 
       assert Enum.at(checks, 1) == %{
                index: 2,
@@ -71,12 +76,18 @@ defmodule Goodwizard.Heartbeat.ParserTest do
                checked: false
              }
 
-      assert Enum.at(checks, 2) == %{index: 3, text: "Run project health check on goodwizard", checked: false}
+      assert Enum.at(checks, 2) == %{
+               index: 3,
+               text: "Run project health check on goodwizard",
+               checked: false
+             }
     end
 
     test "extracts single check" do
       content = "- [ ] Check inbox"
-      assert {:structured, [%{index: 1, text: "Check inbox", checked: false}]} = Parser.parse(content)
+
+      assert {:structured, [%{index: 1, text: "Check inbox", checked: false}]} =
+               Parser.parse(content)
     end
 
     test "returns plain for content with no task-list lines" do
