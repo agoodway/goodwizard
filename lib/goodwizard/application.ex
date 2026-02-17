@@ -35,18 +35,15 @@ defmodule Goodwizard.Application do
     Supervisor.start_link(children, opts)
   end
 
-  if Mix.env() == :dev do
-    defp maybe_add_file_logger do
-      log_dir = Path.join(File.cwd!(), "log")
-      File.mkdir_p!(log_dir)
+  defp maybe_add_file_logger do
+    log_dir = Path.join(File.cwd!(), "logs")
+    File.mkdir_p!(log_dir)
+    log_file = "#{Mix.env()}.log"
 
-      :logger.add_handler(:file_log, :logger_std_h, %{
-        config: %{file: String.to_charlist(Path.join(log_dir, "dev.log"))},
-        formatter: Logger.Formatter.new()
-      })
-    end
-  else
-    defp maybe_add_file_logger, do: :ok
+    :logger.add_handler(:file_log, :logger_std_h, %{
+      config: %{file: String.to_charlist(Path.join(log_dir, log_file))},
+      formatter: Logger.Formatter.new()
+    })
   end
 
   defp generate_brain_tools do
