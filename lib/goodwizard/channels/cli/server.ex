@@ -18,6 +18,7 @@ defmodule Goodwizard.Channels.CLI.Server do
 
   alias Goodwizard.Agent, as: GoodwizardAgent
   alias Goodwizard.Messaging
+  alias Goodwizard.Plugins.Session
 
   @ask_timeout 120_000
   @max_input_length 10_000
@@ -54,7 +55,7 @@ defmodule Goodwizard.Channels.CLI.Server do
     case start_cli_agent(workspace) do
       {:ok, agent_pid} ->
         Logger.info("CLI channel started, room=#{room.id}", channel: :cli)
-        Task.start(fn -> Goodwizard.Plugins.Session.cleanup_old_sessions() end)
+        Task.start(fn -> Session.cleanup_old_sessions() end)
 
         state = %{room_id: room.id, agent_pid: agent_pid, workspace: workspace}
         maybe_start_repl(opts, state)

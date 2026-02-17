@@ -3,7 +3,7 @@ defmodule Goodwizard.Character.HydratorTest do
 
   alias Goodwizard.Brain.Schema
   alias Goodwizard.Cache
-  alias Goodwizard.Character.Hydrator
+  alias Goodwizard.Character.{Hydrator, Preamble}
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "hydrator_test_#{:rand.uniform(100_000)}")
@@ -53,14 +53,14 @@ defmodule Goodwizard.Character.HydratorTest do
   describe "hydrate/2 preamble" do
     test "system prompt starts with preamble content", %{workspace: workspace} do
       {:ok, prompt} = Hydrator.hydrate(workspace)
-      preamble = Goodwizard.Character.Preamble.generate()
+      preamble = Preamble.generate()
 
       assert String.starts_with?(prompt, preamble)
     end
 
     test "preamble is separated from character content by a blank line", %{workspace: workspace} do
       {:ok, prompt} = Hydrator.hydrate(workspace)
-      preamble = Goodwizard.Character.Preamble.generate()
+      preamble = Preamble.generate()
 
       # After removing the preamble, the remaining content should start with "\n\n"
       rest = String.replace_prefix(prompt, preamble, "")

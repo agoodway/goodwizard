@@ -59,12 +59,7 @@ defmodule Goodwizard.Scheduling.CronStore do
         jobs =
           files
           |> Enum.filter(&String.ends_with?(&1, ".json"))
-          |> Enum.reduce([], fn file, acc ->
-            case read_job(Path.join(dir, file)) do
-              {:ok, job} -> [job | acc]
-              :skip -> acc
-            end
-          end)
+          |> Enum.reduce([], fn file, acc -> collect_job(Path.join(dir, file), acc) end)
           |> Enum.sort_by(& &1["created_at"], &<=/2)
 
         {:ok, jobs}
@@ -114,6 +109,13 @@ defmodule Goodwizard.Scheduling.CronStore do
     record
     |> Map.new(fn {k, v} -> {to_string(k), v} end)
     |> Map.update("job_id", nil, &to_string/1)
+  end
+
+  defp collect_job(path, acc) do
+    case read_job(path) do
+      {:ok, job} -> [job | acc]
+      :skip -> acc
+    end
   end
 
   defp read_job(path) do

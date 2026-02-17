@@ -80,9 +80,11 @@ defmodule Goodwizard.Agent do
   require Logger
 
   alias Goodwizard.Actions.Memory.Consolidate
+  alias Goodwizard.Brain.ToolGenerator
   alias Goodwizard.BrowserSessionStore
   alias Goodwizard.Character.Hydrator
   alias Goodwizard.Plugins.Session
+  alias Jido.AI.ToolAdapter
 
   @impl true
   def on_before_cmd(agent, {:react_start, %{query: _query}} = action) do
@@ -273,22 +275,26 @@ defmodule Goodwizard.Agent do
       # The wrapper adds --oneshot which bypasses the daemon entirely,
       # but stop any lingering daemon from previous non-oneshot runs.
       # Read the wrapper to find the real binary path.
-      case File.read(wrapper_path) do
-        {:ok, content} ->
-          case Regex.run(~r/exec "(.+)" --oneshot/, content) do
-            [_, real_binary] ->
-              System.cmd(real_binary, ["daemon", "stop"], stderr_to_stdout: true)
-
-            _ ->
-              :ok
-          end
-
-        _ ->
-          :ok
-      end
+      stop_daemon_from_wrapper(wrapper_path)
     end
   rescue
     _ -> :ok
+  end
+
+  defp stop_daemon_from_wrapper(wrapper_path) do
+    case File.read(wrapper_path) do
+      {:ok, content} ->
+        case Regex.run(~r/exec "(.+)" --oneshot/, content) do
+          [_, real_binary] ->
+            System.cmd(real_binary, ["daemon", "stop"], stderr_to_stdout: true)
+
+          _ ->
+            :ok
+        end
+
+      _ ->
+        :ok
+    end
   end
 
   defp maybe_consolidate(agent) do
@@ -348,7 +354,7 @@ defmodule Goodwizard.Agent do
   end
 
   defp ensure_brain_tools(agent) do
-    brain_tools = Goodwizard.Brain.ToolGenerator.generated_modules()
+    brain_tools = ToolGenerator.generated_modules()
 
     if brain_tools == [] do
       agent
@@ -364,7 +370,7 @@ defmodule Goodwizard.Agent do
         agent
       else
         actions_by_name = Map.new(all_tools, &{&1.name(), &1})
-        reqllm_tools = Jido.AI.ToolAdapter.from_actions(all_tools)
+        reqllm_tools = ToolAdapter.from_actions(all_tools)
 
         updated_config =
           config

@@ -1,7 +1,7 @@
 defmodule Goodwizard.Scheduling.OneShotLoaderTest do
   use ExUnit.Case, async: false
 
-  alias Goodwizard.Scheduling.{OneShotLoader, OneShotStore, OneShotRegistry}
+  alias Goodwizard.Scheduling.{OneShotLoader, OneShotRegistry, OneShotStore}
 
   @test_workspace Path.join(
                     System.tmp_dir!(),

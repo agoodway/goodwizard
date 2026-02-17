@@ -141,12 +141,10 @@ defmodule Goodwizard.Actions.Brain.Helpers do
 
   defp format_validation_errors(errors) do
     details =
-      errors
-      |> Enum.map(fn
+      Enum.map_join(errors, "; ", fn
         {message, path} when is_binary(message) -> "#{path}: #{message}"
         other -> inspect(other)
       end)
-      |> Enum.join("; ")
 
     "Validation failed: #{details}"
   end

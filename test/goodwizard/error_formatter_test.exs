@@ -2,11 +2,12 @@ defmodule Goodwizard.ErrorFormatterTest do
   use ExUnit.Case, async: true
 
   alias Goodwizard.ErrorFormatter
+  alias ReqLLM.Error.API
 
   describe "ReqLLM.Error.API.Request" do
     test "usage limit with date" do
       error =
-        ReqLLM.Error.API.Request.exception(
+        API.Request.exception(
           reason:
             "Your organization has exceeded its usage limits. You can regain access on 2026-03-01 at 00:00 UTC.",
           status: 400
@@ -18,7 +19,7 @@ defmodule Goodwizard.ErrorFormatterTest do
 
     test "usage limit without date" do
       error =
-        ReqLLM.Error.API.Request.exception(
+        API.Request.exception(
           reason: "Your organization has exceeded its usage limits.",
           status: 429
         )
@@ -29,7 +30,7 @@ defmodule Goodwizard.ErrorFormatterTest do
 
     test "rate limit" do
       error =
-        ReqLLM.Error.API.Request.exception(
+        API.Request.exception(
           reason: "Rate Limited - Too many requests",
           status: 429
         )
@@ -40,7 +41,7 @@ defmodule Goodwizard.ErrorFormatterTest do
 
     test "generic 400 error" do
       error =
-        ReqLLM.Error.API.Request.exception(
+        API.Request.exception(
           reason: "Bad Request - Invalid parameters",
           status: 400
         )
@@ -50,35 +51,35 @@ defmodule Goodwizard.ErrorFormatterTest do
     end
 
     test "401 unauthorized" do
-      error = ReqLLM.Error.API.Request.exception(reason: "Unauthorized", status: 401)
+      error = API.Request.exception(reason: "Unauthorized", status: 401)
 
       assert ErrorFormatter.format(error) ==
                "I'm having trouble authenticating with my AI provider. Please check the API key configuration."
     end
 
     test "403 forbidden" do
-      error = ReqLLM.Error.API.Request.exception(reason: "Forbidden", status: 403)
+      error = API.Request.exception(reason: "Forbidden", status: 403)
 
       assert ErrorFormatter.format(error) ==
                "I'm having trouble authenticating with my AI provider. Please check the API key configuration."
     end
 
     test "500 server error" do
-      error = ReqLLM.Error.API.Request.exception(reason: "Internal Server Error", status: 500)
+      error = API.Request.exception(reason: "Internal Server Error", status: 500)
 
       assert ErrorFormatter.format(error) ==
                "My AI provider is experiencing issues (HTTP 500). Please try again shortly."
     end
 
     test "503 server error" do
-      error = ReqLLM.Error.API.Request.exception(reason: "Service Unavailable", status: 503)
+      error = API.Request.exception(reason: "Service Unavailable", status: 503)
 
       assert ErrorFormatter.format(error) ==
                "My AI provider is experiencing issues (HTTP 503). Please try again shortly."
     end
 
     test "generic API error with reason" do
-      error = ReqLLM.Error.API.Request.exception(reason: "Something went wrong", status: nil)
+      error = API.Request.exception(reason: "Something went wrong", status: nil)
 
       assert ErrorFormatter.format(error) == "AI provider error: Something went wrong"
     end
@@ -86,7 +87,7 @@ defmodule Goodwizard.ErrorFormatterTest do
 
   describe "ReqLLM.Error.API.Response" do
     test "formats response error" do
-      error = ReqLLM.Error.API.Response.exception(reason: "Unexpected format")
+      error = API.Response.exception(reason: "Unexpected format")
 
       assert ErrorFormatter.format(error) ==
                "I received an unexpected response from my AI provider. Please try again."
@@ -95,7 +96,7 @@ defmodule Goodwizard.ErrorFormatterTest do
 
   describe "ReqLLM.Error.API.JSONDecode" do
     test "formats JSON decode error" do
-      error = ReqLLM.Error.API.JSONDecode.exception(message: "unexpected token")
+      error = API.JSONDecode.exception(message: "unexpected token")
 
       assert ErrorFormatter.format(error) ==
                "I received a malformed response from my AI provider. Please try again."
@@ -104,7 +105,7 @@ defmodule Goodwizard.ErrorFormatterTest do
 
   describe "ReqLLM.Error.API.Stream" do
     test "formats stream error" do
-      error = ReqLLM.Error.API.Stream.exception(reason: "connection reset")
+      error = API.Stream.exception(reason: "connection reset")
       assert ErrorFormatter.format(error) == "Streaming error: connection reset"
     end
   end

@@ -23,7 +23,7 @@ defmodule Goodwizard.Actions.Scheduling.CancelOneShot do
       ]
     ]
 
-  alias Goodwizard.Scheduling.{OneShotStore, OneShotRegistry}
+  alias Goodwizard.Scheduling.{OneShotRegistry, OneShotStore}
 
   @impl true
   def run(%{job_id: job_id}, _context) do

@@ -33,16 +33,7 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
       case Schema.save(workspace, params.entity_type, schema) do
         :ok ->
           Goodwizard.Cache.delete("brain:schema_summaries:#{workspace}")
-
-          tool_msg =
-            case ToolGenerator.generate_for_type(workspace, params.entity_type) do
-              {:ok, _modules} ->
-                "Typed tools regenerated — available next turn."
-
-              {:error, reason} ->
-                "Tool generation failed (#{inspect(reason)}) — generic tools still available."
-            end
-
+          tool_msg = regenerate_tools(workspace, params.entity_type)
           {:ok, %{message: "Schema saved for type: #{params.entity_type}. #{tool_msg}"}}
 
         {:error, reason} ->
@@ -82,6 +73,16 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
       schema
     else
       Map.put(schema, "required", required ++ [field])
+    end
+  end
+
+  defp regenerate_tools(workspace, entity_type) do
+    case ToolGenerator.generate_for_type(workspace, entity_type) do
+      {:ok, _modules} ->
+        "Typed tools regenerated — available next turn."
+
+      {:error, reason} ->
+        "Tool generation failed (#{inspect(reason)}) — generic tools still available."
     end
   end
 

@@ -59,17 +59,17 @@ defmodule Goodwizard.Messaging.Delivery do
   # Format: %{telegram: %{"instance_id" => "external_room_id"}}
   defp bindings_from_room(room_id) do
     case Messaging.get_room(room_id) do
-      {:ok, room} ->
-        room.external_bindings
-        |> Enum.flat_map(fn {channel, instances} ->
-          Enum.map(instances, fn {_instance_id, external_room_id} ->
-            {channel, to_string(external_room_id)}
-          end)
-        end)
-
-      {:error, _} ->
-        []
+      {:ok, room} -> flatten_external_bindings(room.external_bindings)
+      {:error, _} -> []
     end
+  end
+
+  defp flatten_external_bindings(external_bindings) do
+    Enum.flat_map(external_bindings, fn {channel, instances} ->
+      Enum.map(instances, fn {_instance_id, external_room_id} ->
+        {channel, to_string(external_room_id)}
+      end)
+    end)
   end
 
   defp outbound_enabled?(%{direction: direction, enabled: enabled}) do

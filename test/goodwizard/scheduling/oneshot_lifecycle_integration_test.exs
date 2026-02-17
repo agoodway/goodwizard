@@ -5,8 +5,8 @@ defmodule Goodwizard.Scheduling.OneShotLifecycleIntegrationTest do
   """
   use ExUnit.Case, async: false
 
-  alias Goodwizard.Actions.Scheduling.{OneShot, CancelOneShot}
-  alias Goodwizard.Scheduling.{OneShotStore, OneShotLoader}
+  alias Goodwizard.Actions.Scheduling.{CancelOneShot, OneShot}
+  alias Goodwizard.Scheduling.{OneShotLoader, OneShotStore}
 
   @test_workspace Path.join(
                     System.tmp_dir!(),

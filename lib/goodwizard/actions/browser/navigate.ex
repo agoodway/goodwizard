@@ -22,16 +22,14 @@ defmodule Goodwizard.Actions.Browser.Navigate do
 
   alias Goodwizard.Browser.Serializer
   alias Goodwizard.BrowserSessionStore
+  alias JidoBrowser.Actions.Navigate, as: JidoNavigate
 
   @impl true
   def run(params, context) do
     Serializer.execute(fn ->
-      case JidoBrowser.Actions.Navigate.run(params, context) do
+      case JidoNavigate.run(params, context) do
         {:ok, %{session: %JidoBrowser.Session{} = session} = result} ->
-          if agent_id = context[:agent_id] do
-            BrowserSessionStore.put(agent_id, session)
-          end
-
+          maybe_store_session(context[:agent_id], session)
           {:ok, result}
 
         other ->
@@ -39,4 +37,7 @@ defmodule Goodwizard.Actions.Browser.Navigate do
       end
     end)
   end
+
+  defp maybe_store_session(nil, _session), do: :ok
+  defp maybe_store_session(agent_id, session), do: BrowserSessionStore.put(agent_id, session)
 end

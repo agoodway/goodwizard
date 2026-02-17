@@ -5,8 +5,8 @@ defmodule Goodwizard.Scheduling.CronLifecycleIntegrationTest do
   """
   use ExUnit.Case, async: false
 
-  alias Goodwizard.Actions.Scheduling.{Cron, CancelCron}
-  alias Goodwizard.Scheduling.{CronStore, CronLoader}
+  alias Goodwizard.Actions.Scheduling.{CancelCron, Cron}
+  alias Goodwizard.Scheduling.{CronLoader, CronStore}
 
   @test_workspace Path.join(
                     System.tmp_dir!(),

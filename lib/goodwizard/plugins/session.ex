@@ -149,24 +149,7 @@ defmodule Goodwizard.Plugins.Session do
 
     excess = Enum.drop(files, max)
 
-    Enum.each(excess, fn {path, original_mtime} ->
-      case File.stat(path) do
-        {:ok, %{mtime: ^original_mtime}} ->
-          case File.rm(path) do
-            :ok ->
-              Logger.debug("Cleaned up old session: #{Path.basename(path)}")
-
-            {:error, reason} ->
-              Logger.warning("Failed to delete session file #{path}: #{inspect(reason)}")
-          end
-
-        {:ok, _} ->
-          Logger.debug("Skipping #{Path.basename(path)}: modified since listing")
-
-        {:error, _} ->
-          :ok
-      end
-    end)
+    Enum.each(excess, &remove_stale_session/1)
 
     :ok
   end
@@ -216,23 +199,7 @@ defmodule Goodwizard.Plugins.Session do
 
         {:error, :file_too_large}
       else
-        case File.write(path, content) do
-          :ok ->
-            case File.chmod(path, 0o600) do
-              :ok ->
-                :ok
-
-              {:error, reason} ->
-                Logger.warning("Failed to chmod session file #{path}: #{inspect(reason)}")
-            end
-
-            Logger.debug("Session saved: #{session_key} (#{length(messages)} messages)")
-            :ok
-
-          error ->
-            Logger.error("Failed to write session file #{path}: #{inspect(error)}")
-            error
-        end
+        write_session_file(path, content, session_key, length(messages))
       end
     end
   end
@@ -251,23 +218,7 @@ defmodule Goodwizard.Plugins.Session do
     with {:ok, filename} <- safe_filename(sessions_dir, session_key) do
       path = Path.join(sessions_dir, filename)
 
-      case File.stat(path) do
-        {:ok, %{size: size}} when size > @max_file_size ->
-          Logger.warning(
-            "Session file too large (#{size} bytes), skipping load for #{session_key}"
-          )
-
-          {:error, :file_too_large}
-
-        _ ->
-          case File.read(path) do
-            {:ok, content} ->
-              parse_session_file(content)
-
-            {:error, _reason} ->
-              {:error, :not_found}
-          end
-      end
+      read_session_file(path, session_key)
     end
   end
 
@@ -314,6 +265,63 @@ defmodule Goodwizard.Plugins.Session do
       end
     end)
     |> Enum.reverse()
+  end
+
+  defp remove_stale_session({path, original_mtime}) do
+    case File.stat(path) do
+      {:ok, %{mtime: ^original_mtime}} ->
+        case File.rm(path) do
+          :ok ->
+            Logger.debug("Cleaned up old session: #{Path.basename(path)}")
+
+          {:error, reason} ->
+            Logger.warning("Failed to delete session file #{path}: #{inspect(reason)}")
+        end
+
+      {:ok, _} ->
+        Logger.debug("Skipping #{Path.basename(path)}: modified since listing")
+
+      {:error, _} ->
+        :ok
+    end
+  end
+
+  defp write_session_file(path, content, session_key, message_count) do
+    case File.write(path, content) do
+      :ok ->
+        case File.chmod(path, 0o600) do
+          :ok ->
+            :ok
+
+          {:error, reason} ->
+            Logger.warning("Failed to chmod session file #{path}: #{inspect(reason)}")
+        end
+
+        Logger.debug("Session saved: #{session_key} (#{message_count} messages)")
+        :ok
+
+      error ->
+        Logger.error("Failed to write session file #{path}: #{inspect(error)}")
+        error
+    end
+  end
+
+  defp read_session_file(path, session_key) do
+    case File.stat(path) do
+      {:ok, %{size: size}} when size > @max_file_size ->
+        Logger.warning("Session file too large (#{size} bytes), skipping load for #{session_key}")
+
+        {:error, :file_too_large}
+
+      _ ->
+        case File.read(path) do
+          {:ok, content} ->
+            parse_session_file(content)
+
+          {:error, _reason} ->
+            {:error, :not_found}
+        end
+    end
   end
 
   defp sanitize_key(key) do

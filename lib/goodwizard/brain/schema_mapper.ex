@@ -25,18 +25,7 @@ defmodule Goodwizard.Brain.SchemaMapper do
       schema =
         fields
         |> Enum.sort_by(fn {name, _} -> name end)
-        |> Enum.map(fn {atom_name, {str_name, prop}} ->
-          opts = map_property(prop)
-
-          opts =
-            if MapSet.member?(required, str_name) and str_name not in @system_fields do
-              Keyword.put(opts, :required, true)
-            else
-              opts
-            end
-
-          {atom_name, opts}
-        end)
+        |> Enum.map(&map_create_field(&1, required))
         |> Kernel.++([
           {:body, [type: :string, default: "", doc: "Optional markdown body content"]}
         ])
@@ -72,6 +61,19 @@ defmodule Goodwizard.Brain.SchemaMapper do
 
       {:ok, schema}
     end
+  end
+
+  defp map_create_field({atom_name, {str_name, prop}}, required) do
+    opts = map_property(prop)
+
+    opts =
+      if MapSet.member?(required, str_name) and str_name not in @system_fields do
+        Keyword.put(opts, :required, true)
+      else
+        opts
+      end
+
+    {atom_name, opts}
   end
 
   defp validate_and_map_properties(properties, system_fields) do

@@ -96,10 +96,8 @@ defmodule Goodwizard.Scheduling.OneShotRegistry do
   defp normalize_job_id(job_id) when is_atom(job_id), do: job_id
 
   defp normalize_job_id(job_id) when is_binary(job_id) do
-    try do
-      String.to_existing_atom(job_id)
-    rescue
-      ArgumentError -> job_id
-    end
+    String.to_existing_atom(job_id)
+  rescue
+    ArgumentError -> job_id
   end
 end

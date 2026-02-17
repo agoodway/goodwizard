@@ -9,6 +9,7 @@ defmodule Goodwizard.Application do
   require Logger
 
   alias Goodwizard.Brain.ToolGenerator
+  alias Goodwizard.Scheduling.{CronLoader, OneShotLoader}
 
   @impl true
   def start(_type, _args) do
@@ -71,7 +72,7 @@ defmodule Goodwizard.Application do
   end
 
   defp reload_cron_jobs do
-    case Goodwizard.Scheduling.CronLoader.reload() do
+    case CronLoader.reload() do
       {:ok, count} when count > 0 ->
         Logger.info("Reloaded #{count} persisted cron job(s)")
 
@@ -87,7 +88,7 @@ defmodule Goodwizard.Application do
   end
 
   defp reload_oneshot_jobs do
-    case Goodwizard.Scheduling.OneShotLoader.reload() do
+    case OneShotLoader.reload() do
       {:ok, count} when count > 0 ->
         Logger.info("Reloaded #{count} persisted one-shot job(s)")
 

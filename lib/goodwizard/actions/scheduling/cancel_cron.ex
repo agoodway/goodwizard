@@ -22,7 +22,7 @@ defmodule Goodwizard.Actions.Scheduling.CancelCron do
       ]
     ]
 
-  alias Goodwizard.Scheduling.{CronStore, CronRegistry}
+  alias Goodwizard.Scheduling.{CronRegistry, CronStore}
 
   @impl true
   def run(%{job_id: job_id}, _context) do

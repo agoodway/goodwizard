@@ -2,7 +2,7 @@ defmodule Goodwizard.Actions.Scheduling.CancelOneShotTest do
   use ExUnit.Case, async: false
 
   alias Goodwizard.Actions.Scheduling.{CancelOneShot, OneShot}
-  alias Goodwizard.Scheduling.{OneShotStore, OneShotRegistry}
+  alias Goodwizard.Scheduling.{OneShotRegistry, OneShotStore}
 
   @test_workspace Path.join(
                     System.tmp_dir!(),

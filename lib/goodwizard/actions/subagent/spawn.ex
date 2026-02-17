@@ -16,6 +16,7 @@ defmodule Goodwizard.Actions.Subagent.Spawn do
       context: [type: :string, doc: "Optional context to provide to the subagent"]
     ]
 
+  alias Goodwizard.Actions.Brain.Helpers
   alias Goodwizard.SubAgent
 
   @ask_timeout 120_000
@@ -25,7 +26,7 @@ defmodule Goodwizard.Actions.Subagent.Spawn do
   def run(params, context) do
     task_description = params.task
     task_context = Map.get(params, :context, "")
-    workspace = Goodwizard.Actions.Brain.Helpers.workspace(context)
+    workspace = Helpers.workspace(context)
 
     query =
       "Workspace: #{workspace}\n" <>

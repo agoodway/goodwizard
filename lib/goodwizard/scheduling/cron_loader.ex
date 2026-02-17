@@ -13,8 +13,9 @@ defmodule Goodwizard.Scheduling.CronLoader do
   require Logger
 
   alias Goodwizard.Agent, as: GoodwizardAgent
-  alias Goodwizard.Scheduling.{CronStore, CronRegistry}
+  alias Goodwizard.Scheduling.{CronRegistry, CronStore}
   alias Jido.Agent.Directive
+  alias Jido.AgentServer.Signal.CronTick
 
   @doc """
   Reloads all persisted cron jobs.
@@ -86,32 +87,7 @@ defmodule Goodwizard.Scheduling.CronLoader do
       # mirroring what DirectiveExec.Cron does internally.
       signal = build_cron_tick_signal(message, job_id, agent_id)
 
-      case Jido.Scheduler.run_every(
-             fn ->
-               case Goodwizard.Jido.whereis(agent_id) do
-                 pid when is_pid(pid) -> Jido.AgentServer.cast(pid, signal)
-                 nil -> Logger.warning("CronLoader: agent #{agent_id} not found, skipping tick")
-               end
-
-               :ok
-             end,
-             directive.cron,
-             []
-           ) do
-        {:ok, sched_pid} ->
-          # SchedEx.Runner uses GenServer.start_link, linking to the caller.
-          # CronLoader runs inside a startup Task that exits after boot.
-          # Unlink so the SchedEx runner outlives the caller.
-          Process.unlink(sched_pid)
-          CronRegistry.register(job_id, sched_pid)
-          Logger.debug("CronLoader: registered #{job_id} (#{schedule})")
-          :ok
-
-        {:error, reason} ->
-          Logger.warning("CronLoader: failed to register #{job_id}: #{inspect(reason)}")
-
-          :skip
-      end
+      start_scheduler(agent_id, signal, directive.cron, job_id, schedule)
     else
       {:error, reason} ->
         Logger.warning("CronLoader: skipping malformed job record: #{inspect(reason)}")
@@ -147,8 +123,37 @@ defmodule Goodwizard.Scheduling.CronLoader do
     end
   end
 
+  defp start_scheduler(agent_id, signal, cron_expr, job_id, schedule) do
+    tick_fn = fn ->
+      dispatch_tick(agent_id, signal)
+      :ok
+    end
+
+    case Jido.Scheduler.run_every(tick_fn, cron_expr, []) do
+      {:ok, sched_pid} ->
+        # SchedEx.Runner uses GenServer.start_link, linking to the caller.
+        # CronLoader runs inside a startup Task that exits after boot.
+        # Unlink so the SchedEx runner outlives the caller.
+        Process.unlink(sched_pid)
+        CronRegistry.register(job_id, sched_pid)
+        Logger.debug("CronLoader: registered #{job_id} (#{schedule})")
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("CronLoader: failed to register #{job_id}: #{inspect(reason)}")
+        :skip
+    end
+  end
+
+  defp dispatch_tick(agent_id, signal) do
+    case Goodwizard.Jido.whereis(agent_id) do
+      pid when is_pid(pid) -> Jido.AgentServer.cast(pid, signal)
+      nil -> Logger.warning("CronLoader: agent #{agent_id} not found, skipping tick")
+    end
+  end
+
   defp build_cron_tick_signal(message, job_id, agent_id) do
-    Jido.AgentServer.Signal.CronTick.new!(
+    CronTick.new!(
       %{job_id: job_id, message: message},
       source: "/agent/#{agent_id}"
     )

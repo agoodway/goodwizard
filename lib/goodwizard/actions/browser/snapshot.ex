@@ -34,6 +34,7 @@ defmodule Goodwizard.Actions.Browser.Snapshot do
   require Logger
 
   alias Goodwizard.Browser.Serializer
+  alias JidoBrowser.Actions.Evaluate
 
   # Markers that delimit the JSON in clicker output. Chosen to be
   # unlikely to appear in page content, log lines, or JS source.
@@ -59,7 +60,7 @@ defmodule Goodwizard.Actions.Browser.Snapshot do
   defp run_snapshot(params, context) do
     js = build_snapshot_js(params)
 
-    case JidoBrowser.Actions.Evaluate.run(%{script: js}, context) do
+    case Evaluate.run(%{script: js}, context) do
       {:ok, %{result: result}} ->
         case extract_marked_json(result) do
           {:ok, decoded} when is_map(decoded) ->
@@ -140,7 +141,7 @@ defmodule Goodwizard.Actions.Browser.Snapshot do
     })()
     """
 
-    case JidoBrowser.Actions.Evaluate.run(%{script: js}, context) do
+    case Evaluate.run(%{script: js}, context) do
       {:ok, %{result: result}} ->
         case extract_marked_json(result) do
           {:ok, decoded} when is_map(decoded) ->

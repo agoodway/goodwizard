@@ -66,12 +66,7 @@ defmodule Goodwizard.Scheduling.OneShotStore do
         jobs =
           files
           |> Enum.filter(&String.ends_with?(&1, ".json"))
-          |> Enum.reduce([], fn file, acc ->
-            case read_job(Path.join(dir, file)) do
-              {:ok, job} -> [job | acc]
-              :skip -> acc
-            end
-          end)
+          |> Enum.reduce([], fn file, acc -> collect_job(Path.join(dir, file), acc) end)
           |> Enum.sort_by(& &1["fires_at"], &<=/2)
 
         {:ok, jobs}
@@ -124,6 +119,13 @@ defmodule Goodwizard.Scheduling.OneShotStore do
     do: to_string(v)
 
   defp normalize_value(v), do: v
+
+  defp collect_job(path, acc) do
+    case read_job(path) do
+      {:ok, job} -> [job | acc]
+      :skip -> acc
+    end
+  end
 
   defp read_job(path) do
     with {:ok, content} <- File.read(path),

@@ -46,7 +46,7 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
 
   require Logger
 
-  alias Goodwizard.Scheduling.{CronStore, CronRegistry}
+  alias Goodwizard.Scheduling.{CronRegistry, CronStore}
 
   @valid_modes ~w(main isolated)
   @known_model_prefixes ~w(anthropic: openai: google: ollama: mistral:)
@@ -57,6 +57,7 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
   @default_max_jobs 50
 
   alias Goodwizard.Actions.Brain.Helpers
+  alias Jido.AgentServer.Signal.CronTick
 
   @impl true
   def run(params, context) do
@@ -83,50 +84,7 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
 
       signal = build_cron_tick_signal(message, job_id, agent_id)
 
-      case Jido.Scheduler.run_every(
-             fn ->
-               case Goodwizard.Jido.whereis(agent_id) do
-                 pid when is_pid(pid) -> Jido.AgentServer.cast(pid, signal)
-                 nil -> Logger.warning("Cron tick: agent #{agent_id} not found, skipping")
-               end
-
-               :ok
-             end,
-             schedule,
-             []
-           ) do
-        {:ok, sched_pid} ->
-          # SchedEx.Runner uses GenServer.start_link, which links the runner
-          # to the calling process. When called from the jido_ai executor
-          # (which wraps tool calls in Task.async), the SchedEx process would
-          # die when the short-lived Task exits. Unlinking lets the SchedEx
-          # runner outlive the caller. CronRegistry monitors it independently.
-          Process.unlink(sched_pid)
-          CronRegistry.register(job_id, sched_pid)
-
-          CronStore.save(%{
-            job_id: job_id,
-            schedule: schedule,
-            task: task,
-            room_id: room_id,
-            mode: mode,
-            model: model,
-            created_at: DateTime.utc_now() |> DateTime.to_iso8601()
-          })
-
-          {:ok,
-           %{
-             scheduled: true,
-             schedule: schedule,
-             task: task,
-             room_id: room_id,
-             mode: mode,
-             job_id: job_id
-           }}
-
-        {:error, reason} ->
-          {:error, "Failed to register cron job: #{inspect(reason)}"}
-      end
+      register_and_persist(agent_id, signal, schedule, task, room_id, mode, model, job_id)
     end
   end
 
@@ -191,8 +149,56 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
     end
   end
 
+  defp register_and_persist(agent_id, signal, schedule, task, room_id, mode, model, job_id) do
+    tick_fn = fn ->
+      dispatch_tick(agent_id, signal)
+      :ok
+    end
+
+    case Jido.Scheduler.run_every(tick_fn, schedule, []) do
+      {:ok, sched_pid} ->
+        # SchedEx.Runner uses GenServer.start_link, which links the runner
+        # to the calling process. When called from the jido_ai executor
+        # (which wraps tool calls in Task.async), the SchedEx process would
+        # die when the short-lived Task exits. Unlinking lets the SchedEx
+        # runner outlive the caller. CronRegistry monitors it independently.
+        Process.unlink(sched_pid)
+        CronRegistry.register(job_id, sched_pid)
+
+        CronStore.save(%{
+          job_id: job_id,
+          schedule: schedule,
+          task: task,
+          room_id: room_id,
+          mode: mode,
+          model: model,
+          created_at: DateTime.utc_now() |> DateTime.to_iso8601()
+        })
+
+        {:ok,
+         %{
+           scheduled: true,
+           schedule: schedule,
+           task: task,
+           room_id: room_id,
+           mode: mode,
+           job_id: job_id
+         }}
+
+      {:error, reason} ->
+        {:error, "Failed to register cron job: #{inspect(reason)}"}
+    end
+  end
+
+  defp dispatch_tick(agent_id, signal) do
+    case Goodwizard.Jido.whereis(agent_id) do
+      pid when is_pid(pid) -> Jido.AgentServer.cast(pid, signal)
+      nil -> Logger.warning("Cron tick: agent #{agent_id} not found, skipping")
+    end
+  end
+
   defp build_cron_tick_signal(message, job_id, agent_id) do
-    Jido.AgentServer.Signal.CronTick.new!(
+    CronTick.new!(
       %{job_id: job_id, message: message},
       source: "/agent/#{agent_id}"
     )

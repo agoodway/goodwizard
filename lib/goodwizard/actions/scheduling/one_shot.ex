@@ -47,7 +47,8 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
     ]
 
   alias Goodwizard.Actions.Brain.Helpers
-  alias Goodwizard.Scheduling.{OneShotStore, OneShotRegistry}
+  alias Goodwizard.Scheduling.{OneShotRegistry, OneShotStore}
+  alias Jido.AgentServer.Signal.CronTick
 
   @impl true
   def run(params, context) do
@@ -214,7 +215,7 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   end
 
   defp build_cron_tick_signal(message, job_id, agent_id) do
-    Jido.AgentServer.Signal.CronTick.new!(
+    CronTick.new!(
       %{job_id: job_id, message: message},
       source: "/agent/#{agent_id}"
     )

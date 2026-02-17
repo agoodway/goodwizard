@@ -12,8 +12,9 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
 
   require Logger
 
-  alias Goodwizard.Scheduling.{OneShotStore, OneShotRegistry}
   alias Goodwizard.Actions.Scheduling.OneShot
+  alias Goodwizard.Scheduling.{OneShotRegistry, OneShotStore}
+  alias Jido.AgentServer.Signal.CronTick
 
   @job_id_pattern ~r/\Aoneshot_[0-9a-f]{16}\z/
 
@@ -88,7 +89,7 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
     message = %{type: "cron.task", task: task, room_id: room_id}
 
     signal =
-      Jido.AgentServer.Signal.CronTick.new!(
+      CronTick.new!(
         %{job_id: job_id, message: message},
         source: "/agent/#{agent_id}"
       )
