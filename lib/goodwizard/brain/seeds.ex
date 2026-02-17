@@ -62,22 +62,31 @@ defmodule Goodwizard.Brain.Seeds do
   @doc "Returns the schema map for a given entity type."
   @spec schema_for(String.t()) :: map()
   def schema_for("people") do
-    build_schema("Person", ["id", "name"], %{
-      "emails" => contact_field("Email addresses"),
-      "phones" => contact_field("Phone numbers"),
-      "addresses" => address_field(),
-      "socials" => contact_field("Social media profiles"),
-      "company" => entity_ref("companies"),
-      "role" => %{
-        "type" => "string",
-        "description" => "Job title or role at their company (e.g. CEO, Engineer, Sales Manager)"
-      }
-    }, 2)
+    build_schema(
+      "Person",
+      ["id", "name"],
+      %{
+        "emails" => contact_field("Email addresses"),
+        "phones" => contact_field("Phone numbers"),
+        "addresses" => address_field(),
+        "socials" => contact_field("Social media profiles"),
+        "company" => entity_ref("companies"),
+        "role" => %{
+          "type" => "string",
+          "description" =>
+            "Job title or role at their company (e.g. CEO, Engineer, Sales Manager)"
+        }
+      },
+      2
+    )
   end
 
   def schema_for("places") do
     build_schema("Place", ["id", "name"], %{
-      "address" => %{"type" => "string", "description" => "Street address line (e.g. 123 Main St)"},
+      "address" => %{
+        "type" => "string",
+        "description" => "Street address line (e.g. 123 Main St)"
+      },
       "city" => %{"type" => "string", "description" => "City name"},
       "state" => %{"type" => "string", "description" => "State, province, or region"},
       "country" => %{"type" => "string", "description" => "Country name or ISO code"},
@@ -152,23 +161,31 @@ defmodule Goodwizard.Brain.Seeds do
   end
 
   def schema_for("companies") do
-    build_schema("Company", ["id", "name"], %{
-      "domain" => %{"type" => "string", "description" => "Company website domain (e.g. example.com)"},
-      "industry" => %{
-        "type" => "string",
-        "description" => "Business sector or industry (e.g. Technology, Healthcare, Finance)"
+    build_schema(
+      "Company",
+      ["id", "name"],
+      %{
+        "domain" => %{
+          "type" => "string",
+          "description" => "Company website domain (e.g. example.com)"
+        },
+        "industry" => %{
+          "type" => "string",
+          "description" => "Business sector or industry (e.g. Technology, Healthcare, Finance)"
+        },
+        "size" => %{
+          "type" => "string",
+          "description" =>
+            "Company size category (e.g. startup, small, medium, enterprise) or employee count"
+        },
+        "emails" => contact_field("Email addresses"),
+        "phones" => contact_field("Phone numbers"),
+        "addresses" => address_field(),
+        "socials" => contact_field("Social media profiles"),
+        "contacts" => entity_ref_list("people")
       },
-      "size" => %{
-        "type" => "string",
-        "description" =>
-          "Company size category (e.g. startup, small, medium, enterprise) or employee count"
-      },
-      "emails" => contact_field("Email addresses"),
-      "phones" => contact_field("Phone numbers"),
-      "addresses" => address_field(),
-      "socials" => contact_field("Social media profiles"),
-      "contacts" => entity_ref_list("people")
-    }, 2)
+      2
+    )
   end
 
   def schema_for("tasklists") do

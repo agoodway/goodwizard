@@ -119,7 +119,10 @@ defmodule Goodwizard.Scheduling.OneShotStore do
   end
 
   defp normalize_value(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
-  defp normalize_value(v) when is_atom(v) and not is_nil(v) and not is_boolean(v), do: to_string(v)
+
+  defp normalize_value(v) when is_atom(v) and not is_nil(v) and not is_boolean(v),
+    do: to_string(v)
+
   defp normalize_value(v), do: v
 
   defp read_job(path) do

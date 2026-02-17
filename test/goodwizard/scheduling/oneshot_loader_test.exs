@@ -3,7 +3,10 @@ defmodule Goodwizard.Scheduling.OneShotLoaderTest do
 
   alias Goodwizard.Scheduling.{OneShotLoader, OneShotStore, OneShotRegistry}
 
-  @test_workspace Path.join(System.tmp_dir!(), "oneshot_loader_test_#{System.unique_integer([:positive])}")
+  @test_workspace Path.join(
+                    System.tmp_dir!(),
+                    "oneshot_loader_test_#{System.unique_integer([:positive])}"
+                  )
 
   setup do
     oneshot_dir = Path.join(@test_workspace, "scheduling/oneshot")

@@ -4,7 +4,10 @@ defmodule Goodwizard.Actions.Scheduling.CancelOneShotTest do
   alias Goodwizard.Actions.Scheduling.{CancelOneShot, OneShot}
   alias Goodwizard.Scheduling.{OneShotStore, OneShotRegistry}
 
-  @test_workspace Path.join(System.tmp_dir!(), "cancel_oneshot_test_#{System.unique_integer([:positive])}")
+  @test_workspace Path.join(
+                    System.tmp_dir!(),
+                    "cancel_oneshot_test_#{System.unique_integer([:positive])}"
+                  )
 
   setup do
     oneshot_dir = Path.join(@test_workspace, "scheduling/oneshot")

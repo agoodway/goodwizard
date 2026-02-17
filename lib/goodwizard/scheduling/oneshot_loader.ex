@@ -63,7 +63,10 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
         schedule_job(job_id_str, task, room_id, agent_id, fires_at, remaining_ms)
       else
         # Expired — discard the file
-        Logger.warning("OneShotLoader: discarding expired job #{job_id_str} (fires_at: #{job["fires_at"]})")
+        Logger.warning(
+          "OneShotLoader: discarding expired job #{job_id_str} (fires_at: #{job["fires_at"]})"
+        )
+
         OneShotStore.delete(job_id_str)
         :skip
       end
@@ -93,7 +96,11 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
     case :timer.apply_after(remaining_ms, OneShot, :deliver, [agent_id, signal, job_id]) do
       {:ok, tref} ->
         OneShotRegistry.register(job_id, tref)
-        Logger.debug("OneShotLoader: reloaded #{job_id_str} (fires in #{div(remaining_ms, 1000)}s)")
+
+        Logger.debug(
+          "OneShotLoader: reloaded #{job_id_str} (fires in #{div(remaining_ms, 1000)}s)"
+        )
+
         :ok
 
       {:error, reason} ->
