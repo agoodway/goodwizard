@@ -20,9 +20,24 @@ defmodule Goodwizard.Memory.PathsTest do
       assert {:ok, _} = Paths.validate_memory_dir("/tmp/memory")
     end
 
-    test "rejects paths with .." do
+    test "rejects paths with .. as path component" do
       assert {:error, "memory_dir contains path traversal"} =
                Paths.validate_memory_dir("/tmp/memory/../../etc")
+    end
+
+    test "accepts paths with .. as substring in directory name" do
+      assert {:ok, _} = Paths.validate_memory_dir("/tmp/app..v2/data")
+    end
+
+    test "rejects empty string" do
+      assert {:error, "memory_dir is empty"} = Paths.validate_memory_dir("")
+    end
+
+    test "rejects paths exceeding max length" do
+      long_path = "/" <> String.duplicate("x", 4097)
+
+      assert {:error, "memory_dir exceeds maximum path length"} =
+               Paths.validate_memory_dir(long_path)
     end
 
     test "rejects paths with null bytes" do
@@ -50,6 +65,15 @@ defmodule Goodwizard.Memory.PathsTest do
       assert :ok = Paths.ensure_dir(dir)
       assert File.dir?(dir)
     end
+
+    test "rejects path with traversal" do
+      assert {:error, "memory_dir contains path traversal"} =
+               Paths.ensure_dir("/tmp/memory/../../etc")
+    end
+
+    test "rejects path with null bytes" do
+      assert {:error, "memory_dir contains null bytes"} = Paths.ensure_dir("/tmp/memory\0/evil")
+    end
   end
 
   describe "episodic_dir/1" do
@@ -66,13 +90,42 @@ defmodule Goodwizard.Memory.PathsTest do
 
   describe "episode_path/2" do
     test "returns path to specific episode file" do
-      assert Paths.episode_path("/tmp/memory", "abc123") == "/tmp/memory/episodic/abc123.md"
+      assert {:ok, "/tmp/memory/episodic/abc123.md"} = Paths.episode_path("/tmp/memory", "abc123")
+    end
+
+    test "rejects ID with path traversal" do
+      assert {:error, :invalid_id} = Paths.episode_path("/tmp/memory", "../../etc/passwd")
+    end
+
+    test "rejects ID with forward slash" do
+      assert {:error, :invalid_id} = Paths.episode_path("/tmp/memory", "foo/bar")
+    end
+
+    test "rejects ID with backslash" do
+      assert {:error, :invalid_id} = Paths.episode_path("/tmp/memory", "foo\\bar")
+    end
+
+    test "rejects ID with null byte" do
+      assert {:error, :invalid_id} = Paths.episode_path("/tmp/memory", "foo\0bar")
+    end
+
+    test "rejects empty ID" do
+      assert {:error, :invalid_id} = Paths.episode_path("/tmp/memory", "")
     end
   end
 
   describe "procedure_path/2" do
     test "returns path to specific procedure file" do
-      assert Paths.procedure_path("/tmp/memory", "def456") == "/tmp/memory/procedural/def456.md"
+      assert {:ok, "/tmp/memory/procedural/def456.md"} =
+               Paths.procedure_path("/tmp/memory", "def456")
+    end
+
+    test "rejects ID with path traversal" do
+      assert {:error, :invalid_id} = Paths.procedure_path("/tmp/memory", "../../etc/passwd")
+    end
+
+    test "rejects empty ID" do
+      assert {:error, :invalid_id} = Paths.procedure_path("/tmp/memory", "")
     end
   end
 
