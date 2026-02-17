@@ -52,6 +52,11 @@ defmodule Goodwizard.Scheduling.OneShotRegistry do
 
   @impl true
   def handle_call({:register, job_id, timer_ref}, _from, state) do
+    case Map.get(state.jobs, job_id) do
+      nil -> :ok
+      old_ref -> :timer.cancel(old_ref)
+    end
+
     jobs = Map.put(state.jobs, job_id, timer_ref)
     {:reply, :ok, %{state | jobs: jobs}}
   end

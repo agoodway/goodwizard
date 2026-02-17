@@ -2,7 +2,7 @@ defmodule Goodwizard.Actions.Scheduling.OneShotTest do
   use ExUnit.Case, async: false
 
   alias Goodwizard.Actions.Scheduling.OneShot
-  alias Goodwizard.Scheduling.{OneShotStore, OneShotRegistry}
+  alias Goodwizard.Scheduling.OneShotRegistry
 
   @test_workspace Path.join(System.tmp_dir!(), "oneshot_action_test_#{System.unique_integer([:positive])}")
 

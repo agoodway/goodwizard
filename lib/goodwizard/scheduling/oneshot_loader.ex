@@ -22,7 +22,7 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
 
   Returns `{:ok, count}` with the number of jobs reloaded.
   """
-  @spec reload() :: {:ok, non_neg_integer()}
+  @spec reload() :: {:ok, non_neg_integer()} | {:error, term()}
   def reload do
     case OneShotStore.load_all() do
       {:ok, []} ->
@@ -33,6 +33,10 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
         count = reload_jobs(jobs)
         Logger.info("OneShotLoader: reloaded #{count} one-shot job(s)")
         {:ok, count}
+
+      {:error, reason} ->
+        Logger.warning("OneShotLoader: failed to load persisted jobs: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 
@@ -51,11 +55,12 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
     with {:ok, job_id_str} <- validate_job_id(job["job_id"]),
          {:ok, task} <- extract_field(job, "task"),
          {:ok, room_id} <- extract_field(job, "room_id"),
+         {:ok, agent_id} <- extract_field(job, "agent_id"),
          {:ok, fires_at} <- parse_fires_at(job["fires_at"]) do
       remaining_ms = DateTime.diff(fires_at, now, :millisecond)
 
       if remaining_ms > 0 do
-        schedule_job(job_id_str, task, room_id, fires_at, remaining_ms)
+        schedule_job(job_id_str, task, room_id, agent_id, fires_at, remaining_ms)
       else
         # Expired — discard the file
         Logger.warning("OneShotLoader: discarding expired job #{job_id_str} (fires_at: #{job["fires_at"]})")
@@ -69,13 +74,15 @@ defmodule Goodwizard.Scheduling.OneShotLoader do
     end
   end
 
-  defp schedule_job(job_id_str, task, room_id, _fires_at, remaining_ms) do
-    job_id = String.to_atom(job_id_str)
-    message = %{type: "cron.task", task: task, room_id: room_id}
+  defp schedule_job(job_id_str, task, room_id, agent_id, _fires_at, remaining_ms) do
+    job_id =
+      try do
+        String.to_existing_atom(job_id_str)
+      rescue
+        ArgumentError -> String.to_atom(job_id_str)
+      end
 
-    # We need an agent_id for the signal, but on reload we don't have one.
-    # Use a generic loader agent_id — the CronScheduler plugin routes by room_id.
-    agent_id = "oneshot:loader"
+    message = %{type: "cron.task", task: task, room_id: room_id}
 
     signal =
       Jido.AgentServer.Signal.CronTick.new!(
