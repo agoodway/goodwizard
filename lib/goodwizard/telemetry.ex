@@ -20,8 +20,15 @@ defmodule Goodwizard.Telemetry do
     [:jido, :ai, :react, :complete]
   ]
 
+  @agent_cmd_events [
+    [:jido, :agent, :cmd, :start],
+    [:jido, :agent, :cmd, :stop],
+    [:jido, :agent, :cmd, :exception]
+  ]
+
   @tool_handler_id "goodwizard-tool-handler"
   @react_handler_id "goodwizard-react-handler"
+  @agent_cmd_handler_id "goodwizard-agent-cmd-handler"
 
   @doc "Attach telemetry handlers for Jido tool and ReAct events."
   @spec attach() :: :ok
@@ -40,6 +47,13 @@ defmodule Goodwizard.Telemetry do
       %{}
     )
 
+    :telemetry.attach_many(
+      @agent_cmd_handler_id,
+      @agent_cmd_events,
+      &__MODULE__.handle_agent_cmd_event/4,
+      %{}
+    )
+
     :ok
   end
 
@@ -48,6 +62,7 @@ defmodule Goodwizard.Telemetry do
   def detach do
     :telemetry.detach(@tool_handler_id)
     :telemetry.detach(@react_handler_id)
+    :telemetry.detach(@agent_cmd_handler_id)
     :ok
   end
 
@@ -157,6 +172,45 @@ defmodule Goodwizard.Telemetry do
       :error -> Logger.error(log_fn)
       _ -> Logger.info(log_fn)
     end
+  end
+
+  @doc false
+  def handle_agent_cmd_event([:jido, :agent, :cmd, :start], _measurements, metadata, _config) do
+    Logger.debug(fn ->
+      kv(
+        agent_cmd: :start,
+        agent_id: metadata[:agent_id],
+        action: metadata[:action]
+      )
+    end)
+  end
+
+  def handle_agent_cmd_event([:jido, :agent, :cmd, :stop], measurements, metadata, _config) do
+    duration_ms = System.convert_time_unit(measurements[:duration] || 0, :native, :millisecond)
+
+    Logger.debug(fn ->
+      kv(
+        agent_cmd: :stop,
+        agent_id: metadata[:agent_id],
+        action: metadata[:action],
+        directives: metadata[:directive_count] || 0,
+        duration_ms: duration_ms
+      )
+    end)
+  end
+
+  def handle_agent_cmd_event([:jido, :agent, :cmd, :exception], measurements, metadata, _config) do
+    duration_ms = System.convert_time_unit(measurements[:duration] || 0, :native, :millisecond)
+
+    Logger.error(fn ->
+      kv(
+        agent_cmd: :exception,
+        agent_id: metadata[:agent_id],
+        action: metadata[:action],
+        error: inspect(metadata[:error]),
+        duration_ms: duration_ms
+      )
+    end)
   end
 
   defp kv(pairs) do
