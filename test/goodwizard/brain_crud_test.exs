@@ -78,13 +78,18 @@ defmodule Goodwizard.BrainCrudTest do
   describe "update/5" do
     test "merges new data with existing", %{workspace: workspace} do
       {:ok, {id, original_data, _body}} =
-        Brain.create(workspace, "people", %{"name" => "Frank", "email" => "frank@example.com"})
+        Brain.create(workspace, "people", %{
+          "name" => "Frank",
+          "emails" => [%{"type" => "work", "value" => "frank@example.com"}]
+        })
 
       {:ok, {updated_data, _body}} =
-        Brain.update(workspace, "people", id, %{"email" => "new@example.com"})
+        Brain.update(workspace, "people", id, %{
+          "emails" => [%{"type" => "work", "value" => "new@example.com"}]
+        })
 
       assert updated_data["name"] == "Frank"
-      assert updated_data["email"] == "new@example.com"
+      assert updated_data["emails"] == [%{"type" => "work", "value" => "new@example.com"}]
       assert updated_data["updated_at"] != original_data["updated_at"]
     end
 
@@ -631,6 +636,116 @@ defmodule Goodwizard.BrainCrudTest do
 
       assert {:ok, entities} = Brain.list(workspace, "people")
       assert length(entities) == 1000
+    end
+  end
+
+  describe "multi-value contact fields on people" do
+    test "creates person with emails, phones, addresses, socials", %{workspace: workspace} do
+      {:ok, {id, data, _body}} =
+        Brain.create(workspace, "people", %{
+          "name" => "Alice",
+          "emails" => [
+            %{"type" => "work", "value" => "alice@work.com"},
+            %{"type" => "personal", "value" => "alice@home.com"}
+          ],
+          "phones" => [%{"type" => "mobile", "value" => "555-0100"}],
+          "addresses" => [
+            %{"type" => "home", "street" => "123 Main St", "city" => "Springfield", "state" => "IL"}
+          ],
+          "socials" => [%{"type" => "twitter", "value" => "@alice"}]
+        })
+
+      assert data["emails"] == [
+               %{"type" => "work", "value" => "alice@work.com"},
+               %{"type" => "personal", "value" => "alice@home.com"}
+             ]
+
+      assert data["phones"] == [%{"type" => "mobile", "value" => "555-0100"}]
+      assert length(data["addresses"]) == 1
+      assert hd(data["addresses"])["city"] == "Springfield"
+      assert data["socials"] == [%{"type" => "twitter", "value" => "@alice"}]
+
+      # Read back and verify round-trip
+      {:ok, {read_data, _body}} = Brain.read(workspace, "people", id)
+      assert read_data["emails"] == data["emails"]
+      assert read_data["phones"] == data["phones"]
+      assert read_data["addresses"] == data["addresses"]
+      assert read_data["socials"] == data["socials"]
+    end
+
+    test "updates person contact fields", %{workspace: workspace} do
+      {:ok, {id, _data, _body}} =
+        Brain.create(workspace, "people", %{
+          "name" => "Bob",
+          "emails" => [%{"value" => "bob@old.com"}]
+        })
+
+      {:ok, {updated, _body}} =
+        Brain.update(workspace, "people", id, %{
+          "emails" => [%{"type" => "work", "value" => "bob@new.com"}],
+          "phones" => [%{"value" => "555-0200"}]
+        })
+
+      assert updated["emails"] == [%{"type" => "work", "value" => "bob@new.com"}]
+      assert updated["phones"] == [%{"value" => "555-0200"}]
+    end
+
+    test "creates person with empty contact arrays", %{workspace: workspace} do
+      {:ok, {_id, data, _body}} =
+        Brain.create(workspace, "people", %{
+          "name" => "Charlie",
+          "emails" => [],
+          "phones" => []
+        })
+
+      assert data["emails"] == []
+      assert data["phones"] == []
+    end
+  end
+
+  describe "multi-value contact fields on companies" do
+    test "creates company with emails, phones, addresses, socials", %{workspace: workspace} do
+      {:ok, {id, data, _body}} =
+        Brain.create(workspace, "companies", %{
+          "name" => "Acme Corp",
+          "emails" => [%{"type" => "info", "value" => "info@acme.com"}],
+          "phones" => [%{"type" => "main", "value" => "555-0300"}],
+          "addresses" => [
+            %{
+              "type" => "headquarters",
+              "street" => "456 Oak Ave",
+              "city" => "Chicago",
+              "state" => "IL",
+              "zip" => "60601",
+              "country" => "US"
+            }
+          ],
+          "socials" => [%{"type" => "linkedin", "value" => "linkedin.com/company/acme"}]
+        })
+
+      assert data["emails"] == [%{"type" => "info", "value" => "info@acme.com"}]
+      assert data["phones"] == [%{"type" => "main", "value" => "555-0300"}]
+      assert hd(data["addresses"])["city"] == "Chicago"
+      assert data["socials"] == [%{"type" => "linkedin", "value" => "linkedin.com/company/acme"}]
+
+      # Read back and verify round-trip
+      {:ok, {read_data, _body}} = Brain.read(workspace, "companies", id)
+      assert read_data["emails"] == data["emails"]
+      assert read_data["addresses"] == data["addresses"]
+    end
+
+    test "updates company contact fields", %{workspace: workspace} do
+      {:ok, {id, _data, _body}} =
+        Brain.create(workspace, "companies", %{"name" => "Beta Inc"})
+
+      {:ok, {updated, _body}} =
+        Brain.update(workspace, "companies", id, %{
+          "emails" => [%{"value" => "hello@beta.com"}],
+          "addresses" => [%{"city" => "Austin", "state" => "TX"}]
+        })
+
+      assert updated["emails"] == [%{"value" => "hello@beta.com"}]
+      assert hd(updated["addresses"])["city"] == "Austin"
     end
   end
 end

@@ -257,6 +257,103 @@ defmodule Goodwizard.Brain.EntityTest do
       assert parsed_body == ""
     end
 
+    test "roundtrip with arrays of maps (contact objects)" do
+      data = %{
+        "id" => "0193a5e7-1234-7000-8000-000000000001",
+        "name" => "Alice",
+        "emails" => [
+          %{"type" => "work", "value" => "alice@company.com"},
+          %{"type" => "personal", "value" => "alice@home.com"}
+        ],
+        "phones" => [
+          %{"type" => "mobile", "value" => "+1-234-567-890"}
+        ]
+      }
+
+      serialized = Entity.serialize(data)
+      assert {:ok, {parsed_data, _body}} = Entity.parse(serialized)
+
+      assert parsed_data["emails"] == [
+               %{"type" => "work", "value" => "alice@company.com"},
+               %{"type" => "personal", "value" => "alice@home.com"}
+             ]
+
+      assert parsed_data["phones"] == [
+               %{"type" => "mobile", "value" => "+1-234-567-890"}
+             ]
+    end
+
+    test "roundtrip with nested address objects" do
+      data = %{
+        "id" => "0193a5e7-1234-7000-8000-000000000001",
+        "name" => "Acme Corp",
+        "addresses" => [
+          %{
+            "type" => "headquarters",
+            "street" => "123 Main St",
+            "city" => "Springfield",
+            "state" => "IL",
+            "zip" => "62701",
+            "country" => "US"
+          },
+          %{
+            "type" => "branch",
+            "city" => "Chicago",
+            "state" => "IL"
+          }
+        ]
+      }
+
+      serialized = Entity.serialize(data)
+      assert {:ok, {parsed_data, _body}} = Entity.parse(serialized)
+
+      assert length(parsed_data["addresses"]) == 2
+
+      hq = Enum.find(parsed_data["addresses"], &(&1["type"] == "headquarters"))
+      assert hq["street"] == "123 Main St"
+      assert hq["city"] == "Springfield"
+      assert hq["state"] == "IL"
+      assert hq["zip"] == "62701"
+      assert hq["country"] == "US"
+
+      branch = Enum.find(parsed_data["addresses"], &(&1["type"] == "branch"))
+      assert branch["city"] == "Chicago"
+      assert branch["state"] == "IL"
+      refute Map.has_key?(branch, "street")
+    end
+
+    test "roundtrip with empty contact arrays" do
+      data = %{
+        "id" => "0193a5e7-1234-7000-8000-000000000001",
+        "name" => "Bob",
+        "emails" => [],
+        "phones" => []
+      }
+
+      serialized = Entity.serialize(data)
+      assert {:ok, {parsed_data, _body}} = Entity.parse(serialized)
+
+      assert parsed_data["emails"] == []
+      assert parsed_data["phones"] == []
+    end
+
+    test "roundtrip with socials array" do
+      data = %{
+        "id" => "0193a5e7-1234-7000-8000-000000000001",
+        "name" => "Charlie",
+        "socials" => [
+          %{"type" => "twitter", "value" => "@charlie"},
+          %{"type" => "linkedin", "value" => "linkedin.com/in/charlie"}
+        ]
+      }
+
+      serialized = Entity.serialize(data)
+      assert {:ok, {parsed_data, _body}} = Entity.parse(serialized)
+
+      assert length(parsed_data["socials"]) == 2
+      assert Enum.find(parsed_data["socials"], &(&1["type"] == "twitter"))["value"] == "@charlie"
+    end
+
     test "roundtrip with entity references" do
       data = %{
         "id" => "0193a5e7-1234-7000-8000-000000000001",
