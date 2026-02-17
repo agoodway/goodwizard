@@ -99,6 +99,10 @@ defmodule Goodwizard.Scheduling.CronLoader do
              []
            ) do
         {:ok, sched_pid} ->
+          # SchedEx.Runner uses GenServer.start_link, linking to the caller.
+          # CronLoader runs inside a startup Task that exits after boot.
+          # Unlink so the SchedEx runner outlives the caller.
+          Process.unlink(sched_pid)
           CronRegistry.register(job_id, sched_pid)
           Logger.debug("CronLoader: registered #{job_id} (#{schedule})")
           :ok

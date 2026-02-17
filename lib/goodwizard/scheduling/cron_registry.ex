@@ -10,6 +10,8 @@ defmodule Goodwizard.Scheduling.CronRegistry do
 
   use GenServer
 
+  require Logger
+
   # --- Public API ---
 
   def start_link(opts \\ []) do
@@ -81,14 +83,18 @@ defmodule Goodwizard.Scheduling.CronRegistry do
   end
 
   @impl true
-  def handle_info({:DOWN, ref, :process, _pid, _reason}, state) do
+  def handle_info({:DOWN, ref, :process, pid, reason}, state) do
     # Find and remove the job whose monitor ref matches
-    jobs =
-      state.jobs
-      |> Enum.reject(fn {_job_id, {_pid, r}} -> r == ref end)
-      |> Map.new()
+    {removed, kept} =
+      Enum.split_with(state.jobs, fn {_job_id, {_pid, r}} -> r == ref end)
 
-    {:noreply, %{state | jobs: jobs}}
+    for {job_id, _} <- removed do
+      Logger.warning(
+        "CronRegistry: scheduler process #{inspect(pid)} for #{job_id} died: #{inspect(reason)}"
+      )
+    end
+
+    {:noreply, %{state | jobs: Map.new(kept)}}
   end
 
   def handle_info(_msg, state), do: {:noreply, state}

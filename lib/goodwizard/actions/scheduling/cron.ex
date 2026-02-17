@@ -96,6 +96,12 @@ defmodule Goodwizard.Actions.Scheduling.Cron do
              []
            ) do
         {:ok, sched_pid} ->
+          # SchedEx.Runner uses GenServer.start_link, which links the runner
+          # to the calling process. When called from the jido_ai executor
+          # (which wraps tool calls in Task.async), the SchedEx process would
+          # die when the short-lived Task exits. Unlinking lets the SchedEx
+          # runner outlive the caller. CronRegistry monitors it independently.
+          Process.unlink(sched_pid)
           CronRegistry.register(job_id, sched_pid)
 
           CronStore.save(%{
