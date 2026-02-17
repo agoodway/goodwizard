@@ -51,4 +51,53 @@ defmodule Goodwizard.Memory.PathsTest do
       assert File.dir?(dir)
     end
   end
+
+  describe "episodic_dir/1" do
+    test "returns path with /episodic appended" do
+      assert Paths.episodic_dir("/tmp/memory") == "/tmp/memory/episodic"
+    end
+  end
+
+  describe "procedural_dir/1" do
+    test "returns path with /procedural appended" do
+      assert Paths.procedural_dir("/tmp/memory") == "/tmp/memory/procedural"
+    end
+  end
+
+  describe "episode_path/2" do
+    test "returns path to specific episode file" do
+      assert Paths.episode_path("/tmp/memory", "abc123") == "/tmp/memory/episodic/abc123.md"
+    end
+  end
+
+  describe "procedure_path/2" do
+    test "returns path to specific procedure file" do
+      assert Paths.procedure_path("/tmp/memory", "def456") == "/tmp/memory/procedural/def456.md"
+    end
+  end
+
+  describe "validate_memory_subdir/2" do
+    test "accepts episodic subdirectory" do
+      assert {:ok, "/tmp/memory/episodic"} =
+               Paths.validate_memory_subdir("/tmp/memory", "episodic")
+    end
+
+    test "accepts procedural subdirectory" do
+      assert {:ok, "/tmp/memory/procedural"} =
+               Paths.validate_memory_subdir("/tmp/memory", "procedural")
+    end
+
+    test "rejects unknown subdirectory name" do
+      assert {:error, :invalid_subdir} = Paths.validate_memory_subdir("/tmp/memory", "custom")
+    end
+
+    test "rejects path traversal in subdirectory name" do
+      assert {:error, :invalid_subdir} =
+               Paths.validate_memory_subdir("/tmp/memory", "../secrets")
+    end
+
+    test "rejects empty subdirectory name" do
+      assert {:error, :invalid_subdir} = Paths.validate_memory_subdir("/tmp/memory", "")
+    end
+  end
 end
