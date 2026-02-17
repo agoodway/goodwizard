@@ -9,9 +9,12 @@ defmodule Goodwizard.Brain.References do
 
   require Logger
 
-  alias Goodwizard.Brain.{Paths, Schema}
+  alias Goodwizard.Brain.{Id, Paths, Schema}
 
-  @uuid_pattern "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+  # Derive UUID pattern from Id.id_pattern/0, stripping the outer ^...$ anchors
+  @uuid_pattern Id.id_pattern()
+                |> String.replace_prefix("^", "")
+                |> String.replace_suffix("$", "")
   @uuid_suffix "/" <> @uuid_pattern <> "$"
 
   # Polymorphic pattern prefix: "^[a-z_]+/"
@@ -46,15 +49,13 @@ defmodule Goodwizard.Brain.References do
   end
 
   defp classify_property(field_name, %{"type" => "array", "items" => %{"pattern" => pattern}}) do
-    cond do
-      String.starts_with?(pattern, @poly_prefix) ->
-        [{field_name, :poly_ref_list}]
-
-      true ->
-        case extract_typed_target(pattern) do
-          {:ok, target_type} -> [{field_name, :ref_list, target_type}]
-          :not_ref -> []
-        end
+    if String.starts_with?(pattern, @poly_prefix) do
+      [{field_name, :poly_ref_list}]
+    else
+      case extract_typed_target(pattern) do
+        {:ok, target_type} -> [{field_name, :ref_list, target_type}]
+        :not_ref -> []
+      end
     end
   end
 
@@ -64,7 +65,7 @@ defmodule Goodwizard.Brain.References do
   defp extract_typed_target(pattern) do
     if String.contains?(pattern, @uuid_suffix) do
       # Strip leading "^" if present, then extract everything before "/<uuid>$"
-      trimmed = String.trim_leading(pattern, "^")
+      trimmed = String.replace_prefix(pattern, "^", "")
 
       case String.split(trimmed, "/", parts: 2) do
         [target_type, _rest] when target_type != "" -> {:ok, target_type}
@@ -86,7 +87,17 @@ defmodule Goodwizard.Brain.References do
   """
   @spec clean_data(String.t(), ExJsonSchema.Schema.Root.t(), map()) :: map()
   def clean_data(workspace, schema, data) do
-    refs = ref_fields(schema)
+    clean_data_with_refs(workspace, ref_fields(schema), data)
+  end
+
+  @doc """
+  Like `clean_data/3` but accepts pre-computed ref field descriptors.
+
+  Use this when processing multiple entities of the same type to avoid
+  recomputing `ref_fields/1` per entity.
+  """
+  @spec clean_data_with_refs(String.t(), list(), map()) :: map()
+  def clean_data_with_refs(workspace, refs, data) do
     Enum.reduce(refs, data, &clean_field(workspace, &1, &2))
   end
 
@@ -239,10 +250,12 @@ defmodule Goodwizard.Brain.References do
   end
 
   defp sweep_entities_of_type(workspace, type, schema, deleted_ref) do
+    refs = ref_fields(schema)
+
     with {:ok, type_dir} <- Paths.entity_type_dir(workspace, type),
          {:ok, files} <- list_md_files(type_dir) do
       Enum.each(files, fn file ->
-        sweep_single_entity(workspace, type, type_dir, file, schema, deleted_ref)
+        sweep_single_entity(type, type_dir, file, refs, deleted_ref)
       end)
     else
       {:error, reason} ->
@@ -252,29 +265,48 @@ defmodule Goodwizard.Brain.References do
     end
   end
 
-  defp sweep_single_entity(_workspace, type, type_dir, file, schema, deleted_ref) do
+  defp sweep_single_entity(type, type_dir, file, refs, deleted_ref) do
     path = Path.join(type_dir, file)
     id = String.trim_trailing(file, ".md")
+    lock_file = path <> ".lock"
 
-    with {:ok, content} <- File.read(path),
-         {:ok, {data, body}} <- Goodwizard.Brain.Entity.parse(content) do
-      cleaned = clean_data_for_ref(data, ref_fields(schema), deleted_ref)
+    case :file.open(lock_file, [:write, :exclusive]) do
+      {:ok, lock_fd} ->
+        try do
+          with {:ok, content} <- File.read(path),
+               {:ok, {data, body}} <- Goodwizard.Brain.Entity.parse(content) do
+            cleaned = clean_data_for_ref(data, refs, deleted_ref)
 
-      if cleaned != data do
-        case File.write(path, Goodwizard.Brain.Entity.serialize(cleaned, body)) do
-          :ok ->
-            Logger.info("[Brain.References] sweep: cleaned refs in #{type}/#{id}")
+            if cleaned != data do
+              case File.write(path, Goodwizard.Brain.Entity.serialize(cleaned, body)) do
+                :ok ->
+                  Logger.info("[Brain.References] sweep: cleaned refs in #{type}/#{id}")
 
-          {:error, reason} ->
-            Logger.warning(
-              "[Brain.References] sweep: failed to write #{type}/#{id}: #{inspect(reason)}"
-            )
+                {:error, reason} ->
+                  Logger.warning(
+                    "[Brain.References] sweep: failed to write #{type}/#{id}: #{inspect(reason)}"
+                  )
+              end
+            end
+          else
+            {:error, reason} ->
+              Logger.warning(
+                "[Brain.References] sweep: failed to read #{type}/#{file}: #{inspect(reason)}"
+              )
+          end
+        after
+          :file.close(lock_fd)
+          File.rm(lock_file)
         end
-      end
-    else
+
+      {:error, :eexist} ->
+        Logger.warning(
+          "[Brain.References] sweep: skipped #{type}/#{id} (locked by concurrent update)"
+        )
+
       {:error, reason} ->
         Logger.warning(
-          "[Brain.References] sweep: failed to read #{type}/#{file}: #{inspect(reason)}"
+          "[Brain.References] sweep: failed to lock #{type}/#{id}: #{inspect(reason)}"
         )
     end
   end
@@ -287,9 +319,10 @@ defmodule Goodwizard.Brain.References do
     end)
   end
 
+  # Sets stale single ref to nil (consistent with clean_data's clean_field behavior)
   defp clean_field_for_ref({field_name, :single_ref, _target_type}, data, deleted_ref) do
     if Map.get(data, field_name) == deleted_ref do
-      Map.delete(data, field_name)
+      Map.put(data, field_name, nil)
     else
       data
     end
@@ -315,11 +348,23 @@ defmodule Goodwizard.Brain.References do
     end
   end
 
+  @max_sweep_entities 1_000
+
   defp list_md_files(dir) do
     case File.ls(dir) do
-      {:ok, files} -> {:ok, Enum.filter(files, &String.ends_with?(&1, ".md"))}
-      {:error, :enoent} -> {:ok, []}
-      {:error, reason} -> {:error, reason}
+      {:ok, files} ->
+        md_files =
+          files
+          |> Enum.filter(&String.ends_with?(&1, ".md"))
+          |> Enum.take(@max_sweep_entities)
+
+        {:ok, md_files}
+
+      {:error, :enoent} ->
+        {:ok, []}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -359,9 +404,10 @@ defmodule Goodwizard.Brain.References do
 
   defp extract_id_from_ref(target_type, ref) do
     prefix = target_type <> "/"
+    prefix_len = byte_size(prefix)
 
     if String.starts_with?(ref, prefix) do
-      {:ok, String.trim_leading(ref, prefix)}
+      {:ok, binary_part(ref, prefix_len, byte_size(ref) - prefix_len)}
     else
       :error
     end
