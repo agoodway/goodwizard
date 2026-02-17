@@ -41,7 +41,8 @@ defmodule Goodwizard.Brain do
          data =
            data
            |> Map.drop(@system_fields)
-           |> Map.merge(%{"id" => id, "created_at" => now, "updated_at" => now}),
+           |> Map.merge(%{"id" => id, "created_at" => now, "updated_at" => now})
+           |> Map.put_new("metadata", %{}),
          {:ok, schema} <- Schema.load(workspace, entity_type),
          :ok <- Schema.validate(schema, data),
          {:ok, type_dir} <- Paths.entity_type_dir(workspace, entity_type),
@@ -116,7 +117,12 @@ defmodule Goodwizard.Brain do
         try do
           with {:ok, content} <- read_file(path),
                {:ok, {existing_data, existing_body}} <- Entity.parse(content),
-               safe_data = Map.drop(new_data, ["id", "created_at", "updated_at"]),
+               safe_data =
+                 new_data
+                 |> Map.drop(["id", "created_at", "updated_at"])
+                 |> then(fn d ->
+                   if Map.get(d, "metadata") == nil, do: Map.delete(d, "metadata"), else: d
+                 end),
                merged = Map.merge(existing_data, safe_data) |> Map.put("updated_at", now),
                final_body = if(body != nil, do: body, else: existing_body),
                :ok <- Schema.validate(schema, merged) do

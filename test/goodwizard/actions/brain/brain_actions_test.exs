@@ -69,6 +69,22 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
       init_brain(context)
       assert {:error, _} = ReadEntity.run(%{entity_type: "people", id: "nonexistent"}, context)
     end
+
+    test "strips metadata from returned data", %{context: context} do
+      {:ok, created} =
+        CreateEntity.run(
+          %{
+            entity_type: "people",
+            data: %{"name" => "Meta", "metadata" => %{"source" => "test"}},
+            body: ""
+          },
+          context
+        )
+
+      assert {:ok, result} = ReadEntity.run(%{entity_type: "people", id: created.id}, context)
+      refute Map.has_key?(result.data, "metadata")
+      assert result.data["name"] == "Meta"
+    end
   end
 
   describe "UpdateEntity" do
@@ -153,6 +169,29 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
     test "returns empty list when no entities exist", %{context: context} do
       assert {:ok, %{entities: []}} =
                ListEntities.run(%{entity_type: "people"}, context)
+    end
+
+    test "strips metadata from returned entity data", %{context: context} do
+      CreateEntity.run(
+        %{
+          entity_type: "people",
+          data: %{"name" => "Alice", "metadata" => %{"source" => "csv"}},
+          body: ""
+        },
+        context
+      )
+
+      CreateEntity.run(
+        %{entity_type: "people", data: %{"name" => "Bob"}, body: ""},
+        context
+      )
+
+      assert {:ok, result} = ListEntities.run(%{entity_type: "people"}, context)
+
+      for item <- result.entities do
+        refute Map.has_key?(item.data, "metadata"),
+               "Expected metadata to be stripped from #{item.data["name"]}"
+      end
     end
   end
 

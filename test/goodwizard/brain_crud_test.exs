@@ -620,6 +620,49 @@ defmodule Goodwizard.BrainCrudTest do
     end
   end
 
+  describe "metadata field" do
+    test "creating entity with metadata map stores and reads it back", %{workspace: workspace} do
+      metadata = %{"source" => "import", "batch_id" => "42"}
+
+      assert {:ok, {id, data, _body}} =
+               Brain.create(workspace, "people", %{"name" => "Alice", "metadata" => metadata})
+
+      assert data["metadata"] == metadata
+
+      assert {:ok, {read_data, _body}} = Brain.read(workspace, "people", id)
+      assert read_data["metadata"] == metadata
+    end
+
+    test "creating entity without metadata defaults to empty map", %{workspace: workspace} do
+      assert {:ok, {id, data, _body}} = Brain.create(workspace, "people", %{"name" => "Bob"})
+
+      assert data["metadata"] == %{}
+
+      assert {:ok, {read_data, _body}} = Brain.read(workspace, "people", id)
+      assert read_data["metadata"] == %{}
+    end
+
+    test "schema rejects non-string metadata values", %{workspace: workspace} do
+      assert {:error, _} =
+               Brain.create(workspace, "people", %{
+                 "name" => "Charlie",
+                 "metadata" => %{"count" => 42}
+               })
+    end
+
+    test "update with metadata nil preserves existing metadata", %{workspace: workspace} do
+      metadata = %{"source" => "csv"}
+
+      {:ok, {id, _data, _body}} =
+        Brain.create(workspace, "people", %{"name" => "Dave", "metadata" => metadata})
+
+      {:ok, {updated, _body}} =
+        Brain.update(workspace, "people", id, %{"name" => "Dave Updated", "metadata" => nil})
+
+      assert updated["metadata"] == metadata
+    end
+  end
+
   describe "list entity count limit" do
     test "list returns at most 1000 entities", %{workspace: workspace} do
       Brain.ensure_initialized(workspace)
