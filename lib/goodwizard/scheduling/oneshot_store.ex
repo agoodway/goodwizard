@@ -9,6 +9,8 @@ defmodule Goodwizard.Scheduling.OneShotStore do
 
   require Logger
 
+  @job_id_pattern ~r/\Aoneshot_[0-9a-f]{16}\z/
+
   @doc """
   Persists a one-shot job record to disk.
 
@@ -22,8 +24,12 @@ defmodule Goodwizard.Scheduling.OneShotStore do
     with :ok <- validate_job_id(job_id),
          :ok <- File.mkdir_p(dir) do
       path = job_path(dir, job_id)
+      tmp_path = path <> ".tmp"
       json = Jason.encode!(normalize_record(record), pretty: true)
-      File.write(path, json)
+
+      with :ok <- File.write(tmp_path, json) do
+        File.rename(tmp_path, path)
+      end
     end
   end
 
@@ -51,7 +57,7 @@ defmodule Goodwizard.Scheduling.OneShotStore do
   Returns `{:ok, [map()]}`. Malformed files are skipped with a warning.
   Jobs are sorted by `fires_at` ascending.
   """
-  @spec list() :: {:ok, [map()]}
+  @spec list() :: {:ok, [map()]} | {:error, term()}
   def list do
     dir = oneshot_dir()
 
@@ -72,6 +78,9 @@ defmodule Goodwizard.Scheduling.OneShotStore do
 
       {:error, :enoent} ->
         {:ok, []}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -80,7 +89,7 @@ defmodule Goodwizard.Scheduling.OneShotStore do
 
   Same as `list/0` but named for consistency with CronStore.
   """
-  @spec load_all() :: {:ok, [map()]}
+  @spec load_all() :: {:ok, [map()]} | {:error, term()}
   def load_all, do: list()
 
   defp oneshot_dir do
@@ -91,19 +100,10 @@ defmodule Goodwizard.Scheduling.OneShotStore do
   def validate_job_id(job_id) do
     id_str = to_string(job_id)
 
-    cond do
-      id_str == "" ->
-        {:error, :invalid_job_id}
-
-      String.contains?(id_str, "..") or String.contains?(id_str, "/") or
-          String.contains?(id_str, <<0>>) ->
-        {:error, :path_traversal}
-
-      byte_size(id_str) > 255 ->
-        {:error, :invalid_job_id}
-
-      true ->
-        :ok
+    if Regex.match?(@job_id_pattern, id_str) do
+      :ok
+    else
+      {:error, :invalid_job_id}
     end
   end
 

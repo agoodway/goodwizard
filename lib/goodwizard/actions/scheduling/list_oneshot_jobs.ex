@@ -20,7 +20,9 @@ defmodule Goodwizard.Actions.Scheduling.ListOneShotJobs do
 
   @impl true
   def run(_params, _context) do
-    {:ok, jobs} = OneShotStore.list()
-    {:ok, %{jobs: jobs, count: length(jobs)}}
+    case OneShotStore.list() do
+      {:ok, jobs} -> {:ok, %{jobs: jobs, count: length(jobs)}}
+      {:error, reason} -> {:error, "Failed to list one-shot jobs: #{inspect(reason)}"}
+    end
   end
 end

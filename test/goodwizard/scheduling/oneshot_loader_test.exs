@@ -33,6 +33,7 @@ defmodule Goodwizard.Scheduling.OneShotLoaderTest do
         job_id: :oneshot_aa11bb22cc33dd44,
         task: "future task",
         room_id: "cli:main",
+        agent_id: "test_agent",
         fires_at: fires_at,
         created_at: DateTime.utc_now() |> DateTime.to_iso8601()
       })
@@ -53,6 +54,7 @@ defmodule Goodwizard.Scheduling.OneShotLoaderTest do
         job_id: :oneshot_dead000000000000,
         task: "expired task",
         room_id: "cli:main",
+        agent_id: "test_agent",
         fires_at: past,
         created_at: DateTime.utc_now() |> DateTime.to_iso8601()
       })
@@ -71,12 +73,13 @@ defmodule Goodwizard.Scheduling.OneShotLoaderTest do
         job_id: :oneshot_aabb112233445566,
         task: "good task",
         room_id: "cli:main",
+        agent_id: "test_agent",
         fires_at: fires_at,
         created_at: DateTime.utc_now() |> DateTime.to_iso8601()
       })
 
       # Malformed JSON file
-      File.write!(Path.join(oneshot_dir, "oneshot_bad.json"), "not valid json")
+      File.write!(Path.join(oneshot_dir, "oneshot_bad0000000000000a.json"), "not valid json")
 
       # Job with missing required fields (valid 16 hex format but no task/room_id)
       File.write!(
@@ -99,6 +102,7 @@ defmodule Goodwizard.Scheduling.OneShotLoaderTest do
           "job_id" => "bad_prefix",
           "task" => "test",
           "room_id" => "cli:main",
+          "agent_id" => "test_agent",
           "fires_at" => fires_at
         })
       )
@@ -114,6 +118,7 @@ defmodule Goodwizard.Scheduling.OneShotLoaderTest do
         job_id: :oneshot_1111aabbccddeeff,
         task: "task one",
         room_id: "cli:main",
+        agent_id: "test_agent",
         fires_at: fires_at1,
         created_at: DateTime.utc_now() |> DateTime.to_iso8601()
       })
@@ -122,6 +127,7 @@ defmodule Goodwizard.Scheduling.OneShotLoaderTest do
         job_id: :oneshot_2222aabbccddeeff,
         task: "task two",
         room_id: "cli:main",
+        agent_id: "test_agent",
         fires_at: fires_at2,
         created_at: DateTime.utc_now() |> DateTime.to_iso8601()
       })

@@ -16,6 +16,9 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   require Logger
 
   @max_delay_minutes 525_600
+  @max_task_length 2000
+  @max_room_id_length 256
+  @max_pending_jobs 500
 
   use Jido.Action,
     name: "schedule_oneshot_task",
@@ -43,8 +46,11 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
 
     Logger.debug("[OneShot] params=#{inspect(params)} agent_id=#{inspect(agent_id)}")
 
-    with {:ok, room_id} <- resolve_room(params, context),
+    with :ok <- validate_length(task, "task", @max_task_length),
+         {:ok, room_id} <- resolve_room(params, context),
+         :ok <- validate_length(room_id, "room_id", @max_room_id_length),
          :ok <- validate_exclusivity(delay_minutes, at),
+         :ok <- check_pending_job_cap(),
          {:ok, delay_ms, fires_at, mode} <- compute_delay(delay_minutes, at) do
       message = %{type: "cron.task", task: task, room_id: room_id}
       job_id = generate_job_id(fires_at, task, room_id)
@@ -53,27 +59,33 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
 
       {:ok, tref} = :timer.apply_after(delay_ms, __MODULE__, :deliver, [agent_id, signal, job_id])
 
-      # Persist to disk for restart recovery
-      OneShotStore.save(%{
-        job_id: job_id,
-        task: task,
-        room_id: room_id,
-        fires_at: fires_at,
-        created_at: DateTime.utc_now()
-      })
+      # Persist to disk for restart recovery; cancel timer on failure
+      case OneShotStore.save(%{
+             job_id: job_id,
+             task: task,
+             room_id: room_id,
+             agent_id: agent_id,
+             fires_at: fires_at,
+             created_at: DateTime.utc_now()
+           }) do
+        :ok ->
+          # Track timer reference for cancellation
+          OneShotRegistry.register(job_id, tref)
 
-      # Track timer reference for cancellation
-      OneShotRegistry.register(job_id, tref)
+          {:ok,
+           %{
+             scheduled: true,
+             task: task,
+             room_id: room_id,
+             job_id: job_id,
+             fires_at: fires_at,
+             mode: mode
+           }}
 
-      {:ok,
-       %{
-         scheduled: true,
-         task: task,
-         room_id: room_id,
-         job_id: job_id,
-         fires_at: fires_at,
-         mode: mode
-       }}
+        {:error, reason} ->
+          :timer.cancel(tref)
+          {:error, "Failed to persist one-shot job: #{inspect(reason)}"}
+      end
     end
   end
 
@@ -105,10 +117,30 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
   Uses SHA256 of `{fires_at, task, room_id}`, takes first 16 hex chars,
   and prefixes with `oneshot_`.
   """
+  @spec generate_job_id(DateTime.t(), String.t(), String.t()) :: atom()
   def generate_job_id(fires_at, task, room_id) do
     input = :erlang.term_to_binary({DateTime.to_iso8601(fires_at), task, room_id})
     hash = :crypto.hash(:sha256, input) |> Base.encode16(case: :lower) |> binary_part(0, 16)
     :"oneshot_#{hash}"
+  end
+
+  defp validate_length(value, field, max) when is_binary(value) and byte_size(value) > max,
+    do: {:error, "#{field} exceeds maximum length of #{max} characters"}
+
+  defp validate_length(_value, _field, _max), do: :ok
+
+  defp check_pending_job_cap do
+    case OneShotStore.list() do
+      {:ok, jobs} when length(jobs) >= @max_pending_jobs ->
+        {:error, "Maximum pending one-shot jobs (#{@max_pending_jobs}) reached"}
+
+      {:ok, _jobs} ->
+        :ok
+
+      {:error, _reason} ->
+        # If we can't check, allow scheduling — the save will fail if disk is truly broken
+        :ok
+    end
   end
 
   defp validate_exclusivity(nil, nil),
@@ -148,11 +180,17 @@ defmodule Goodwizard.Actions.Scheduling.OneShot do
       {:ok, at_dt, _offset} ->
         now = DateTime.utc_now()
         delay_ms = DateTime.diff(at_dt, now, :millisecond)
+        max_delay_ms = @max_delay_minutes * 60_000
 
-        if delay_ms > 0 do
-          {:ok, delay_ms, at_dt, "at"}
-        else
-          {:error, "Scheduled time is in the past: #{inspect(at_string)}"}
+        cond do
+          delay_ms <= 0 ->
+            {:error, "Scheduled time is in the past: #{inspect(at_string)}"}
+
+          delay_ms > max_delay_ms ->
+            {:error, "Scheduled time exceeds maximum of 1 year in the future: #{inspect(at_string)}"}
+
+          true ->
+            {:ok, delay_ms, at_dt, "at"}
         end
 
       {:error, _reason} ->

@@ -38,6 +38,6 @@ defmodule Goodwizard.Actions.Scheduling.CancelOneShot do
     # Cancel the in-memory timer (idempotent — :ok if not found)
     OneShotRegistry.cancel(cancel_id)
 
-    {:ok, %{cancelled: true, job_id: cancel_id}}
+    {:ok, %{cancelled: true, job_id: to_string(cancel_id)}}
   end
 end
