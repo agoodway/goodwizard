@@ -178,7 +178,9 @@ defmodule Goodwizard.Brain.SeedsTest do
 
         metadata = schema["properties"]["metadata"]
         assert metadata["type"] == "object"
-        assert metadata["additionalProperties"] == %{"type" => "string"}
+        assert metadata["additionalProperties"] == %{"type" => "string", "maxLength" => 1000}
+        assert metadata["maxProperties"] == 50
+        assert metadata["propertyNames"]["pattern"] == "^[a-zA-Z0-9_.-]{1,64}$"
 
         assert "metadata" in schema["required"],
                "Expected #{type} schema to have metadata in required"
@@ -188,6 +190,7 @@ defmodule Goodwizard.Brain.SeedsTest do
     test "other entity schemas include webpages ref_list property" do
       for type <- Seeds.entity_types(), type != "webpages" do
         schema = Seeds.schema_for(type)
+
         assert Map.has_key?(schema["properties"], "webpages"),
                "Expected #{type} schema to have webpages property"
 

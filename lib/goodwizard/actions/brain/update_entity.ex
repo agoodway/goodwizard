@@ -33,7 +33,7 @@ defmodule Goodwizard.Actions.Brain.UpdateEntity do
 
     case Goodwizard.Brain.update(workspace, params.entity_type, params.id, params.data, body) do
       {:ok, {data, body}} ->
-        {:ok, %{data: data, body: body}}
+        {:ok, %{data: Helpers.sanitize_entity_data(data), body: body}}
 
       {:error, reason} ->
         {:error, Helpers.format_error(reason)}

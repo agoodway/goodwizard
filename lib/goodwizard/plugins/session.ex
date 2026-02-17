@@ -210,14 +210,20 @@ defmodule Goodwizard.Plugins.Session do
       content = Enum.join([metadata_line | message_lines], "\n") <> "\n"
 
       if byte_size(content) > @max_file_size do
-        Logger.warning("Session file too large (#{byte_size(content)} bytes), skipping save for #{session_key}")
+        Logger.warning(
+          "Session file too large (#{byte_size(content)} bytes), skipping save for #{session_key}"
+        )
+
         {:error, :file_too_large}
       else
         case File.write(path, content) do
           :ok ->
             case File.chmod(path, 0o600) do
-              :ok -> :ok
-              {:error, reason} -> Logger.warning("Failed to chmod session file #{path}: #{inspect(reason)}")
+              :ok ->
+                :ok
+
+              {:error, reason} ->
+                Logger.warning("Failed to chmod session file #{path}: #{inspect(reason)}")
             end
 
             Logger.debug("Session saved: #{session_key} (#{length(messages)} messages)")
@@ -247,7 +253,10 @@ defmodule Goodwizard.Plugins.Session do
 
       case File.stat(path) do
         {:ok, %{size: size}} when size > @max_file_size ->
-          Logger.warning("Session file too large (#{size} bytes), skipping load for #{session_key}")
+          Logger.warning(
+            "Session file too large (#{size} bytes), skipping load for #{session_key}"
+          )
+
           {:error, :file_too_large}
 
         _ ->

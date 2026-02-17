@@ -27,15 +27,20 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
   def run(params, context) do
     workspace = Helpers.workspace(context)
 
-    with :ok <- validate_schema_structure(params.schema) do
-      case Schema.save(workspace, params.entity_type, params.schema) do
+    schema = ensure_metadata_property(params.schema)
+
+    with :ok <- validate_schema_structure(schema) do
+      case Schema.save(workspace, params.entity_type, schema) do
         :ok ->
           Goodwizard.Cache.delete("brain:schema_summaries:#{workspace}")
 
           tool_msg =
             case ToolGenerator.generate_for_type(workspace, params.entity_type) do
-              {:ok, _modules} -> "Typed tools regenerated — available next turn."
-              {:error, reason} -> "Tool generation failed (#{inspect(reason)}) — generic tools still available."
+              {:ok, _modules} ->
+                "Typed tools regenerated — available next turn."
+
+              {:error, reason} ->
+                "Tool generation failed (#{inspect(reason)}) — generic tools still available."
             end
 
           {:ok, %{message: "Schema saved for type: #{params.entity_type}. #{tool_msg}"}}
@@ -43,6 +48,40 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
         {:error, reason} ->
           {:error, Helpers.format_error(reason)}
       end
+    end
+  end
+
+  @default_metadata_property %{
+    "type" => "object",
+    "additionalProperties" => %{"type" => "string", "maxLength" => 1000},
+    "propertyNames" => %{"pattern" => "^[a-zA-Z0-9_.-]{1,64}$"},
+    "maxProperties" => 50,
+    "description" => "Arbitrary key-value string metadata"
+  }
+
+  defp ensure_metadata_property(schema) do
+    schema
+    |> put_in_if_missing(["properties", "metadata"], @default_metadata_property)
+    |> ensure_required("metadata")
+  end
+
+  defp put_in_if_missing(schema, ["properties", "metadata"], default) do
+    props = Map.get(schema, "properties", %{})
+
+    if Map.has_key?(props, "metadata") do
+      schema
+    else
+      Map.put(schema, "properties", Map.put(props, "metadata", default))
+    end
+  end
+
+  defp ensure_required(schema, field) do
+    required = Map.get(schema, "required", [])
+
+    if field in required do
+      schema
+    else
+      Map.put(schema, "required", required ++ [field])
     end
   end
 

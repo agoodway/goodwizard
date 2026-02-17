@@ -50,7 +50,8 @@ defmodule Goodwizard.Brain.ToolGeneratorTest do
     } do
       File.write!(Path.join(schemas_dir, "people.json"), Jason.encode!(@test_schema))
 
-      assert {:ok, [create_mod, update_mod]} = ToolGenerator.generate_for_type(workspace, "people")
+      assert {:ok, [create_mod, update_mod]} =
+               ToolGenerator.generate_for_type(workspace, "people")
 
       assert create_mod |> Module.split() |> List.last() == "CreatePerson"
       assert update_mod |> Module.split() |> List.last() == "UpdatePerson"

@@ -661,6 +661,86 @@ defmodule Goodwizard.BrainCrudTest do
 
       assert updated["metadata"] == metadata
     end
+
+    test "update with absent metadata key preserves existing metadata", %{workspace: workspace} do
+      metadata = %{"source" => "csv", "version" => "1"}
+
+      {:ok, {id, _data, _body}} =
+        Brain.create(workspace, "people", %{"name" => "Eve", "metadata" => metadata})
+
+      # Update without any metadata key in the data map
+      {:ok, {updated, _body}} =
+        Brain.update(workspace, "people", id, %{"name" => "Eve Updated"})
+
+      assert updated["metadata"] == metadata
+    end
+
+    test "update replaces metadata with a new non-nil map", %{workspace: workspace} do
+      original = %{"source" => "csv"}
+      replacement = %{"source" => "api", "version" => "2"}
+
+      {:ok, {id, _data, _body}} =
+        Brain.create(workspace, "people", %{"name" => "Frank", "metadata" => original})
+
+      {:ok, {updated, _body}} =
+        Brain.update(workspace, "people", id, %{"name" => "Frank", "metadata" => replacement})
+
+      assert updated["metadata"] == replacement
+    end
+
+    test "metadata round-trips correctly for notes entity type", %{workspace: workspace} do
+      metadata = %{"category" => "meeting", "project" => "alpha"}
+
+      {:ok, {id, data, _body}} =
+        Brain.create(workspace, "notes", %{"title" => "Standup Notes", "metadata" => metadata})
+
+      assert data["metadata"] == metadata
+
+      {:ok, {read_data, _body}} = Brain.read(workspace, "notes", id)
+      assert read_data["metadata"] == metadata
+    end
+
+    test "reading legacy entity file without metadata field succeeds", %{workspace: workspace} do
+      Brain.ensure_initialized(workspace)
+
+      {:ok, type_dir} = Paths.entity_type_dir(workspace, "people")
+      File.mkdir_p!(type_dir)
+
+      # Write a legacy entity file without metadata key
+      legacy_content = """
+      ---
+      id: legacy001
+      name: Legacy Person
+      created_at: "2024-01-01T00:00:00Z"
+      updated_at: "2024-01-01T00:00:00Z"
+      ---
+      Old notes.
+      """
+
+      File.write!(Path.join(type_dir, "legacy001.md"), legacy_content)
+
+      assert {:ok, {data, body}} = Brain.read(workspace, "people", "legacy001")
+      assert data["name"] == "Legacy Person"
+      assert body =~ "Old notes."
+      # metadata key is absent — read should not crash
+      refute Map.has_key?(data, "metadata")
+    end
+
+    test "metadata keys with special characters round-trip correctly", %{workspace: workspace} do
+      metadata = %{
+        "key_with_underscore" => "val1",
+        "key-with-dash" => "val2",
+        "key.with.dots" => "val3"
+      }
+
+      {:ok, {id, data, _body}} =
+        Brain.create(workspace, "people", %{"name" => "Grace", "metadata" => metadata})
+
+      assert data["metadata"] == metadata
+
+      {:ok, {read_data, _body}} = Brain.read(workspace, "people", id)
+      assert read_data["metadata"] == metadata
+    end
   end
 
   describe "list entity count limit" do

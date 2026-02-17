@@ -21,15 +21,34 @@ defmodule Goodwizard.Plugins.SessionTest do
     end
 
     test "loads existing session file when session_key matches" do
-      workspace = Path.join(System.tmp_dir!(), "gw_mount_test_#{System.unique_integer([:positive])}")
+      workspace =
+        Path.join(System.tmp_dir!(), "gw_mount_test_#{System.unique_integer([:positive])}")
+
       sessions_dir = Path.join(workspace, "sessions")
       File.mkdir_p!(sessions_dir)
 
       # Write a session file
       session_key = "telegram-12345"
-      metadata_line = Jason.encode!(%{key: session_key, created_at: "2026-01-15T10:00:00Z", version: 1, metadata: %{source: "test"}})
-      msg_line = Jason.encode!(%{role: "user", content: "Hello from file", timestamp: "2026-01-15T10:00:01Z"})
-      File.write!(Path.join(sessions_dir, "telegram-12345.jsonl"), metadata_line <> "\n" <> msg_line <> "\n")
+
+      metadata_line =
+        Jason.encode!(%{
+          key: session_key,
+          created_at: "2026-01-15T10:00:00Z",
+          version: 1,
+          metadata: %{source: "test"}
+        })
+
+      msg_line =
+        Jason.encode!(%{
+          role: "user",
+          content: "Hello from file",
+          timestamp: "2026-01-15T10:00:01Z"
+        })
+
+      File.write!(
+        Path.join(sessions_dir, "telegram-12345.jsonl"),
+        metadata_line <> "\n" <> msg_line <> "\n"
+      )
 
       agent = %{state: %{session_key: session_key, workspace: workspace}}
       {:ok, plugin_state} = Session.mount(agent, %{})
@@ -43,7 +62,9 @@ defmodule Goodwizard.Plugins.SessionTest do
     end
 
     test "starts empty when no file matches session_key" do
-      workspace = Path.join(System.tmp_dir!(), "gw_mount_empty_#{System.unique_integer([:positive])}")
+      workspace =
+        Path.join(System.tmp_dir!(), "gw_mount_empty_#{System.unique_integer([:positive])}")
+
       sessions_dir = Path.join(workspace, "sessions")
       File.mkdir_p!(sessions_dir)
 
@@ -67,12 +88,18 @@ defmodule Goodwizard.Plugins.SessionTest do
     end
 
     test "starts fresh when session file is corrupted" do
-      workspace = Path.join(System.tmp_dir!(), "gw_mount_corrupt_#{System.unique_integer([:positive])}")
+      workspace =
+        Path.join(System.tmp_dir!(), "gw_mount_corrupt_#{System.unique_integer([:positive])}")
+
       sessions_dir = Path.join(workspace, "sessions")
       File.mkdir_p!(sessions_dir)
 
       session_key = "cli-direct-corrupted"
-      File.write!(Path.join(sessions_dir, "cli-direct-corrupted.jsonl"), "this is not json at all\ngarbage\n")
+
+      File.write!(
+        Path.join(sessions_dir, "cli-direct-corrupted.jsonl"),
+        "this is not json at all\ngarbage\n"
+      )
 
       agent = %{state: %{session_key: session_key, workspace: workspace}}
       {:ok, plugin_state} = Session.mount(agent, %{})

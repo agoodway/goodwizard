@@ -3,7 +3,10 @@ defmodule Goodwizard.Scheduling.CronStoreTest do
 
   alias Goodwizard.Scheduling.CronStore
 
-  @test_workspace Path.join(System.tmp_dir!(), "cron_store_test_#{System.unique_integer([:positive])}")
+  @test_workspace Path.join(
+                    System.tmp_dir!(),
+                    "cron_store_test_#{System.unique_integer([:positive])}"
+                  )
 
   setup do
     cron_dir = Path.join(@test_workspace, "scheduling/cron")

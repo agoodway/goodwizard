@@ -15,5 +15,6 @@ defmodule Goodwizard.Actions.Browser.GetText do
   alias Goodwizard.Actions.Browser.Helpers
 
   @impl true
-  def run(params, context), do: Helpers.run_serialized(JidoBrowser.Actions.GetText, params, context)
+  def run(params, context),
+    do: Helpers.run_serialized(JidoBrowser.Actions.GetText, params, context)
 end

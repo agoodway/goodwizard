@@ -10,7 +10,10 @@ defmodule Goodwizard.Brain.SchemaTest do
     "type" => "object",
     "required" => ["id", "name"],
     "properties" => %{
-      "id" => %{"type" => "string", "pattern" => "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+      "id" => %{
+        "type" => "string",
+        "pattern" => "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+      },
       "name" => %{"type" => "string"},
       "tags" => %{"type" => "array", "items" => %{"type" => "string"}}
     },
@@ -79,7 +82,12 @@ defmodule Goodwizard.Brain.SchemaTest do
     end
 
     test "validates data with optional fields", %{resolved: resolved} do
-      data = %{"id" => "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a", "name" => "Test", "tags" => ["foo", "bar"]}
+      data = %{
+        "id" => "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a",
+        "name" => "Test",
+        "tags" => ["foo", "bar"]
+      }
+
       assert :ok = Schema.validate(resolved, data)
     end
 
@@ -101,7 +109,12 @@ defmodule Goodwizard.Brain.SchemaTest do
     end
 
     test "rejects additional properties", %{resolved: resolved} do
-      data = %{"id" => "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a", "name" => "Test", "extra" => "nope"}
+      data = %{
+        "id" => "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a",
+        "name" => "Test",
+        "extra" => "nope"
+      }
+
       assert {:error, _} = Schema.validate(resolved, data)
     end
   end

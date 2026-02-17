@@ -84,7 +84,10 @@ defmodule Goodwizard.Brain.SchemaMapperTest do
 
     test "handles empty properties" do
       {:ok, schema} = SchemaMapper.for_create(%{"properties" => %{}})
-      assert schema == [{:body, [type: :string, default: "", doc: "Optional markdown body content"]}]
+
+      assert schema == [
+               {:body, [type: :string, default: "", doc: "Optional markdown body content"]}
+             ]
     end
   end
 

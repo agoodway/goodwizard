@@ -161,7 +161,7 @@ defmodule Goodwizard.Brain.ToolGenerator do
 
             case Goodwizard.Brain.create(workspace, @entity_type, data, body) do
               {:ok, {id, data, body}} ->
-                {:ok, %{id: id, data: data, body: body}}
+                {:ok, %{id: id, data: Helpers.sanitize_entity_data(data), body: body}}
 
               {:error, reason} ->
                 {:error, Helpers.format_error(reason)}
@@ -203,7 +203,7 @@ defmodule Goodwizard.Brain.ToolGenerator do
 
             case Goodwizard.Brain.update(workspace, @entity_type, id, data, body) do
               {:ok, {data, body}} ->
-                {:ok, %{data: data, body: body}}
+                {:ok, %{data: Helpers.sanitize_entity_data(data), body: body}}
 
               {:error, reason} ->
                 {:error, Helpers.format_error(reason)}

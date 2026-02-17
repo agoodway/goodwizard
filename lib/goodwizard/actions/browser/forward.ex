@@ -14,5 +14,6 @@ defmodule Goodwizard.Actions.Browser.Forward do
   alias Goodwizard.Actions.Browser.Helpers
 
   @impl true
-  def run(params, context), do: Helpers.run_serialized(JidoBrowser.Actions.Forward, params, context)
+  def run(params, context),
+    do: Helpers.run_serialized(JidoBrowser.Actions.Forward, params, context)
 end

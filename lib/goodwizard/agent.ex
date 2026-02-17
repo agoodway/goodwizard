@@ -145,7 +145,11 @@ defmodule Goodwizard.Agent do
       params =
         params
         |> Map.put(:system_prompt, system_prompt)
-        |> Map.update(:tool_context, %{session: browser_session}, &Map.put(&1, :session, browser_session))
+        |> Map.update(
+          :tool_context,
+          %{session: browser_session},
+          &Map.put(&1, :session, browser_session)
+        )
 
       {:ok, agent, {:react_start, params}}
     rescue

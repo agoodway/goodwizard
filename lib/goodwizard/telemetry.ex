@@ -80,7 +80,11 @@ defmodule Goodwizard.Telemetry do
 
   def handle_tool_event([:jido, :ai, :tool, :execute, :stop], measurements, metadata, _config) do
     duration_ms = System.convert_time_unit(measurements[:duration] || 0, :native, :millisecond)
-    status = if match?({:ok, _}, metadata[:result]) or match?({:ok, _, _}, metadata[:result]), do: :ok, else: :error
+
+    status =
+      if match?({:ok, _}, metadata[:result]) or match?({:ok, _, _}, metadata[:result]),
+        do: :ok,
+        else: :error
 
     log_fn = fn ->
       base =
