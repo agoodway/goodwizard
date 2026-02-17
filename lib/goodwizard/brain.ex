@@ -8,7 +8,7 @@ defmodule Goodwizard.Brain do
 
   require Logger
 
-  alias Goodwizard.Brain.{Entity, Id, Paths, Schema, Seeds}
+  alias Goodwizard.Brain.{Entity, Id, Paths, References, Schema, Seeds}
 
   @system_fields ["id", "created_at", "updated_at"]
   @max_list_entities 1_000
@@ -77,8 +77,12 @@ defmodule Goodwizard.Brain do
           {:ok, {map(), String.t()}} | {:error, term()}
   def read(workspace, entity_type, id) do
     with {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
-         {:ok, content} <- safe_read(path, workspace) do
-      Entity.parse(content)
+         {:ok, content} <- safe_read(path, workspace),
+         {:ok, {data, body}} <- Entity.parse(content) do
+      case Schema.load(workspace, entity_type) do
+        {:ok, schema} -> {:ok, {References.clean_data(workspace, schema, data), body}}
+        {:error, _} -> {:ok, {data, body}}
+      end
     end
   end
 
@@ -171,9 +175,15 @@ defmodule Goodwizard.Brain do
     with {:ok, path} <- Paths.entity_path(workspace, entity_type, id),
          {:ok, real_path} <- safe_resolve(path, workspace) do
       case File.rm(real_path) do
-        :ok -> :ok
-        {:error, :enoent} -> {:error, :not_found}
-        {:error, reason} -> {:error, reason}
+        :ok ->
+          Task.start(fn -> References.sweep_stale(workspace, entity_type, id) end)
+          :ok
+
+        {:error, :enoent} ->
+          {:error, :not_found}
+
+        {:error, reason} ->
+          {:error, reason}
       end
     end
   end
@@ -189,8 +199,18 @@ defmodule Goodwizard.Brain do
   def list(workspace, entity_type) do
     with {:ok, _} <- ensure_initialized(workspace),
          {:ok, type_dir} <- Paths.entity_type_dir(workspace, entity_type),
-         {:ok, files} <- list_entity_files(type_dir) do
-      read_entity_files(type_dir, files, workspace)
+         {:ok, files} <- list_entity_files(type_dir),
+         {:ok, entities} <- read_entity_files(type_dir, files, workspace) do
+      case Schema.load(workspace, entity_type) do
+        {:ok, schema} ->
+          {:ok,
+           Enum.map(entities, fn {data, body} ->
+             {References.clean_data(workspace, schema, data), body}
+           end)}
+
+        {:error, _} ->
+          {:ok, entities}
+      end
     end
   end
 
