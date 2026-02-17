@@ -8,11 +8,8 @@ defmodule Goodwizard.Brain.Seeds do
   ## Schema versioning
 
   Each schema includes an advisory `"version"` integer (default 1).
-  Schema upgrades for existing installations are handled by migration
-  tasks (e.g. `mix goodwizard.migrate_contacts`) which overwrite
-  on-disk schemas after migrating entity data. The version field is
-  not read at runtime — it serves as metadata for operators inspecting
-  schema files on disk.
+  The version field is not read at runtime — it serves as metadata
+  for operators inspecting schema files on disk.
 
   ## Security: SSRF considerations for webpages URLs
 
