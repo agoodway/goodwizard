@@ -68,21 +68,25 @@ defmodule Goodwizard.Brain.Seeds do
       "addresses" => address_field(),
       "socials" => contact_field("Social media profiles"),
       "company" => entity_ref("companies"),
-      "role" => %{"type" => "string"}
+      "role" => %{
+        "type" => "string",
+        "description" => "Job title or role at their company (e.g. CEO, Engineer, Sales Manager)"
+      }
     }, 2)
   end
 
   def schema_for("places") do
     build_schema("Place", ["id", "name"], %{
-      "address" => %{"type" => "string"},
-      "city" => %{"type" => "string"},
-      "state" => %{"type" => "string"},
-      "country" => %{"type" => "string"},
+      "address" => %{"type" => "string", "description" => "Street address line (e.g. 123 Main St)"},
+      "city" => %{"type" => "string", "description" => "City name"},
+      "state" => %{"type" => "string", "description" => "State, province, or region"},
+      "country" => %{"type" => "string", "description" => "Country name or ISO code"},
       "coordinates" => %{
         "type" => "object",
+        "description" => "Geographic coordinates",
         "properties" => %{
-          "lat" => %{"type" => "number"},
-          "lng" => %{"type" => "number"}
+          "lat" => %{"type" => "number", "description" => "Latitude in decimal degrees"},
+          "lng" => %{"type" => "number", "description" => "Longitude in decimal degrees"}
         },
         "required" => ["lat", "lng"],
         "additionalProperties" => false
@@ -92,18 +96,28 @@ defmodule Goodwizard.Brain.Seeds do
 
   def schema_for("events") do
     build_schema("Event", ["id", "title", "date"], %{
-      "title" => %{"type" => "string"},
-      "date" => %{"type" => "string", "format" => "date-time"},
+      "title" => %{"type" => "string", "description" => "Short name or subject of the event"},
+      "date" => %{
+        "type" => "string",
+        "format" => "date-time",
+        "description" => "When the event occurs (ISO 8601 datetime)"
+      },
       "location" => entity_ref("places"),
       "attendees" => entity_ref_list("people"),
-      "description" => %{"type" => "string"}
+      "description" => %{
+        "type" => "string",
+        "description" => "Details, agenda, or notes about the event"
+      }
     })
   end
 
   def schema_for("notes") do
     build_schema("Note", ["id", "title"], %{
-      "title" => %{"type" => "string"},
-      "topic" => %{"type" => "string"},
+      "title" => %{"type" => "string", "description" => "Short title or subject of the note"},
+      "topic" => %{
+        "type" => "string",
+        "description" => "Category or topic area (e.g. meeting notes, ideas, research)"
+      },
       "related_to" => %{
         "type" => "array",
         "items" => %{"type" => "string", "pattern" => "^[a-z_]+/#{@uuid_pattern}$"},
@@ -114,25 +128,41 @@ defmodule Goodwizard.Brain.Seeds do
 
   def schema_for("tasks") do
     build_schema("Task", ["id", "title"], %{
-      "title" => %{"type" => "string"},
+      "title" => %{
+        "type" => "string",
+        "description" => "Short description of what needs to be done"
+      },
       "status" => %{
         "type" => "string",
-        "enum" => ["pending", "in_progress", "done", "cancelled"]
+        "enum" => ["pending", "in_progress", "done", "cancelled"],
+        "description" => "Current status of the task"
       },
       "priority" => %{
         "type" => "string",
-        "enum" => ["low", "medium", "high"]
+        "enum" => ["low", "medium", "high"],
+        "description" => "Urgency level of the task"
       },
-      "due_date" => %{"type" => "string", "format" => "date-time"},
+      "due_date" => %{
+        "type" => "string",
+        "format" => "date-time",
+        "description" => "Deadline for completing the task (ISO 8601 datetime)"
+      },
       "assignee" => entity_ref("people")
     })
   end
 
   def schema_for("companies") do
     build_schema("Company", ["id", "name"], %{
-      "domain" => %{"type" => "string"},
-      "industry" => %{"type" => "string"},
-      "size" => %{"type" => "string"},
+      "domain" => %{"type" => "string", "description" => "Company website domain (e.g. example.com)"},
+      "industry" => %{
+        "type" => "string",
+        "description" => "Business sector or industry (e.g. Technology, Healthcare, Finance)"
+      },
+      "size" => %{
+        "type" => "string",
+        "description" =>
+          "Company size category (e.g. startup, small, medium, enterprise) or employee count"
+      },
       "emails" => contact_field("Email addresses"),
       "phones" => contact_field("Phone numbers"),
       "addresses" => address_field(),
@@ -143,11 +173,15 @@ defmodule Goodwizard.Brain.Seeds do
 
   def schema_for("tasklists") do
     build_schema("Tasklist", ["id", "title"], %{
-      "title" => %{"type" => "string"},
-      "description" => %{"type" => "string"},
+      "title" => %{"type" => "string", "description" => "Name of the task list or project"},
+      "description" => %{
+        "type" => "string",
+        "description" => "Purpose or scope of this task list"
+      },
       "status" => %{
         "type" => "string",
-        "enum" => ["active", "completed", "archived"]
+        "enum" => ["active", "completed", "archived"],
+        "description" => "Whether this list is active, completed, or archived"
       },
       "tasks" => entity_ref_list("tasks")
     })
@@ -156,14 +190,19 @@ defmodule Goodwizard.Brain.Seeds do
   def schema_for("webpages") do
     schema =
       build_schema("Webpage", ["id", "title", "url"], %{
-        "title" => %{"type" => "string"},
+        "title" => %{"type" => "string", "description" => "Page title or heading"},
         "url" => %{
           "type" => "string",
           "format" => "uri",
           "pattern" => "^https?://",
-          "maxLength" => 2048
+          "maxLength" => 2048,
+          "description" => "Full URL of the webpage (must be http or https)"
         },
-        "description" => %{"type" => "string", "maxLength" => 10_000}
+        "description" => %{
+          "type" => "string",
+          "maxLength" => 10_000,
+          "description" => "Summary or description of the webpage content"
+        }
       })
 
     Map.update!(schema, "properties", &Map.delete(&1, "webpages"))
@@ -183,13 +222,29 @@ defmodule Goodwizard.Brain.Seeds do
 
   defp base_properties do
     %{
-      "id" => %{"type" => "string", "pattern" => @id_pattern},
-      "name" => %{"type" => "string"},
+      "id" => %{
+        "type" => "string",
+        "pattern" => @id_pattern,
+        "description" => "Unique identifier for this entity"
+      },
+      "name" => %{"type" => "string", "description" => "Primary name or display label"},
       "notes" => entity_ref_list("notes"),
       "webpages" => entity_ref_list("webpages"),
-      "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
-      "created_at" => %{"type" => "string", "format" => "date-time"},
-      "updated_at" => %{"type" => "string", "format" => "date-time"}
+      "tags" => %{
+        "type" => "array",
+        "items" => %{"type" => "string"},
+        "description" => "Freeform labels for categorization and search"
+      },
+      "created_at" => %{
+        "type" => "string",
+        "format" => "date-time",
+        "description" => "When this entity was first created (ISO 8601)"
+      },
+      "updated_at" => %{
+        "type" => "string",
+        "format" => "date-time",
+        "description" => "When this entity was last modified (ISO 8601)"
+      }
     }
   end
 
@@ -200,8 +255,14 @@ defmodule Goodwizard.Brain.Seeds do
       "items" => %{
         "type" => "object",
         "properties" => %{
-          "type" => %{"type" => "string"},
-          "value" => %{"type" => "string"}
+          "type" => %{
+            "type" => "string",
+            "description" => "Label for this entry (e.g. work, personal, home, mobile)"
+          },
+          "value" => %{
+            "type" => "string",
+            "description" => "The actual contact value (email address, phone number, etc.)"
+          }
         },
         "required" => ["value"]
       }
@@ -215,12 +276,15 @@ defmodule Goodwizard.Brain.Seeds do
       "items" => %{
         "type" => "object",
         "properties" => %{
-          "type" => %{"type" => "string"},
-          "street" => %{"type" => "string"},
-          "city" => %{"type" => "string"},
-          "state" => %{"type" => "string"},
-          "zip" => %{"type" => "string"},
-          "country" => %{"type" => "string"}
+          "type" => %{
+            "type" => "string",
+            "description" => "Label for this address (e.g. home, work, headquarters)"
+          },
+          "street" => %{"type" => "string", "description" => "Street address line"},
+          "city" => %{"type" => "string", "description" => "City name"},
+          "state" => %{"type" => "string", "description" => "State, province, or region"},
+          "zip" => %{"type" => "string", "description" => "ZIP or postal code"},
+          "country" => %{"type" => "string", "description" => "Country name or ISO code"}
         },
         "required" => ["city"]
       }
