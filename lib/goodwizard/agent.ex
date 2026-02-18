@@ -27,6 +27,11 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Memory.Episodic.SearchEpisodes,
       Goodwizard.Actions.Memory.Episodic.ReadEpisode,
       Goodwizard.Actions.Memory.Episodic.ListEpisodes,
+      # Procedural memory
+      Goodwizard.Actions.Memory.Procedural.DecayUnused,
+      # Lifecycle management
+      Goodwizard.Actions.Memory.Episodic.ArchiveOld,
+      Goodwizard.Actions.Memory.CrossConsolidate,
       Goodwizard.Actions.Skills.ActivateSkill,
       Goodwizard.Actions.Skills.LoadSkillResource,
       Goodwizard.Actions.Skills.CreateSkill,

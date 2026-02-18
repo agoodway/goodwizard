@@ -16,7 +16,7 @@ defmodule Goodwizard.Memory.Episodic do
   alias Goodwizard.Memory.Entry
   alias Goodwizard.Memory.Paths
 
-  @episode_types ~w(task_completion problem_solved error_encountered decision_made interaction)
+  @episode_types ~w(task_completion problem_solved error_encountered decision_made interaction monthly_summary)
   @outcome_types ~w(success failure partial abandoned)
 
   @max_summary_length 200
