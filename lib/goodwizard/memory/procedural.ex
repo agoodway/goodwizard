@@ -333,6 +333,127 @@ defmodule Goodwizard.Memory.Procedural do
   end
 
   @doc """
+  Decays confidence of procedures not used within the given time windows.
+
+  Scans all procedures and:
+  - Demotes high -> medium and medium -> low for procedures with `last_used`
+    older than `decay_days` (or nil)
+  - Deletes procedures at low confidence with `last_used` older than
+    `archive_days` (or nil with `created_at` older than `archive_days`)
+
+  Uses `updated_at` as an idempotency guard: procedures updated today
+  (e.g., by a previous decay run) are skipped.
+
+  ## Options
+
+  - `:decay_days` — days without use before demotion (default 60)
+  - `:archive_days` — days without use at low confidence before deletion (default 120)
+
+  Returns `{:ok, %{demoted: count, deleted: count, unchanged: count}}`.
+  """
+  @spec decay_unused(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def decay_unused(memory_dir, opts \\ []) do
+    decay_days = Keyword.get(opts, :decay_days, 60)
+    archive_days = Keyword.get(opts, :archive_days, 120)
+
+    with {:ok, _} <- Paths.validate_memory_dir(memory_dir) do
+      now = DateTime.utc_now()
+      decay_cutoff = DateTime.add(now, -decay_days, :day)
+      archive_cutoff = DateTime.add(now, -archive_days, :day)
+      today = DateTime.to_date(now)
+
+      dir = Paths.procedural_dir(memory_dir)
+
+      entries =
+        dir
+        |> list_procedure_files()
+        |> read_entries()
+
+      {demoted, deleted, unchanged} =
+        Enum.reduce(entries, {0, 0, 0}, fn {fm, _body}, {dem, del, unch} ->
+          # Skip procedures already updated today (idempotency)
+          if updated_today?(fm, today) do
+            {dem, del, unch}
+          else
+            case classify_for_decay(fm, decay_cutoff, archive_cutoff) do
+              :delete ->
+                case delete(memory_dir, fm["id"]) do
+                  :ok -> {dem, del + 1, unch}
+                  _ -> {dem, del, unch}
+                end
+
+              :demote ->
+                new_confidence = demote_confidence(fm["confidence"])
+
+                case update(memory_dir, fm["id"], %{"confidence" => new_confidence}) do
+                  {:ok, _} -> {dem + 1, del, unch}
+                  _ -> {dem, del, unch}
+                end
+
+              :keep ->
+                {dem, del, unch + 1}
+            end
+          end
+        end)
+
+      {:ok, %{demoted: demoted, deleted: deleted, unchanged: unchanged}}
+    end
+  end
+
+  defp updated_today?(fm, today) do
+    case fm["updated_at"] do
+      nil ->
+        false
+
+      ts ->
+        case DateTime.from_iso8601(ts) do
+          {:ok, dt, _} -> DateTime.to_date(dt) == today
+          _ -> false
+        end
+    end
+  end
+
+  defp classify_for_decay(fm, decay_cutoff, archive_cutoff) do
+    confidence = fm["confidence"] || "medium"
+    last_used = parse_iso_datetime(fm["last_used"])
+    created_at = parse_iso_datetime(fm["created_at"])
+
+    activity_time = last_used || created_at
+
+    cond do
+      confidence == "low" and activity_time != nil and
+          DateTime.compare(activity_time, archive_cutoff) == :lt ->
+        :delete
+
+      confidence == "low" and activity_time == nil ->
+        :delete
+
+      activity_time != nil and DateTime.compare(activity_time, decay_cutoff) == :lt and
+          confidence in ["high", "medium"] ->
+        :demote
+
+      activity_time == nil and confidence in ["high", "medium"] ->
+        :demote
+
+      true ->
+        :keep
+    end
+  end
+
+  defp demote_confidence("high"), do: "medium"
+  defp demote_confidence("medium"), do: "low"
+  defp demote_confidence(other), do: other
+
+  defp parse_iso_datetime(nil), do: nil
+
+  defp parse_iso_datetime(ts) when is_binary(ts) do
+    case DateTime.from_iso8601(ts) do
+      {:ok, dt, _} -> dt
+      _ -> nil
+    end
+  end
+
+  @doc """
   Evaluates confidence promotion/demotion rules based on cumulative counts.
 
   - Promote: low -> medium at #{@promote_low_to_medium} successes; medium -> high at #{@promote_medium_to_high} successes

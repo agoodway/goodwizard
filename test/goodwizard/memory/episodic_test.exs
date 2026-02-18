@@ -532,7 +532,8 @@ defmodule Goodwizard.Memory.EpisodicTest do
       assert "error_encountered" in types
       assert "decision_made" in types
       assert "interaction" in types
-      assert length(types) == 5
+      assert "monthly_summary" in types
+      assert length(types) == 6
     end
   end
 
