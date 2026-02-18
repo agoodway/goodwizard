@@ -3,7 +3,7 @@ defmodule Goodwizard.Messaging.Delivery do
   Delivers messages to external channels bound to a Messaging room.
 
   Looks up room bindings and delivers via `JidoMessaging.Deliver.send_to_room/4`.
-  Used by both the Send action and CronRunner.
+  Used by both the Send action and ScheduledTaskRunner.
 
   Supports two binding sources:
   - Formal `RoomBinding` structs (from `list_room_bindings`)

@@ -121,7 +121,7 @@ defmodule Goodwizard.TelemetryTest do
             [:jido, :ai, :tool, :execute, :stop],
             %{duration: System.convert_time_unit(3, :millisecond, :native)},
             %{
-              tool_name: "schedule_cron_task",
+              tool_name: "schedule_scheduled_task",
               result: {:error, %{message: "invalid cron expression", field: :schedule}},
               call_id: "cron1",
               thread_id: "t4"
@@ -129,7 +129,7 @@ defmodule Goodwizard.TelemetryTest do
           )
         end)
 
-      assert log =~ "tool=schedule_cron_task"
+      assert log =~ "tool=schedule_scheduled_task"
       assert log =~ "status=error"
       assert log =~ "invalid cron expression"
     end

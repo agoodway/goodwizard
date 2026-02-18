@@ -24,7 +24,7 @@ defmodule Goodwizard.Character.Preamble do
   - **memory/** — Long-term conversation memory and learned preferences
   - **sessions/** — Active and historical conversation session data
   - **skills/** — Prompt-based skills that extend your capabilities
-  - **scheduling/** — Scheduled tasks and cron job definitions
+  - **scheduling/** — Scheduled tasks and scheduled task definitions
 
   ### Bootstrap Files
 

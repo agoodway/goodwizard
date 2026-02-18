@@ -9,7 +9,7 @@ ReqLLM already supports a `base_url` option on every call, so the plumbing exist
 **Goals:**
 - Define named model roles in `config.toml` with model string and optional `base_url`
 - Resolve model by role at runtime via `Config.model/1` with a clear fallback chain
-- Wire all agent entry points (Agent, SubAgent, CronRunner) to read from Config
+- Wire all agent entry points (Agent, SubAgent, ScheduledTaskRunner) to read from Config
 - Backward compatible: existing `[agent].model` config continues to work
 
 **Non-Goals:**
@@ -32,7 +32,7 @@ model = "anthropic:claude-haiku-4-5"
 [models.subagent]
 model = "anthropic:claude-haiku-4-5"
 
-[models.cron]
+[models.scheduled_tasks]
 model = "anthropic:claude-haiku-4-5"
 
 # Example: custom provider with base_url
@@ -67,13 +67,13 @@ Config.model_base_url(:default)  # => nil  (use provider default)
 
 Both functions are read-only, resolved at call time from the GenServer state.
 
-### 4. Wiring into Agent/SubAgent/CronRunner
+### 4. Wiring into Agent/SubAgent/ScheduledTaskRunner
 
 The `use Jido.AI.ReActAgent` macro requires a compile-time `model:` option. This value is the initial default — it gets overridden at runtime in `on_before_cmd` or the runner's setup code.
 
 - **Agent**: Already reads `Config.model()` (the 0-arity version). Change to `Config.model(:default)`.
 - **SubAgent**: Hardcoded today. Change to read `Config.model(:subagent)` at spawn time via the `Spawn` action.
-- **CronRunner**: Already accepts a `:model` option. Default it to `Config.model(:cron)` when not explicitly set by the cron job.
+- **ScheduledTaskRunner**: Already accepts a `:model` option. Default it to `Config.model(:scheduled_tasks)` when not explicitly set by the scheduled task.
 
 ### 5. Passing `base_url` to ReqLLM
 

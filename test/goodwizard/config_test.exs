@@ -547,8 +547,8 @@ defmodule Goodwizard.ConfigTest do
       config_path = Path.join(tmp_dir, "nonexistent.toml")
       {:ok, _pid} = Config.start_link(config_path: config_path)
 
-      Config.put(["cron", "max_jobs"], 100)
-      assert Config.get(["cron", "max_jobs"]) == 100
+      Config.put(["scheduled_tasks", "max_jobs"], 100)
+      assert Config.get(["scheduled_tasks", "max_jobs"]) == 100
     end
 
     test "overwrites existing nested value", %{tmp_dir: tmp_dir} do

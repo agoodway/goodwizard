@@ -9,7 +9,13 @@ defmodule Goodwizard.Application do
   require Logger
 
   alias Goodwizard.Brain.ToolGenerator
-  alias Goodwizard.Scheduling.{CronLoader, OneShotLoader}
+
+  alias Goodwizard.Scheduling.{
+    OneTimeLoader,
+    OneTimeStore,
+    ScheduledTaskLoader,
+    ScheduledTaskStore
+  }
 
   @impl true
   def start(_type, _args) do
@@ -24,8 +30,8 @@ defmodule Goodwizard.Application do
       Goodwizard.Cache,
       Goodwizard.BrowserSessionStore,
       Goodwizard.Browser.Serializer,
-      Goodwizard.Scheduling.CronRegistry,
-      Goodwizard.Scheduling.OneShotRegistry,
+      Goodwizard.Scheduling.ScheduledTaskRegistry,
+      Goodwizard.Scheduling.OneTimeRegistry,
       Goodwizard.Jido,
       Supervisor.child_spec({Task, &generate_brain_tools/0}, id: :brain_tools),
       Goodwizard.Messaging,
@@ -65,42 +71,80 @@ defmodule Goodwizard.Application do
         Logger.warning("Config validation failed: #{Exception.message(e)} — continuing startup")
     end
 
-    reload_cron_jobs()
-    reload_oneshot_jobs()
+    migrate_scheduled_task_storage()
+    migrate_one_time_storage()
+    reload_scheduled_task_jobs()
+    reload_one_time_jobs()
     maybe_start_telegram()
     maybe_start_heartbeat()
   end
 
-  defp reload_cron_jobs do
-    case CronLoader.reload() do
+  defp reload_scheduled_task_jobs do
+    case ScheduledTaskLoader.reload() do
       {:ok, count} when count > 0 ->
-        Logger.info("Reloaded #{count} persisted cron job(s)")
+        Logger.info("Reloaded #{count} persisted scheduled task(s)")
 
       {:ok, 0} ->
         :ok
 
       {:error, reason} ->
-        Logger.warning("Cron job reload failed: #{inspect(reason)} — continuing startup")
+        Logger.warning("Scheduled task reload failed: #{inspect(reason)} — continuing startup")
     end
   rescue
     e ->
-      Logger.warning("Cron job reload error: #{Exception.message(e)} — continuing startup")
+      Logger.warning("Scheduled task reload error: #{Exception.message(e)} — continuing startup")
   end
 
-  defp reload_oneshot_jobs do
-    case OneShotLoader.reload() do
+  defp migrate_scheduled_task_storage do
+    case ScheduledTaskStore.migrate_legacy_dir() do
+      :ok ->
+        :ok
+
+      {:error, :conflict} ->
+        Logger.warning(
+          "Scheduled task storage migration conflict: both scheduling/cron and scheduling/scheduled_tasks exist"
+        )
+
+      {:error, reason} ->
+        Logger.warning("Scheduled task storage migration failed: #{inspect(reason)}")
+    end
+  rescue
+    e ->
+      Logger.warning("Scheduled task storage migration error: #{Exception.message(e)}")
+  end
+
+  defp migrate_one_time_storage do
+    case OneTimeStore.migrate_legacy_dir() do
+      :ok ->
+        :ok
+
+      {:error, :conflict} ->
+        Logger.warning(
+          "One-time task storage migration conflict: both scheduling/oneshot and scheduling/one_time exist"
+        )
+
+      {:error, reason} ->
+        Logger.warning("One-time task storage migration failed: #{inspect(reason)}")
+    end
+  rescue
+    e ->
+      Logger.warning("One-time task storage migration error: #{Exception.message(e)}")
+  end
+
+  defp reload_one_time_jobs do
+    case OneTimeLoader.reload() do
       {:ok, count} when count > 0 ->
-        Logger.info("Reloaded #{count} persisted one-shot job(s)")
+        Logger.info("Reloaded #{count} persisted one-time task(s)")
 
       {:ok, 0} ->
         :ok
 
       {:error, reason} ->
-        Logger.warning("One-shot job reload failed: #{inspect(reason)} — continuing startup")
+        Logger.warning("One-time task reload failed: #{inspect(reason)} — continuing startup")
     end
   rescue
     e ->
-      Logger.warning("One-shot job reload error: #{Exception.message(e)} — continuing startup")
+      Logger.warning("One-time task reload error: #{Exception.message(e)} — continuing startup")
   end
 
   defp maybe_start_telegram do

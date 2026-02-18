@@ -2,7 +2,7 @@ defmodule Goodwizard.Brain.ReferencesTest do
   use ExUnit.Case, async: true
 
   alias Goodwizard.Brain
-  alias Goodwizard.Brain.{References, Schema}
+  alias Goodwizard.Brain.{Entity, Paths, References, Schema}
 
   setup do
     workspace =
@@ -238,11 +238,11 @@ defmodule Goodwizard.Brain.ReferencesTest do
           "company" => "companies/#{company_id}"
         })
 
-      {:ok, path} = Goodwizard.Brain.Paths.entity_path(workspace, "people", person_id)
+      {:ok, path} = Paths.entity_path(workspace, "people", person_id)
       original_content = File.read!(path)
 
       # Delete the company file directly (not via Brain.delete, to avoid async sweep)
-      {:ok, company_path} = Goodwizard.Brain.Paths.entity_path(workspace, "companies", company_id)
+      {:ok, company_path} = Paths.entity_path(workspace, "companies", company_id)
       File.rm!(company_path)
 
       {:ok, schema} = Schema.load(workspace, "people")
@@ -341,9 +341,9 @@ defmodule Goodwizard.Brain.ReferencesTest do
 
   # Reads raw entity data from disk, bypassing Brain.read's clean_data
   defp read_raw(workspace, entity_type, id) do
-    {:ok, path} = Goodwizard.Brain.Paths.entity_path(workspace, entity_type, id)
+    {:ok, path} = Paths.entity_path(workspace, entity_type, id)
     {:ok, content} = File.read(path)
-    Goodwizard.Brain.Entity.parse(content)
+    Entity.parse(content)
   end
 
   describe "sweep_stale/3" do
@@ -473,9 +473,9 @@ defmodule Goodwizard.Brain.ReferencesTest do
     test "clean_data handles non-string value in single ref field", %{workspace: workspace} do
       {:ok, schema} = Schema.load(workspace, "people")
       # Inject a non-string value where a ref field is expected
-      data = %{"name" => "Alice", "company" => 12345}
+      data = %{"name" => "Alice", "company" => 12_345}
       cleaned = References.clean_data(workspace, schema, data)
-      assert cleaned["company"] == 12345
+      assert cleaned["company"] == 12_345
     end
 
     test "clean_data handles non-list value in ref list field", %{workspace: workspace} do

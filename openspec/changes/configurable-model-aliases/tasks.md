@@ -11,8 +11,8 @@
 - [ ] 2.1 Update `Goodwizard.Agent` to read model from `Config.model(:default)` at runtime in `on_before_cmd`
 - [ ] 2.2 Update `Goodwizard.SubAgent` to accept model as a parameter, defaulting to `Config.model(:subagent)`
 - [ ] 2.3 Update `Goodwizard.Actions.Subagent.Spawn` to pass `Config.model(:subagent)` when spawning subagents
-- [ ] 2.4 Update `CronRunner` to default to `Config.model(:cron)` when no per-job model override is set
-- [ ] 2.5 Update `CronLoader` to use `Config.model(:cron)` as default when loading persisted jobs without an explicit model
+- [ ] 2.4 Update `ScheduledTaskRunner` to default to `Config.model(:scheduled_tasks)` when no per-job model override is set
+- [ ] 2.5 Update `ScheduledTaskLoader` to use `Config.model(:scheduled_tasks)` as default when loading persisted jobs without an explicit model
 
 ## 3. Config Files
 

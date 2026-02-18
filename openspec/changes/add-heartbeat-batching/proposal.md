@@ -15,7 +15,7 @@ A structured heartbeat format would let users define a checklist of awareness ta
 - The heartbeat GenServer parses the file into individual check items when it detects task-list format. Falls back to current single-blob behavior for plain text (backwards compatible).
 - The dispatched prompt wraps parsed items in a structured instruction: "Process each of the following awareness checks and report on each one: 1. Check inbox... 2. Review calendar..."
 - Add a `checks` field to the heartbeat Messaging payload so responses can be correlated to specific checks.
-- Add a new `Goodwizard.Actions.Heartbeat.UpdateChecks` action so the agent can add, remove, or replace checks in HEARTBEAT.md programmatically (like how `schedule_cron_task` manages cron jobs).
+- Add a new `Goodwizard.Actions.Heartbeat.UpdateChecks` action so the agent can add, remove, or replace checks in HEARTBEAT.md programmatically (like how `schedule_scheduled_task` manages scheduled tasks).
 - Update `TOOLS.md` in the workspace bootstrap files with guidance on when to use heartbeat vs cron, so the agent can make smart routing decisions.
 
 ## Capabilities

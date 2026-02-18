@@ -29,8 +29,8 @@ The Delivery module SHALL convert content to Telegram HTML and pass `parse_mode:
 - **WHEN** a future channel binding exists that is not Telegram
 - **THEN** the content is passed through unmodified with no `parse_mode` option
 
-#### Scenario: CronRunner delivery uses HTML formatting
-- **WHEN** a cron task completes and delivers results via `Delivery.deliver_to_bindings`
+#### Scenario: ScheduledTaskRunner delivery uses HTML formatting
+- **WHEN** a scheduled task completes and delivers results via `Delivery.deliver_to_bindings`
 - **THEN** the response content is converted to Telegram HTML before delivery
 
 ### Requirement: Fallback on conversion failure

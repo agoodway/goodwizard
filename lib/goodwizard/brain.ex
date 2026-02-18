@@ -183,16 +183,7 @@ defmodule Goodwizard.Brain do
          {:ok, real_path} <- safe_resolve(path, workspace) do
       case File.rm(real_path) do
         :ok ->
-          Task.start(fn ->
-            try do
-              References.sweep_stale(workspace, entity_type, id)
-            rescue
-              e ->
-                Logger.warning(
-                  "[Brain] sweep_stale crashed for #{entity_type}/#{id}: #{Exception.message(e)}"
-                )
-            end
-          end)
+          start_sweep_stale_task(workspace, entity_type, id)
 
           :ok
 
@@ -203,6 +194,19 @@ defmodule Goodwizard.Brain do
           {:error, reason}
       end
     end
+  end
+
+  defp start_sweep_stale_task(workspace, entity_type, id) do
+    Task.start(fn ->
+      try do
+        References.sweep_stale(workspace, entity_type, id)
+      rescue
+        e ->
+          Logger.warning(
+            "[Brain] sweep_stale crashed for #{entity_type}/#{id}: #{Exception.message(e)}"
+          )
+      end
+    end)
   end
 
   @doc """

@@ -30,7 +30,7 @@ The `Jido.Action` behaviour has no before/after callbacks. The `on_before_cmd` a
 - Per-parameter approval rules (e.g. "approve shell exec only if command contains rm") — this is v2
 - Approval audit log / persistence — approvals are ephemeral per-request
 - Multi-approver workflows
-- Approval for actions called outside the ReAct loop (e.g. CronRunner direct calls)
+- Approval for actions called outside the ReAct loop (e.g. ScheduledTaskRunner direct calls)
 
 ## Decisions
 

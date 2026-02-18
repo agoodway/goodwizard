@@ -2,9 +2,9 @@ defmodule Goodwizard.SubAgent do
   @moduledoc """
   Focused background agent for delegated tasks.
 
-  Uses Jido's ReActAgent with limited tools (filesystem and shell only).
-  No spawn, messaging, or browser capabilities to prevent recursion
-  and keep subagents lightweight.
+  Uses Jido's ReActAgent with a constrained toolset.
+  No spawn, messaging, scheduling, skill, or browser capabilities to
+  prevent recursion and keep subagents lightweight.
   """
 
   @dialyzer {:nowarn_function, plugin_specs: 0}
@@ -15,8 +15,18 @@ defmodule Goodwizard.SubAgent do
     tools: [
       Goodwizard.Actions.Filesystem.ReadFile,
       Goodwizard.Actions.Filesystem.WriteFile,
+      Goodwizard.Actions.Filesystem.EditFile,
       Goodwizard.Actions.Filesystem.ListDir,
+      Goodwizard.Actions.Filesystem.GrepFile,
       Goodwizard.Actions.Shell.Exec,
+      # Memory
+      Goodwizard.Actions.Memory.ReadLongTerm,
+      Goodwizard.Actions.Memory.WriteLongTerm,
+      Goodwizard.Actions.Memory.AppendHistory,
+      Goodwizard.Actions.Memory.SearchHistory,
+      Goodwizard.Actions.Memory.Consolidate,
+      # Heartbeat
+      Goodwizard.Actions.Heartbeat.UpdateChecks,
       # Brain
       Goodwizard.Actions.Brain.CreateEntity,
       Goodwizard.Actions.Brain.ReadEntity,

@@ -65,7 +65,7 @@ The reference implementation is nanobot's Python codebase: `memory.py` (31-line 
 
 ## Risks / Trade-offs
 
-**[Consolidation adds latency to turns that trigger it]** → Only fires when messages exceed `memory_window` (default 50), so it's infrequent. The LLM call for consolidation is one-shot with a focused prompt. Expected ~2-3s overhead for consolidation turns, acceptable for an interactive assistant.
+**[Consolidation adds latency to turns that trigger it]** → Only fires when messages exceed `memory_window` (default 50), so it's infrequent. The LLM call for consolidation is one-time task with a focused prompt. Expected ~2-3s overhead for consolidation turns, acceptable for an interactive assistant.
 
 **[JSONL files grow unbounded]** → Acceptable for Phase 6. A single conversation's JSONL file is small (typical messages are <1KB). File rotation/cleanup can be added later if needed.
 

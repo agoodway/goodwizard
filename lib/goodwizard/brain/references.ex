@@ -9,7 +9,7 @@ defmodule Goodwizard.Brain.References do
 
   require Logger
 
-  alias Goodwizard.Brain.{Id, Paths, Schema}
+  alias Goodwizard.Brain.{Entity, Id, Paths, Schema}
 
   # Derive UUID pattern from Id.id_pattern/0, stripping the outer ^...$ anchors
   @uuid_pattern Id.id_pattern()
@@ -209,25 +209,26 @@ defmodule Goodwizard.Brain.References do
     deleted_ref = "#{deleted_type}/#{deleted_id}"
 
     with {:ok, types} <- Schema.list_types(workspace) do
-      types
-      |> Enum.each(fn type ->
-        case Schema.load(workspace, type) do
-          {:ok, schema} ->
-            refs = ref_fields(schema)
-            sweep_type_if_relevant(workspace, type, schema, refs, deleted_type, deleted_ref)
-
-          {:error, reason} ->
-            Logger.warning(
-              "[Brain.References] sweep: failed to load schema for #{type}: #{inspect(reason)}"
-            )
-        end
-      end)
+      Enum.each(types, &sweep_type(workspace, &1, deleted_type, deleted_ref))
     else
       {:error, reason} ->
         Logger.warning("[Brain.References] sweep: failed to list types: #{inspect(reason)}")
     end
 
     :ok
+  end
+
+  defp sweep_type(workspace, type, deleted_type, deleted_ref) do
+    case Schema.load(workspace, type) do
+      {:ok, schema} ->
+        refs = ref_fields(schema)
+        sweep_type_if_relevant(workspace, type, schema, refs, deleted_type, deleted_ref)
+
+      {:error, reason} ->
+        Logger.warning(
+          "[Brain.References] sweep: failed to load schema for #{type}: #{inspect(reason)}"
+        )
+    end
   end
 
   defp sweep_type_if_relevant(workspace, type, schema, refs, deleted_type, deleted_ref) do
@@ -274,11 +275,11 @@ defmodule Goodwizard.Brain.References do
       {:ok, lock_fd} ->
         try do
           with {:ok, content} <- File.read(path),
-               {:ok, {data, body}} <- Goodwizard.Brain.Entity.parse(content) do
+               {:ok, {data, body}} <- Entity.parse(content) do
             cleaned = clean_data_for_ref(data, refs, deleted_ref)
 
             if cleaned != data do
-              case File.write(path, Goodwizard.Brain.Entity.serialize(cleaned, body)) do
+              case File.write(path, Entity.serialize(cleaned, body)) do
                 :ok ->
                   Logger.info("[Brain.References] sweep: cleaned refs in #{type}/#{id}")
 

@@ -38,8 +38,8 @@ The system SHALL return `nil` from `Config.model_base_url(role)` when no `base_u
 - **THEN** `Config.model_base_url(:default)` SHALL return `nil`
 
 #### Scenario: Unknown role without base_url
-- **WHEN** no `[models.cron]` exists and `[models.default]` has no `base_url`
-- **THEN** `Config.model_base_url(:cron)` SHALL return `nil`
+- **WHEN** no `[models.scheduled_tasks]` exists and `[models.default]` has no `base_url`
+- **THEN** `Config.model_base_url(:scheduled_tasks)` SHALL return `nil`
 
 ### Requirement: Agent uses configured default model
 The primary `Goodwizard.Agent` SHALL use `Config.model(:default)` to determine its LLM model at runtime.
@@ -59,15 +59,15 @@ The primary `Goodwizard.Agent` SHALL use `Config.model(:default)` to determine i
 - **WHEN** no `[models.subagent]` exists in `config.toml`
 - **THEN** spawned subagents SHALL use the model resolved by `Config.model(:subagent)` (which falls back to `:default`)
 
-### Requirement: CronRunner uses configured cron model
-`Goodwizard.Actions.Scheduling.CronRunner` SHALL default to `Config.model(:cron)` when no per-job model override is specified.
+### Requirement: ScheduledTaskRunner uses configured cron model
+`Goodwizard.Actions.Scheduling.ScheduledTaskRunner` SHALL default to `Config.model(:scheduled_tasks)` when no per-job model override is specified.
 
-#### Scenario: Cron job without model override
-- **WHEN** a cron job is executed without an explicit `:model` option
-- **THEN** the cron runner SHALL use `Config.model(:cron)`
+#### Scenario: Scheduled task without model override
+- **WHEN** a scheduled task is executed without an explicit `:model` option
+- **THEN** the cron runner SHALL use `Config.model(:scheduled_tasks)`
 
-#### Scenario: Cron job with explicit model override
-- **WHEN** a cron job specifies `model: "openai:gpt-4"`
+#### Scenario: Scheduled task with explicit model override
+- **WHEN** a scheduled task specifies `model: "openai:gpt-4"`
 - **THEN** the cron runner SHALL use `"openai:gpt-4"` regardless of config
 
 ### Requirement: Backward compatibility with agent.model
@@ -82,7 +82,7 @@ Existing configurations using only `[agent].model` SHALL continue to work withou
 
 #### Scenario: Fresh setup includes models template
 - **WHEN** `mix goodwizard.setup` generates a new `config.toml`
-- **THEN** the file SHALL contain commented `[models.default]`, `[models.subagent]`, and `[models.cron]` examples
+- **THEN** the file SHALL contain commented `[models.default]`, `[models.subagent]`, and `[models.scheduled_tasks]` examples
 
 ### Requirement: Model validation accepts known provider prefixes
 The system SHALL validate model strings against known provider prefixes and emit a warning for unrecognized prefixes. The known prefixes SHALL include `anthropic:`, `openai:`, `google:`, `ollama:`, and `mistral:`.

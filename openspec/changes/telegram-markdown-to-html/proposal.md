@@ -7,7 +7,7 @@ The LLM produces standard markdown (`**bold**`, `` `code` ``, `[links](url)`, et
 - Add a markdown-to-Telegram-HTML formatter module that converts standard LLM markdown to the subset of HTML that Telegram's Bot API supports (`<b>`, `<i>`, `<code>`, `<pre>`, `<a>`, `<s>`, `<blockquote>`)
 - Update the Telegram handler's reply path to convert responses to HTML and pass `parse_mode: "HTML"` via the jido_messaging 3-tuple reply form `{:reply, text, opts}`
 - Update the Telegram handler's extra-chunk path (direct `Telegex.send_message` calls for split messages) to also pass `parse_mode: "HTML"`
-- Update the Delivery module to convert content and pass `parse_mode: "HTML"` when delivering to Telegram channels, covering both the Send action and CronRunner paths
+- Update the Delivery module to convert content and pass `parse_mode: "HTML"` when delivering to Telegram channels, covering both the Send action and ScheduledTaskRunner paths
 
 ## Capabilities
 

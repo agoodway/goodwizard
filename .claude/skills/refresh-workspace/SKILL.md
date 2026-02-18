@@ -62,7 +62,7 @@ Use **only** Read, Glob, and Grep tools here. No Bash. All are auto-approved and
 
 **Directory check** — Use Glob to list what exists, then compare against the expected set:
 - Run `Glob` with pattern `<workspace>/*/` and `<workspace>/*/*/` to discover existing directories.
-- Compare results against the expected list: `memory/`, `sessions/`, `skills/`, `brain/schemas/`, `brain/<type>/` (for each entity type), `scheduling/cron/`.
+- Compare results against the expected list: `memory/`, `sessions/`, `skills/`, `brain/schemas/`, `brain/<type>/` (for each entity type), `scheduling/scheduled_tasks/`.
 - Any expected directory not in the glob results is **Missing**; the rest are **Current**.
 
 **Bootstrap file check** — Use Glob + Read:
@@ -92,7 +92,7 @@ Use **only** Read, Glob, and Grep tools here. No Bash. All are auto-approved and
 
 | Category | Items | Statuses |
 |----------|-------|----------|
-| **Directories** | memory/, sessions/, skills/, brain/schemas/, brain/\<type\>/, scheduling/cron/ | Missing, Current |
+| **Directories** | memory/, sessions/, skills/, brain/schemas/, brain/\<type\>/, scheduling/scheduled_tasks/ | Missing, Current |
 | **Bootstrap files** | IDENTITY.md, SOUL.md, USER.md, TOOLS.md, AGENTS.md, HEARTBEAT.md | Missing, Changed, Changed [customizable], Current |
 | **Brain schemas** | \<type\>.json for each entity type | Missing, Outdated, Current, Ahead, Custom |
 | **Config** | Sections/keys in template vs config.toml | New, Current |
@@ -150,7 +150,7 @@ Present findings from Step 3, then ask the user what to fix. Use **AskUserQuesti
 
 Batch-create all missing directories in one `mkdir -p` command:
 ```bash
-mkdir -p "<workspace>/brain/webpages" "<workspace>/scheduling/cron"
+mkdir -p "<workspace>/brain/webpages" "<workspace>/scheduling/scheduled_tasks"
 ```
 
 #### Bootstrap files

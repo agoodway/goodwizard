@@ -52,7 +52,7 @@ def resolve(:shell), do: [Exec]
 def resolve(:brain), do: [CreateEntity, ReadEntity, UpdateEntity, ...]
 def resolve(:memory), do: [ReadLongTerm, WriteLongTerm, ...]
 def resolve(:messaging), do: [Send]
-def resolve(:scheduling), do: [Cron, CancelCron, ListCronJobs]
+def resolve(:scheduling), do: [ScheduledTask, CancelScheduledTask, ListScheduledTasks]
 def resolve(:browser), do: [JidoBrowser actions...]
 ```
 

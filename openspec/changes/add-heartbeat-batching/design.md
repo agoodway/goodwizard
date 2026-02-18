@@ -60,7 +60,7 @@ Process each of the following awareness checks and report on each:
 
 **Choice**: Create `Goodwizard.Actions.Heartbeat.UpdateChecks` with three operations: `add` (append a check), `remove` (remove by text match), and `list` (return current checks). The action reads/writes HEARTBEAT.md directly using the same parser.
 
-**Rationale**: Without a dedicated action, the agent must use generic `WriteFile`/`EditFile` tools to modify HEARTBEAT.md, which requires it to understand the file format and handle edge cases (empty file, creating the file, preserving existing checks). A purpose-built action mirrors the pattern established by `schedule_cron_task` — the agent calls a semantic tool ("add inbox check to my heartbeat") rather than doing file surgery. The parser module is already being created for the GenServer, so the action reuses it.
+**Rationale**: Without a dedicated action, the agent must use generic `WriteFile`/`EditFile` tools to modify HEARTBEAT.md, which requires it to understand the file format and handle edge cases (empty file, creating the file, preserving existing checks). A purpose-built action mirrors the pattern established by `schedule_scheduled_task` — the agent calls a semantic tool ("add inbox check to my heartbeat") rather than doing file surgery. The parser module is already being created for the GenServer, so the action reuses it.
 
 **Alternatives considered**: Relying on existing filesystem tools was considered but rejected — the agent needs to know the file path, the checkbox syntax, and handle atomicity. A dedicated action encapsulates all of this.
 
@@ -71,7 +71,7 @@ Process each of the following awareness checks and report on each:
 **Rationale**: The agent has access to both heartbeat and cron tools but no guidance on which to choose. Without explicit routing guidance, the agent will default to whichever tool it sees first or make inconsistent choices. TOOLS.md is already a bootstrap file loaded every turn — it's the canonical place for tool usage instructions. The guidance covers:
 
 - **Heartbeat**: Multiple periodic checks, context-aware decisions, conversational continuity, low-overhead monitoring
-- **Cron**: Exact timing, standalone tasks, model override, one-shot reminders, noisy/frequent tasks
+- **Cron**: Exact timing, standalone tasks, model override, one-time task reminders, noisy/frequent tasks
 
 ## Risks / Trade-offs
 

@@ -104,26 +104,30 @@ defmodule Goodwizard.Heartbeat do
   defp process_changed_file(state, mtime) do
     case File.read(state.heartbeat_path) do
       {:ok, content} ->
-        content = String.trim(content)
-
-        if content == "" do
-          Logger.debug("Heartbeat: HEARTBEAT.md is empty, skipping")
-        else
-          case Parser.parse(content) do
-            {:structured, checks} ->
-              prompt = Parser.build_prompt(checks)
-              dispatch_heartbeat(prompt, state, checks: checks)
-
-            {:plain, plain_content} ->
-              dispatch_heartbeat(plain_content, state)
-          end
-        end
+        content
+        |> String.trim()
+        |> dispatch_content(state)
 
         %{state | last_mtime: mtime}
 
       {:error, reason} ->
         Logger.warning("Heartbeat: failed to read HEARTBEAT.md: #{inspect(reason)}")
         state
+    end
+  end
+
+  defp dispatch_content("", _state) do
+    Logger.debug("Heartbeat: HEARTBEAT.md is empty, skipping")
+  end
+
+  defp dispatch_content(content, state) do
+    case Parser.parse(content) do
+      {:structured, checks} ->
+        prompt = Parser.build_prompt(checks)
+        dispatch_heartbeat(prompt, state, checks: checks)
+
+      {:plain, plain_content} ->
+        dispatch_heartbeat(plain_content, state)
     end
   end
 

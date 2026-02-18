@@ -2,7 +2,7 @@
 
 When a workflow pipeline hits an approval gate, execution halts and a resume token is returned. The user or agent can later resume with approve/deny. For this to work across process restarts, halted state must be persisted to disk.
 
-The project uses file-backed JSON storage for structured data: `CronStore` persists cron jobs as individual JSON files under `workspace/scheduling/cron/`. Goodwizard has a Nebulex local ETS cache (`Goodwizard.Cache`) for hot-path reads, and `Goodwizard.Config` provides the workspace path.
+The project uses file-backed JSON storage for structured data: `ScheduledTaskStore` persists scheduled tasks as individual JSON files under `workspace/scheduling/scheduled_tasks/`. Goodwizard has a Nebulex local ETS cache (`Goodwizard.Cache`) for hot-path reads, and `Goodwizard.Config` provides the workspace path.
 
 The `workflow-types-and-envelope` change (prerequisite) defines the `Step`, `Pipeline`, and `ApprovalRequest` structs that this module serializes.
 
@@ -37,7 +37,7 @@ Resume tokens are generated using `:crypto.strong_rand_bytes(16) |> Base.url_enc
 
 ### 2. File-per-state in `workspace/workflow/state/`
 
-Each halted workflow saved as `<token>.json` under `workspace/workflow/state/`. Follows the same pattern as `CronStore` (`workspace/scheduling/cron/<job_id>.json`).
+Each halted workflow saved as `<token>.json` under `workspace/workflow/state/`. Follows the same pattern as `ScheduledTaskStore` (`workspace/scheduling/scheduled_tasks/<job_id>.json`).
 
 **Alternative considered**: Single manifest file. Rejected — concurrent writes would require locking.
 

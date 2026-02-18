@@ -71,8 +71,7 @@ defmodule Goodwizard.Heartbeat.Parser do
   def build_prompt(checks) do
     items =
       checks
-      |> Enum.map(fn %{index: i, text: text} -> "#{i}. #{text}" end)
-      |> Enum.join("\n")
+      |> Enum.map_join("\n", fn %{index: i, text: text} -> "#{i}. #{text}" end)
 
     "Process each of the following awareness checks and report on each:\n#{items}"
   end

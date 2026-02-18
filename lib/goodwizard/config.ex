@@ -47,7 +47,7 @@ defmodule Goodwizard.Config do
       },
       "restrict_to_workspace" => true
     },
-    "cron" => %{
+    "scheduled_tasks" => %{
       "ask_timeout" => 120_000,
       "max_concurrent_agents" => 50
     },

@@ -74,24 +74,10 @@ defmodule Goodwizard.Actions.Heartbeat.UpdateChecks do
     with {:ok, content} <- read_file(path) do
       case Parser.parse(content) do
         {:structured, checks} ->
-          if Enum.any?(checks, &matches_check?(&1.text, text)) do
-            {:error, "Check already exists: #{text}"}
-          else
-            new_line = "- [ ] #{text}"
-            updated = if content == "", do: new_line, else: content <> "\n" <> new_line
-
-            with :ok <- write_file(path, updated <> "\n") do
-              {:ok, %{added: text, total_checks: length(checks) + 1}}
-            end
-          end
+          add_structured_check(path, content, checks, text)
 
         {:plain, _} ->
-          new_line = "- [ ] #{text}"
-          updated = if content == "", do: new_line, else: content <> "\n" <> new_line
-
-          with :ok <- write_file(path, updated <> "\n") do
-            {:ok, %{added: text, total_checks: 1}}
-          end
+          append_check_line(path, content, text, 1)
       end
     end
   end
@@ -100,23 +86,7 @@ defmodule Goodwizard.Actions.Heartbeat.UpdateChecks do
     with {:ok, content} <- read_file(path) do
       case Parser.parse(content) do
         {:structured, checks} ->
-          if Enum.any?(checks, &matches_check?(&1.text, text)) do
-            lines =
-              content
-              |> String.split("\n")
-              |> Enum.reject(fn line ->
-                case Parser.match_check_line(line) do
-                  {:ok, check_text} -> matches_check?(check_text, text)
-                  :nomatch -> false
-                end
-              end)
-
-            with :ok <- write_file(path, Enum.join(lines, "\n") <> "\n") do
-              {:ok, %{removed: text, total_checks: length(checks) - 1}}
-            end
-          else
-            {:error, "Check not found: #{text}"}
-          end
+          remove_structured_check(path, content, checks, text)
 
         {:plain, _} ->
           {:error, "Check not found: #{text}"}
@@ -138,6 +108,45 @@ defmodule Goodwizard.Actions.Heartbeat.UpdateChecks do
 
   defp matches_check?(check_text, user_text) do
     String.downcase(String.trim(check_text)) == String.downcase(String.trim(user_text))
+  end
+
+  defp add_structured_check(path, content, checks, text) do
+    if Enum.any?(checks, &matches_check?(&1.text, text)) do
+      {:error, "Check already exists: #{text}"}
+    else
+      append_check_line(path, content, text, length(checks) + 1)
+    end
+  end
+
+  defp append_check_line(path, content, text, total_checks) do
+    new_line = "- [ ] #{text}"
+    updated = if content == "", do: new_line, else: content <> "\n" <> new_line
+
+    with :ok <- write_file(path, updated <> "\n") do
+      {:ok, %{added: text, total_checks: total_checks}}
+    end
+  end
+
+  defp remove_structured_check(path, content, checks, text) do
+    if Enum.any?(checks, &matches_check?(&1.text, text)) do
+      lines =
+        content
+        |> String.split("\n")
+        |> Enum.reject(&matching_check_line?(&1, text))
+
+      with :ok <- write_file(path, Enum.join(lines, "\n") <> "\n") do
+        {:ok, %{removed: text, total_checks: length(checks) - 1}}
+      end
+    else
+      {:error, "Check not found: #{text}"}
+    end
+  end
+
+  defp matching_check_line?(line, text) do
+    case Parser.match_check_line(line) do
+      {:ok, check_text} -> matches_check?(check_text, text)
+      :nomatch -> false
+    end
   end
 
   defp read_file(path) do

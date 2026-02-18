@@ -27,12 +27,12 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Skills.CreateSkill,
       Goodwizard.Actions.Subagent.Spawn,
       Goodwizard.Actions.Messaging.Send,
-      Goodwizard.Actions.Scheduling.Cron,
-      Goodwizard.Actions.Scheduling.CancelCron,
-      Goodwizard.Actions.Scheduling.ListCronJobs,
-      Goodwizard.Actions.Scheduling.OneShot,
-      Goodwizard.Actions.Scheduling.CancelOneShot,
-      Goodwizard.Actions.Scheduling.ListOneShotJobs,
+      Goodwizard.Actions.Scheduling.ScheduledTask,
+      Goodwizard.Actions.Scheduling.CancelScheduledTask,
+      Goodwizard.Actions.Scheduling.ListScheduledTasks,
+      Goodwizard.Actions.Scheduling.OneTime,
+      Goodwizard.Actions.Scheduling.CancelOneTime,
+      Goodwizard.Actions.Scheduling.ListOneTimeJobs,
       # Heartbeat
       Goodwizard.Actions.Heartbeat.UpdateChecks,
       # Browser (serialized wrappers around JidoBrowser.Actions.*)
@@ -75,7 +75,7 @@ defmodule Goodwizard.Agent do
       Goodwizard.Plugins.Session,
       Goodwizard.Plugins.Memory,
       Goodwizard.Plugins.PromptSkills,
-      Goodwizard.Plugins.CronScheduler,
+      Goodwizard.Plugins.ScheduledTaskScheduler,
       {JidoBrowser.Plugin, [headless: true]}
     ]
 
@@ -274,8 +274,8 @@ defmodule Goodwizard.Agent do
     wrapper_path = Keyword.get(vibium_config, :binary_path)
 
     if wrapper_path && File.exists?(wrapper_path) do
-      # The wrapper adds --oneshot which bypasses the daemon entirely,
-      # but stop any lingering daemon from previous non-oneshot runs.
+      # The wrapper adds --one_time which bypasses the daemon entirely,
+      # but stop any lingering daemon from previous non-one_time runs.
       # Read the wrapper to find the real binary path.
       stop_daemon_from_wrapper(wrapper_path)
     end
@@ -286,7 +286,7 @@ defmodule Goodwizard.Agent do
   defp stop_daemon_from_wrapper(wrapper_path) do
     case File.read(wrapper_path) do
       {:ok, content} ->
-        case Regex.run(~r/exec "(.+)" --oneshot/, content) do
+        case Regex.run(~r/exec "(.+)" --one_time/, content) do
           [_, real_binary] ->
             System.cmd(real_binary, ["daemon", "stop"], stderr_to_stdout: true)
 

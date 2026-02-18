@@ -43,7 +43,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   enabled = false
 
   [scheduling]
-  # Default delivery channel for cron/oneshot tasks.
+  # Default delivery channel for cron/one_time tasks.
   # Set these so scheduled tasks know where to send results.
   # channel = "telegram"
   # chat_id = "your_chat_id"
@@ -215,7 +215,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   # Sub-Agents
 
   <!-- Configure sub-agent behavior here. -->
-  <!-- Sub-agents are spawned for isolated tasks like cron jobs or delegated work. -->
+  <!-- Sub-agents are spawned for isolated tasks like scheduled tasks or delegated work. -->
 
   ## Defaults
 
@@ -237,7 +237,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
 
   ### When to use heartbeat
 
-  - **Multiple periodic checks**: Instead of 5 separate cron jobs checking inbox, calendar, weather, notifications, and project status, a single heartbeat can batch all of these.
+  - **Multiple periodic checks**: Instead of 5 separate scheduled tasks checking inbox, calendar, weather, notifications, and project status, a single heartbeat can batch all of these.
   - **Context-aware decisions**: You have full main-session context, so you can make smart decisions about what's urgent vs. what can wait.
   - **Conversational continuity**: Heartbeat runs share the same session, so you remember recent conversations and can follow up naturally.
   - **Low-overhead monitoring**: One heartbeat replaces many small polling tasks.
@@ -245,12 +245,12 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   ### Heartbeat advantages
 
   - **Batches multiple checks**: One agent turn can review inbox, calendar, and notifications together.
-  - **Reduces API calls**: A single heartbeat is cheaper than 5 isolated cron jobs.
+  - **Reduces API calls**: A single heartbeat is cheaper than 5 isolated scheduled tasks.
   - **Context-aware**: You know what the user has been working on and can prioritize accordingly.
   - **Smart suppression**: If nothing needs attention, reply `HEARTBEAT_OK` and no message is delivered.
   - **Natural timing**: Drifts slightly based on queue load, which is fine for most monitoring.
 
-  ### When to use cron
+  ### When to use scheduled tasks
 
   - **Exact timing required**: "Send this at 9:00 AM every Monday" (not "sometime around 9").
   - **Standalone tasks**: Tasks that don't need conversational context.
@@ -259,7 +259,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   - **Noisy/frequent tasks**: Tasks that would clutter main session history.
   - **External triggers**: Tasks that should run independently of whether you are otherwise active.
 
-  ### Cron advantages
+  ### Scheduled task advantages
 
   - **Exact timing**: 5-field cron expressions with timezone support.
   - **Session isolation**: Runs in isolated mode without polluting main history.
@@ -267,7 +267,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   - **Delivery control**: Isolated jobs default to `announce` (summary); choose `none` as needed.
   - **Immediate delivery**: Announce mode posts directly without waiting for heartbeat.
   - **No agent context needed**: Runs even if main session is idle or compacted.
-  - **One-shot support**: `schedule_oneshot_task` for precise future timestamps or delays.
+  - **One-shot support**: `schedule_one_time_task` for precise future timestamps or delays.
   """
 
   @bootstrap_files [

@@ -48,7 +48,7 @@ Phase 6: Memory + Persistence        (needs Phase 4, 5)
 Phase 7: Prompt Skills               (needs Phase 6)
 Phase 8: Telegram Channel            (needs Phase 5)
 Phase 9: Web + Subagents             (needs Phase 4)
-Phase 10: Cron + Polish              (needs Phase 8, 9)
+Phase 10: Scheduled Tasks + Polish              (needs Phase 8, 9)
 ```
 
 Phases 1-2 can run in parallel. Phases 8-9 can run in parallel after Phase 5.
@@ -68,7 +68,7 @@ Phases 1-2 can run in parallel. Phases 8-9 can run in parallel after Phase 5.
 | 7. Prompt Skills | ~200 | 1 |
 | 8. Telegram Channel | ~350 | 3 |
 | 9. Web + Subagents | ~330 | 6 |
-| 10. Cron + Polish | ~200 | 4 |
+| 10. Scheduled Tasks + Polish | ~200 | 4 |
 | **Total** | **~2,730** | **37** |
 
 ~400 fewer lines than the original plan thanks to jido_ai eliminating custom ToolBuilder and ToolLoop code. +3 modules from jido_character integration (Character, Hydrator, SubAgent.Character).

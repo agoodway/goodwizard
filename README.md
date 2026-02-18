@@ -54,11 +54,11 @@ TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 
 ## Scheduling
 
-Goodwizard can run tasks on a schedule using two mechanisms: **cron scheduling** for recurring tasks and **heartbeat monitoring** for periodic agent check-ins.
+Goodwizard can run tasks on a schedule using two mechanisms: **scheduled tasks** for recurring execution and **heartbeat monitoring** for periodic agent check-ins.
 
-### Cron Scheduling
+### Scheduled Tasks
 
-The agent exposes a `schedule_cron_task` action that registers recurring tasks with Jido's built-in scheduler. You can ask the agent to schedule tasks in natural language, and it will create the appropriate cron job.
+The agent exposes a `schedule_scheduled_task` action that registers recurring tasks with Jido's built-in scheduler. You can ask the agent to schedule tasks in natural language, and it will create the appropriate scheduled task.
 
 **Supported cron formats:**
 
@@ -76,11 +76,11 @@ The agent exposes a `schedule_cron_task` action that registers recurring tasks w
 **How it works:**
 
 1. Tell the agent what you want scheduled and when (e.g. "Remind me to check analytics every Monday at 9am")
-2. The agent calls `schedule_cron_task` with the cron expression, task description, and target room
+2. The agent calls `schedule_scheduled_task` with the cron expression, task description, and target room
 3. Jido's scheduler picks up the directive and fires the task on each matching tick
 4. The task message is delivered to the specified Messaging room
 
-Cron jobs persist for the lifetime of the running agent process. High-frequency schedules (every minute) will trigger a warning.
+Scheduled tasks persist for the lifetime of the running agent process. High-frequency schedules (every minute) will trigger a warning.
 
 ### Heartbeat Monitoring
 
@@ -126,9 +126,9 @@ On the next tick, the agent reads the file, processes it, and saves both the pro
 
 **Use cases:**
 
-Since `HEARTBEAT.md` is just a file, anything that can write to the filesystem can trigger the agent — scripts, cron jobs, CI pipelines, other services, or you. Some examples:
+Since `HEARTBEAT.md` is just a file, anything that can write to the filesystem can trigger the agent — scripts, scheduled tasks, CI pipelines, other services, or you. Some examples:
 
-- **Reminders and check-ins** — Write a daily prompt like "What tasks are due today?" and let a system cron job update the file each morning.
+- **Reminders and check-ins** — Write a daily prompt like "What tasks are due today?" and let a system scheduled task update the file each morning.
 - **External event triggers** — A deploy script writes "Production deploy completed for v1.4.2 — summarize what changed" after a release, and the agent generates a changelog.
 - **Monitoring and alerting** — A shell script watches disk usage or error logs and writes "Disk usage on /data is at 92% — what should I do?" when a threshold is crossed.
 - **Automated reporting** — A nightly job writes "Generate a summary of this week's brain activity" to produce periodic digests.
@@ -139,15 +139,15 @@ The pattern is always the same: write a prompt to the file, and the agent picks 
 
 ## Agent Concurrency
 
-Goodwizard limits how many concurrent agents can run at once to prevent resource exhaustion. This applies to both cron-spawned isolated agents and manually spawned subagents.
+Goodwizard limits how many concurrent agents can run at once to prevent resource exhaustion. This applies to both scheduled-task-spawned isolated agents and manually spawned subagents.
 
-The default limit is **50** concurrent agents. Cron tasks that fire while at capacity are skipped with a warning logged and an error message saved to the target room. Subagent spawns at capacity return an error to the caller.
+The default limit is **50** concurrent agents. Scheduled tasks that fire while at capacity are skipped with a warning logged and an error message saved to the target room. Subagent spawns at capacity return an error to the caller.
 
 **Configure via `config.toml`:**
 
 ```toml
-[cron]
-max_concurrent_agents = 50  # max isolated cron agents running at once
+[scheduled_tasks]
+max_concurrent_agents = 50  # max isolated scheduled-task agents running at once
 ```
 
 The subagent spawn limit is set to the same default (50) but is not currently configurable via `config.toml`.
