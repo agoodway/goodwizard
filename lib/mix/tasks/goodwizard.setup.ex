@@ -224,9 +224,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   - Max concurrent: 5
   """
 
-  @default_heartbeat_md """
-  - [ ] Check if there are any upcoming events or deadlines today
-  """
+  @default_heartbeat_md ""
 
   @default_tools_md """
   # Tools Guide
