@@ -45,7 +45,7 @@ defmodule Goodwizard.Actions.Memory.Procedural.UpdateProcedure do
       ]
     ]
 
-  alias Goodwizard.Actions.Memory.Procedural.Helpers
+  alias Goodwizard.Actions.Memory.Helpers
   alias Goodwizard.Memory.Procedural
 
   @max_summary_length 200

@@ -100,6 +100,17 @@ defmodule Goodwizard.Scheduling.ScheduledTaskStoreTest do
       {:ok, data} = Jason.decode(content)
       assert data["task"] == "v2"
     end
+
+    test "rejects invalid job_id patterns" do
+      assert {:error, :invalid_job_id} =
+               ScheduledTaskStore.save(%{
+                 job_id: :"../escape",
+                 schedule: "0 9 * * *",
+                 task: "bad",
+                 room_id: "cli:main",
+                 created_at: "2026-02-15T00:00:00Z"
+               })
+    end
   end
 
   describe "delete/1" do

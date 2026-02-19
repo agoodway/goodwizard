@@ -36,7 +36,7 @@ defmodule Goodwizard.Actions.Memory.Episodic.SearchEpisodes do
       ]
     ]
 
-  alias Goodwizard.Actions.Memory.Episodic.Helpers
+  alias Goodwizard.Actions.Memory.Helpers
   alias Goodwizard.Memory.Episodic
 
   @impl true

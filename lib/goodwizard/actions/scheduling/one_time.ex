@@ -86,39 +86,57 @@ defmodule Goodwizard.Actions.Scheduling.OneTime do
       job_id = generate_job_id(fires_at, task, channel, external_id)
 
       signal = build_scheduled_task_tick_signal(message, job_id, agent_id)
+      record = one_time_record(job_id, task, channel, external_id, agent_id, fires_at)
 
-      {:ok, tref} = :timer.apply_after(delay_ms, __MODULE__, :deliver, [agent_id, signal, job_id])
-
-      # Persist to disk for restart recovery; cancel timer on failure
-      case OneTimeStore.save(%{
-             job_id: job_id,
-             task: task,
-             channel: channel,
-             external_id: external_id,
-             agent_id: agent_id,
-             fires_at: fires_at,
-             created_at: DateTime.utc_now()
-           }) do
-        :ok ->
-          # Track timer reference for cancellation
-          OneTimeRegistry.register(job_id, tref)
-
-          {:ok,
-           %{
-             scheduled: true,
-             task: task,
-             channel: channel,
-             external_id: external_id,
-             job_id: job_id,
-             fires_at: fires_at,
-             mode: mode
-           }}
-
-        {:error, reason} ->
-          :timer.cancel(tref)
-          {:error, "Failed to persist one-time task: #{inspect(reason)}"}
-      end
+      persist_and_start_timer(record, delay_ms, signal, mode)
     end
+  end
+
+  defp one_time_record(job_id, task, channel, external_id, agent_id, fires_at) do
+    %{
+      job_id: job_id,
+      task: task,
+      channel: channel,
+      external_id: external_id,
+      agent_id: agent_id,
+      fires_at: fires_at,
+      created_at: DateTime.utc_now()
+    }
+  end
+
+  defp persist_and_start_timer(record, delay_ms, signal, mode) do
+    case OneTimeStore.save(record) do
+      :ok -> start_timer(record, delay_ms, signal, mode)
+      {:error, reason} -> {:error, "Failed to persist one-time task: #{inspect(reason)}"}
+    end
+  end
+
+  defp start_timer(record, delay_ms, signal, mode) do
+    case :timer.apply_after(delay_ms, __MODULE__, :deliver, [
+           record.agent_id,
+           signal,
+           record.job_id
+         ]) do
+      {:ok, tref} ->
+        OneTimeRegistry.register(record.job_id, tref)
+        {:ok, schedule_result(record, mode)}
+
+      {:error, reason} ->
+        OneTimeStore.delete(record.job_id)
+        {:error, "Failed to start one-time timer: #{inspect(reason)}"}
+    end
+  end
+
+  defp schedule_result(record, mode) do
+    %{
+      scheduled: true,
+      task: record.task,
+      channel: record.channel,
+      external_id: record.external_id,
+      job_id: record.job_id,
+      fires_at: record.fires_at,
+      mode: mode
+    }
   end
 
   @doc false

@@ -22,7 +22,7 @@ defmodule Goodwizard.Actions.Memory.Procedural.DecayUnused do
       ]
     ]
 
-  alias Goodwizard.Actions.Memory.Episodic.Helpers
+  alias Goodwizard.Actions.Memory.Helpers
   alias Goodwizard.Memory.Procedural
 
   @impl true

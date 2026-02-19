@@ -30,13 +30,14 @@ defmodule Goodwizard.Actions.Memory.LoadContext do
 
   require Logger
 
+  alias Goodwizard.Actions.Memory.Helpers
   alias Goodwizard.Memory.Episodic
   alias Goodwizard.Memory.Procedural
 
   @impl true
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(params, context) do
-    memory_dir = get_in(context, [:state, :memory, :memory_dir]) || Goodwizard.Config.memory_dir()
+    memory_dir = Helpers.memory_dir(context)
     topic = Map.get(params, :topic, "") |> String.trim()
     max_episodes = Map.get(params, :max_episodes, 5)
     max_procedures = Map.get(params, :max_procedures, 3)
@@ -123,11 +124,11 @@ defmodule Goodwizard.Actions.Memory.LoadContext do
         if id in seen do
           {acc, seen}
         else
-          {acc ++ [item], MapSet.put(seen, id)}
+          {[item | acc], MapSet.put(seen, id)}
         end
       end)
 
-    deduped
+    Enum.reverse(deduped)
   end
 
   defp confidence_rank("high"), do: 3

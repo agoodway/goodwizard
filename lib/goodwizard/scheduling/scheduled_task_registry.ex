@@ -74,7 +74,18 @@ defmodule Goodwizard.Scheduling.ScheduledTaskRegistry do
     case Map.get(state.jobs, job_id) do
       {pid, ref} ->
         Process.demonitor(ref, [:flush])
-        Jido.Scheduler.cancel(pid)
+
+        try do
+          if Process.alive?(pid) do
+            Jido.Scheduler.cancel(pid)
+          end
+        rescue
+          error ->
+            Logger.warning(
+              "ScheduledTaskRegistry: failed to cancel scheduler #{inspect(pid)} for #{job_id}: #{Exception.message(error)}"
+            )
+        end
+
         {:reply, :ok, %{state | jobs: Map.delete(state.jobs, job_id)}}
 
       nil ->
