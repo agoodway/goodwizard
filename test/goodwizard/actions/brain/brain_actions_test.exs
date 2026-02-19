@@ -7,10 +7,13 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
     GetSchema,
     ListEntities,
     ListEntityTypes,
+    MigrateEntities,
     ReadEntity,
     SaveSchema,
     UpdateEntity
   }
+
+  alias Goodwizard.Brain.{Entity, Paths, Schema}
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "brain_actions_test_#{:rand.uniform(100_000)}")
@@ -242,6 +245,211 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
 
       assert msg =~ "Invalid JSON Schema"
     end
+
+    test "requires migration when updating an existing schema", %{context: context} do
+      init_brain(context)
+
+      schema_v1 = %{
+        "type" => "object",
+        "version" => 1,
+        "properties" => %{"name" => %{"type" => "string"}},
+        "required" => ["name"]
+      }
+
+      schema_v2 = %{
+        "type" => "object",
+        "version" => 2,
+        "properties" => %{
+          "name" => %{"type" => "string"},
+          "status" => %{"type" => "string"}
+        },
+        "required" => ["name", "status"]
+      }
+
+      assert {:ok, _} = SaveSchema.run(%{entity_type: "projects", schema: schema_v1}, context)
+
+      assert {:error, message} =
+               SaveSchema.run(%{entity_type: "projects", schema: schema_v2}, context)
+
+      assert message =~ "Migration definition is required"
+    end
+
+    test "accepts migration definition when updating an existing schema", %{
+      context: context,
+      workspace: workspace
+    } do
+      init_brain(context)
+
+      schema_v1 = %{
+        "type" => "object",
+        "version" => 1,
+        "properties" => %{"name" => %{"type" => "string"}},
+        "required" => ["name"]
+      }
+
+      schema_v2 = %{
+        "type" => "object",
+        "version" => 2,
+        "properties" => %{
+          "name" => %{"type" => "string"},
+          "status" => %{"type" => "string"}
+        },
+        "required" => ["name", "status"]
+      }
+
+      migration = %{
+        "from_version" => 1,
+        "to_version" => 2,
+        "operations" => [
+          %{"op" => "add_field", "field" => "status", "default" => "pending"}
+        ]
+      }
+
+      assert {:ok, _} = SaveSchema.run(%{entity_type: "projects", schema: schema_v1}, context)
+
+      assert {:ok, %{message: message}} =
+               SaveSchema.run(
+                 %{entity_type: "projects", schema: schema_v2, migration: migration},
+                 context
+               )
+
+      assert message =~ "projects"
+
+      assert {:ok, migration_path} = Paths.migration_path(workspace, "projects", 1, 2)
+      assert File.exists?(migration_path)
+    end
+  end
+
+  describe "MigrateEntities" do
+    test "runs dry-run migration and returns changes without writing", %{
+      context: context,
+      workspace: workspace
+    } do
+      schema_v2 = %{
+        "$schema" => "http://json-schema.org/draft-07/schema#",
+        "title" => "ProjectV2",
+        "version" => 2,
+        "type" => "object",
+        "required" => ["id", "name", "status", "created_at", "updated_at"],
+        "properties" => %{
+          "id" => %{"type" => "string"},
+          "name" => %{"type" => "string"},
+          "status" => %{"type" => "string"},
+          "created_at" => %{"type" => "string"},
+          "updated_at" => %{"type" => "string"}
+        },
+        "additionalProperties" => false
+      }
+
+      migration = %{
+        "from_version" => 1,
+        "to_version" => 2,
+        "operations" => [
+          %{"op" => "rename_field", "from" => "full_name", "to" => "name"},
+          %{"op" => "set_default", "field" => "status", "value" => "pending"},
+          %{"op" => "remove_field", "field" => "legacy"}
+        ]
+      }
+
+      assert :ok = Schema.save(workspace, "projects", schema_v2)
+      assert :ok = File.mkdir_p(Paths.schema_migrations_dir(workspace))
+      {:ok, migration_path} = Paths.migration_path(workspace, "projects", 1, 2)
+      assert :ok = File.write(migration_path, Jason.encode!(migration))
+
+      ts = "2026-01-01T00:00:00Z"
+
+      write_entity!(
+        workspace,
+        "projects",
+        "p-1",
+        %{
+          "id" => "p-1",
+          "full_name" => "Project One",
+          "legacy" => "deprecated",
+          "created_at" => ts,
+          "updated_at" => ts
+        }
+      )
+
+      before = read_entity_data!(workspace, "projects", "p-1")
+
+      assert {:ok, result} =
+               MigrateEntities.run(
+                 %{entity_type: "projects", from_version: 1, to_version: 2, dry_run: true},
+                 context
+               )
+
+      assert result.total == 1
+      assert result.migrated == 1
+      assert length(result.changes) == 1
+
+      after_dry_run = read_entity_data!(workspace, "projects", "p-1")
+      assert after_dry_run == before
+    end
+
+    test "executes migration and writes entity updates", %{context: context, workspace: workspace} do
+      schema_v2 = %{
+        "$schema" => "http://json-schema.org/draft-07/schema#",
+        "title" => "ProjectV2",
+        "version" => 2,
+        "type" => "object",
+        "required" => ["id", "name", "status", "created_at", "updated_at"],
+        "properties" => %{
+          "id" => %{"type" => "string"},
+          "name" => %{"type" => "string"},
+          "status" => %{"type" => "string"},
+          "created_at" => %{"type" => "string"},
+          "updated_at" => %{"type" => "string"}
+        },
+        "additionalProperties" => false
+      }
+
+      migration = %{
+        "from_version" => 1,
+        "to_version" => 2,
+        "operations" => [
+          %{"op" => "rename_field", "from" => "full_name", "to" => "name"},
+          %{"op" => "set_default", "field" => "status", "value" => "pending"},
+          %{"op" => "remove_field", "field" => "legacy"}
+        ]
+      }
+
+      assert :ok = Schema.save(workspace, "projects", schema_v2)
+      assert :ok = File.mkdir_p(Paths.schema_migrations_dir(workspace))
+      {:ok, migration_path} = Paths.migration_path(workspace, "projects", 1, 2)
+      assert :ok = File.write(migration_path, Jason.encode!(migration))
+
+      ts = "2026-01-01T00:00:00Z"
+
+      write_entity!(
+        workspace,
+        "projects",
+        "p-2",
+        %{
+          "id" => "p-2",
+          "full_name" => "Project Two",
+          "legacy" => "deprecated",
+          "created_at" => ts,
+          "updated_at" => ts
+        }
+      )
+
+      assert {:ok, result} =
+               MigrateEntities.run(
+                 %{entity_type: "projects", from_version: 1, to_version: 2},
+                 context
+               )
+
+      assert result.total == 1
+      assert result.migrated == 1
+
+      migrated = read_entity_data!(workspace, "projects", "p-2")
+      assert migrated["name"] == "Project Two"
+      assert migrated["status"] == "pending"
+      refute Map.has_key?(migrated, "full_name")
+      refute Map.has_key?(migrated, "legacy")
+      assert migrated["updated_at"] != ts
+    end
   end
 
   describe "ListEntityTypes" do
@@ -349,5 +557,19 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
       ids = for {:ok, result} <- results, do: result.id
       assert length(ids) == length(Enum.uniq(ids))
     end
+  end
+
+  defp write_entity!(workspace, entity_type, id, data) do
+    {:ok, type_dir} = Paths.entity_type_dir(workspace, entity_type)
+    :ok = File.mkdir_p(type_dir)
+    {:ok, path} = Paths.entity_path(workspace, entity_type, id)
+    :ok = File.write(path, Entity.serialize(data, ""))
+  end
+
+  defp read_entity_data!(workspace, entity_type, id) do
+    {:ok, path} = Paths.entity_path(workspace, entity_type, id)
+    {:ok, content} = File.read(path)
+    {:ok, {data, _body}} = Entity.parse(content)
+    data
   end
 end

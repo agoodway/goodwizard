@@ -15,6 +15,15 @@ defmodule Goodwizard.Brain.Paths do
   @spec schemas_dir(String.t()) :: String.t()
   def schemas_dir(workspace), do: Path.join([workspace, "brain", "schemas"])
 
+  @doc "Returns the `brain/schemas/history/` directory."
+  @spec schema_history_dir(String.t()) :: String.t()
+  def schema_history_dir(workspace), do: Path.join([workspace, "brain", "schemas", "history"])
+
+  @doc "Returns the `brain/schemas/migrations/` directory."
+  @spec schema_migrations_dir(String.t()) :: String.t()
+  def schema_migrations_dir(workspace),
+    do: Path.join([workspace, "brain", "schemas", "migrations"])
+
   @doc "Returns the `brain/<type>/` directory for an entity type."
   @spec entity_type_dir(String.t(), String.t()) :: {:ok, String.t()} | {:error, String.t()}
   def entity_type_dir(workspace, type) do
@@ -38,6 +47,31 @@ defmodule Goodwizard.Brain.Paths do
   def schema_path(workspace, type) do
     with :ok <- validate_segment(type, "schema type") do
       {:ok, Path.join([workspace, "brain", "schemas", "#{type}.json"])}
+    end
+  end
+
+  @doc "Returns the archived schema path `brain/schemas/history/<type>_v<version>.json`."
+  @spec schema_history_path(String.t(), String.t(), integer()) ::
+          {:ok, String.t()} | {:error, String.t()}
+  def schema_history_path(workspace, type, version) do
+    with :ok <- validate_segment(type, "schema type"),
+         :ok <- validate_version(version, "schema version") do
+      {:ok, Path.join([workspace, "brain", "schemas", "history", "#{type}_v#{version}.json"])}
+    end
+  end
+
+  @doc """
+  Returns migration definition path
+  `brain/schemas/migrations/<type>_v<from_version>_to_v<to_version>.json`.
+  """
+  @spec migration_path(String.t(), String.t(), integer(), integer()) ::
+          {:ok, String.t()} | {:error, String.t()}
+  def migration_path(workspace, type, from_version, to_version) do
+    with :ok <- validate_segment(type, "schema type"),
+         :ok <- validate_version(from_version, "from version"),
+         :ok <- validate_version(to_version, "to version") do
+      file_name = "#{type}_v#{from_version}_to_v#{to_version}.json"
+      {:ok, Path.join([workspace, "brain", "schemas", "migrations", file_name])}
     end
   end
 
@@ -74,4 +108,8 @@ defmodule Goodwizard.Brain.Paths do
         :ok
     end
   end
+
+  @spec validate_version(integer(), String.t()) :: :ok | {:error, String.t()}
+  defp validate_version(version, _label) when is_integer(version) and version > 0, do: :ok
+  defp validate_version(_version, label), do: {:error, "#{label} must be a positive integer"}
 end

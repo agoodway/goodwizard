@@ -53,6 +53,7 @@ defmodule Goodwizard.AgentTest do
       assert Goodwizard.Actions.Brain.ListEntities in tools
       assert Goodwizard.Actions.Brain.GetSchema in tools
       assert Goodwizard.Actions.Brain.SaveSchema in tools
+      assert Goodwizard.Actions.Brain.MigrateEntities in tools
       assert Goodwizard.Actions.Brain.ListEntityTypes in tools
     end
 

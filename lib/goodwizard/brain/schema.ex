@@ -47,16 +47,132 @@ defmodule Goodwizard.Brain.Schema do
   @doc """
   Writes a schema map to disk as `brain/schemas/<type>.json`.
 
-  Creates the schemas directory if it doesn't exist.
-  Returns `:ok` or `{:error, reason}`.
+  When updating an existing schema, enforces `current_version + 1`,
+  requires a migration definition, archives the current schema, and
+  stores the migration definition before overwriting.
   """
   @spec save(String.t(), String.t(), map()) :: :ok | {:error, term()}
-  def save(workspace, type, schema_map) do
+  def save(workspace, type, schema_map), do: save(workspace, type, schema_map, nil)
+
+  @spec save(String.t(), String.t(), map(), map() | nil) :: :ok | {:error, term()}
+  def save(workspace, type, schema_map, migration_definition) do
     with {:ok, path} <- Paths.schema_path(workspace, type),
          :ok <- File.mkdir_p(Paths.schemas_dir(workspace)),
+         :ok <- prepare_update(path, workspace, type, schema_map, migration_definition),
          {:ok, json} <- Jason.encode(schema_map, pretty: true) do
       File.write(path, json)
     end
+  end
+
+  @spec prepare_update(String.t(), String.t(), String.t(), map(), map() | nil) ::
+          :ok | {:error, term()}
+  defp prepare_update(path, workspace, type, new_schema_map, migration_definition) do
+    case File.read(path) do
+      {:error, :enoent} ->
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
+
+      {:ok, content} ->
+        with {:ok, current_schema_map} <- Jason.decode(content),
+             {:ok, current_version} <- schema_version(current_schema_map, "current schema"),
+             {:ok, new_version} <- schema_version(new_schema_map, "new schema"),
+             :ok <- validate_next_version(current_version, new_version),
+             :ok <-
+               validate_migration_definition(migration_definition, current_version, new_version),
+             :ok <- archive_current_schema(workspace, type, current_version, content),
+             :ok <-
+               store_migration(
+                 workspace,
+                 type,
+                 current_version,
+                 new_version,
+                 migration_definition
+               ) do
+          :ok
+        end
+    end
+  end
+
+  @spec schema_version(map(), String.t()) :: {:ok, integer()} | {:error, term()}
+  defp schema_version(schema_map, label) do
+    case Map.get(schema_map, "version") do
+      version when is_integer(version) and version > 0 ->
+        {:ok, version}
+
+      _ ->
+        {:error, {:invalid_schema_version, label}}
+    end
+  end
+
+  @spec validate_next_version(integer(), integer()) :: :ok | {:error, term()}
+  defp validate_next_version(current_version, new_version) do
+    expected = current_version + 1
+
+    if new_version == expected do
+      :ok
+    else
+      {:error, {:version_mismatch, expected, new_version}}
+    end
+  end
+
+  @spec validate_migration_definition(map() | nil, integer(), integer()) :: :ok | {:error, term()}
+  defp validate_migration_definition(nil, _current_version, _new_version),
+    do: {:error, :migration_required}
+
+  defp validate_migration_definition(migration_definition, current_version, new_version)
+       when is_map(migration_definition) do
+    from_version = migration_value(migration_definition, "from_version", :from_version)
+    to_version = migration_value(migration_definition, "to_version", :to_version)
+    operations = migration_value(migration_definition, "operations", :operations)
+
+    cond do
+      not (is_integer(from_version) and from_version > 0) ->
+        {:error, {:invalid_migration_definition, :from_version}}
+
+      not (is_integer(to_version) and to_version > 0) ->
+        {:error, {:invalid_migration_definition, :to_version}}
+
+      from_version != current_version ->
+        {:error, {:migration_version_mismatch, :from_version, current_version, from_version}}
+
+      to_version != new_version ->
+        {:error, {:migration_version_mismatch, :to_version, new_version, to_version}}
+
+      not is_list(operations) ->
+        {:error, {:invalid_migration_definition, :operations}}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_migration_definition(_migration_definition, _current_version, _new_version),
+    do: {:error, {:invalid_migration_definition, :format}}
+
+  @spec archive_current_schema(String.t(), String.t(), integer(), String.t()) ::
+          :ok | {:error, term()}
+  defp archive_current_schema(workspace, type, current_version, content) do
+    with {:ok, history_path} <- Paths.schema_history_path(workspace, type, current_version),
+         :ok <- File.mkdir_p(Paths.schema_history_dir(workspace)) do
+      File.write(history_path, content)
+    end
+  end
+
+  @spec store_migration(String.t(), String.t(), integer(), integer(), map()) ::
+          :ok | {:error, term()}
+  defp store_migration(workspace, type, from_version, to_version, migration_definition) do
+    with {:ok, path} <- Paths.migration_path(workspace, type, from_version, to_version),
+         :ok <- File.mkdir_p(Paths.schema_migrations_dir(workspace)),
+         {:ok, json} <- Jason.encode(migration_definition, pretty: true) do
+      File.write(path, json)
+    end
+  end
+
+  @spec migration_value(map(), String.t(), atom()) :: term()
+  defp migration_value(migration_definition, string_key, atom_key) do
+    Map.get(migration_definition, string_key) || Map.get(migration_definition, atom_key)
   end
 
   @system_fields ~w(id created_at updated_at)

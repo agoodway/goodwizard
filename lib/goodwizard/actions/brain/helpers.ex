@@ -123,11 +123,27 @@ defmodule Goodwizard.Actions.Brain.Helpers do
   def format_error(:path_traversal), do: "Invalid path"
   def format_error(:body_too_large), do: "Body exceeds maximum size"
   def format_error(:update_locked), do: "Entity is locked by another operation"
+
+  def format_error(:migration_required),
+    do: "Migration definition is required when updating a schema"
+
   def format_error(:enoent), do: "File not found"
   def format_error(:eacces), do: "Permission denied"
   def format_error({:duplicate_id, _id}), do: "Duplicate entity ID"
   def format_error({:parse_error, _file, _reason}), do: "Failed to parse entity file"
   def format_error({:schema_resolution_error, _msg}), do: "Schema resolution failed"
+
+  def format_error({:invalid_schema_version, label}),
+    do: "#{label} version must be a positive integer"
+
+  def format_error({:version_mismatch, expected, got}),
+    do: "Version mismatch: expected #{expected}, got #{got}"
+
+  def format_error({:invalid_migration_definition, field}),
+    do: "Invalid migration definition: #{field}"
+
+  def format_error({:migration_version_mismatch, field, expected, got}),
+    do: "Migration #{field} mismatch: expected #{expected}, got #{got}"
 
   def format_error({:validation, errors}) when is_list(errors),
     do: format_validation_errors(errors)

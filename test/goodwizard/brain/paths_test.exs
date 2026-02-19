@@ -17,6 +17,19 @@ defmodule Goodwizard.Brain.PathsTest do
     end
   end
 
+  describe "schema_history_dir/1" do
+    test "returns schema history directory under schemas" do
+      assert Paths.schema_history_dir(@workspace) == "/tmp/test_workspace/brain/schemas/history"
+    end
+  end
+
+  describe "schema_migrations_dir/1" do
+    test "returns schema migrations directory under schemas" do
+      assert Paths.schema_migrations_dir(@workspace) ==
+               "/tmp/test_workspace/brain/schemas/migrations"
+    end
+  end
+
   describe "entity_type_dir/2" do
     test "returns entity type directory" do
       assert {:ok, "/tmp/test_workspace/brain/people"} =
@@ -75,6 +88,45 @@ defmodule Goodwizard.Brain.PathsTest do
     test "rejects traversal in schema type" do
       assert {:error, "schema type contains path traversal"} =
                Paths.schema_path(@workspace, "../evil")
+    end
+  end
+
+  describe "schema_history_path/3" do
+    test "returns versioned schema history path" do
+      assert {:ok, "/tmp/test_workspace/brain/schemas/history/people_v2.json"} =
+               Paths.schema_history_path(@workspace, "people", 2)
+    end
+
+    test "rejects traversal in schema type" do
+      assert {:error, "schema type contains path traversal"} =
+               Paths.schema_history_path(@workspace, "..", 1)
+    end
+
+    test "rejects non-positive versions" do
+      assert {:error, "schema version must be a positive integer"} =
+               Paths.schema_history_path(@workspace, "people", 0)
+    end
+  end
+
+  describe "migration_path/4" do
+    test "returns versioned migration path" do
+      assert {:ok, "/tmp/test_workspace/brain/schemas/migrations/people_v1_to_v2.json"} =
+               Paths.migration_path(@workspace, "people", 1, 2)
+    end
+
+    test "rejects traversal in schema type" do
+      assert {:error, "schema type contains path traversal"} =
+               Paths.migration_path(@workspace, "../evil", 1, 2)
+    end
+
+    test "rejects invalid from version" do
+      assert {:error, "from version must be a positive integer"} =
+               Paths.migration_path(@workspace, "people", -1, 2)
+    end
+
+    test "rejects invalid to version" do
+      assert {:error, "to version must be a positive integer"} =
+               Paths.migration_path(@workspace, "people", 1, 0)
     end
   end
 

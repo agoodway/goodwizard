@@ -8,7 +8,7 @@ defmodule Goodwizard.Brain do
 
   require Logger
 
-  alias Goodwizard.Brain.{Entity, Id, Paths, References, Schema, Seeds}
+  alias Goodwizard.Brain.{Entity, Id, Migration, Paths, References, Schema, Seeds}
 
   @system_fields ["id", "created_at", "updated_at"]
   @max_list_entities 1_000
@@ -207,6 +207,25 @@ defmodule Goodwizard.Brain do
           )
       end
     end)
+  end
+
+  @doc """
+  Migrates entities for a type from one schema version to the next.
+
+  Loads the migration definition and executes it, or performs a dry-run
+  when `dry_run` is true.
+  """
+  @spec migrate(String.t(), String.t(), integer(), integer(), boolean()) ::
+          {:ok, map()} | {:error, term()}
+  def migrate(workspace, entity_type, from_version, to_version, dry_run \\ false) do
+    with {:ok, migration_definition} <-
+           Migration.load(workspace, entity_type, from_version, to_version) do
+      if dry_run do
+        Migration.dry_run(workspace, entity_type, migration_definition)
+      else
+        Migration.execute(workspace, entity_type, migration_definition)
+      end
+    end
   end
 
   @doc """
