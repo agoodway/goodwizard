@@ -135,9 +135,9 @@ defmodule Goodwizard.Channels.Telegram.HandlerTest do
       # The handler catches this and returns {:reply, error_message}
       result = Handler.handle_message(message, context)
 
-      # Handler always returns {:reply, text} or :noreply — never {:error, _}
+      # Handler returns {:reply, text} / {:reply, text, opts} or :noreply — never {:error, _}
       # Without API key, agent fails but handler wraps it in an error reply
-      assert match?({:reply, _}, result) or result == :noreply
+      assert match?({:reply, _}, result) or match?({:reply, _, _}, result) or result == :noreply
     end
 
     test "returns :noreply for empty text message", %{workspace: workspace} do

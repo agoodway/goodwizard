@@ -15,6 +15,7 @@ defmodule Goodwizard.Messaging.Delivery do
 
   require Logger
 
+  alias Goodwizard.Channels.Telegram.Formatter
   alias Goodwizard.Messaging
 
   @default_channel_modules %{
@@ -83,6 +84,8 @@ defmodule Goodwizard.Messaging.Delivery do
         {:error, channel, :no_channel_module}
 
       channel_module ->
+        {formatted_content, opts} = format_for_channel(channel, content)
+
         channel_context = %{
           channel: channel_module,
           external_room_id: external_room_id
@@ -91,8 +94,9 @@ defmodule Goodwizard.Messaging.Delivery do
         case JidoMessaging.Deliver.send_to_room(
                Messaging,
                room_id,
-               content,
-               channel_context
+               formatted_content,
+               channel_context,
+               opts
              ) do
           {:ok, _message} ->
             {:ok, channel}
@@ -110,4 +114,14 @@ defmodule Goodwizard.Messaging.Delivery do
   defp channel_modules do
     Application.get_env(:goodwizard, :channel_modules, @default_channel_modules)
   end
+
+  defp format_for_channel(:telegram, content) do
+    {Formatter.to_telegram_html(content), [parse_mode: "HTML"]}
+  end
+
+  defp format_for_channel("telegram", content) do
+    {Formatter.to_telegram_html(content), [parse_mode: "HTML"]}
+  end
+
+  defp format_for_channel(_channel, content), do: {content, []}
 end

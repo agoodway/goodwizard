@@ -27,6 +27,7 @@ defmodule Goodwizard.Channels.Telegram.Handler do
   require Logger
 
   alias Goodwizard.Agent, as: GoodwizardAgent
+  alias Goodwizard.Channels.Telegram.Formatter
   alias Goodwizard.Messaging
 
   @ask_timeout 120_000
@@ -114,12 +115,14 @@ defmodule Goodwizard.Channels.Telegram.Handler do
 
     case GoodwizardAgent.ask_sync(agent_pid, text, timeout: @ask_timeout) do
       {:ok, answer} ->
+        formatted_answer = Formatter.to_telegram_html(answer)
+
         Logger.debug(fn ->
-          "[Telegram] Response sent, chat_id=#{chat_id} length=#{String.length(answer)}"
+          "[Telegram] Response sent, chat_id=#{chat_id} length=#{String.length(formatted_answer)}"
         end)
 
         save_message(room_id, @assistant_sender_id, :assistant, answer)
-        send_reply(answer, chat_id)
+        send_reply(formatted_answer, chat_id)
 
       {:error, reason} ->
         Logger.error("Agent error for chat #{chat_id}: #{error_label(reason)}")
@@ -130,17 +133,17 @@ defmodule Goodwizard.Channels.Telegram.Handler do
   defp send_reply(answer, chat_id) do
     case split_message(answer) do
       [single] ->
-        {:reply, single}
+        {:reply, single, parse_mode: "HTML"}
 
       [first | rest] ->
         send_extra_chunks(rest, chat_id)
-        {:reply, first}
+        {:reply, first, parse_mode: "HTML"}
     end
   end
 
   defp send_extra_chunks(chunks, chat_id) do
     Enum.each(chunks, fn chunk ->
-      case Telegex.send_message(chat_id, chunk) do
+      case Telegex.send_message(chat_id, chunk, parse_mode: "HTML") do
         {:error, reason} ->
           Logger.error("Failed to send chunk to chat #{chat_id}: #{error_label(reason)}")
 

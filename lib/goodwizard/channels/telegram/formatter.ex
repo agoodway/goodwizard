@@ -55,8 +55,7 @@ defmodule Goodwizard.Channels.Telegram.Formatter do
       converted_quote =
         quote_lines
         |> Enum.map(&String.replace_prefix(&1, "> ", ""))
-        |> Enum.map(&convert_inline_markdown/1)
-        |> Enum.join("\n")
+        |> Enum.map_join("\n", &convert_inline_markdown/1)
 
       convert_lines(remaining, ["<blockquote>#{converted_quote}</blockquote>" | acc])
     else
