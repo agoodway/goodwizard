@@ -55,17 +55,21 @@ defmodule Goodwizard.Actions.Memory.Procedural.UpdateProcedure do
   def run(params, context) do
     memory_dir = Helpers.memory_dir(context)
     frontmatter_updates = build_frontmatter_updates(params)
-    maybe_body = build_optional_body(params)
 
-    case Procedural.update(memory_dir, params.id, frontmatter_updates, maybe_body) do
-      {:ok, procedure} ->
-        {:ok, %{procedure: procedure, message: "Procedure updated: #{procedure["summary"]}"}}
+    with {:ok, maybe_body} <- build_optional_body(params, memory_dir) do
+      case Procedural.update(memory_dir, params.id, frontmatter_updates, maybe_body) do
+        {:ok, procedure} ->
+          {:ok, %{procedure: procedure, message: "Procedure updated: #{procedure["summary"]}"}}
 
-      {:error, :not_found} ->
-        {:error, "Procedure not found: #{params.id}"}
+        {:error, :not_found} ->
+          {:error, "Procedure not found: #{params.id}"}
 
-      {:error, reason} ->
-        {:error, format_error(reason)}
+        {:error, reason} ->
+          {:error, format_error(reason)}
+      end
+    else
+      {:error, :not_found} -> {:error, "Procedure not found: #{params.id}"}
+      {:error, reason} -> {:error, format_error(reason)}
     end
   end
 
@@ -86,18 +90,23 @@ defmodule Goodwizard.Actions.Memory.Procedural.UpdateProcedure do
     end
   end
 
-  defp build_optional_body(params) do
+  defp build_optional_body(params, memory_dir) do
     if Enum.any?([:when_to_apply, :steps, :notes], &Map.has_key?(params, &1)) do
-      build_body(params)
+      case Procedural.read(memory_dir, params.id) do
+        {:ok, {_frontmatter, existing_body}} -> {:ok, build_body(params, existing_body)}
+        {:error, reason} -> {:error, reason}
+      end
     else
-      nil
+      {:ok, nil}
     end
   end
 
-  defp build_body(params) do
-    when_to_apply = Map.get(params, :when_to_apply, "")
-    steps = Map.get(params, :steps, "")
-    notes = Map.get(params, :notes, "")
+  defp build_body(params, existing_body) do
+    when_to_apply =
+      Map.get(params, :when_to_apply, extract_section(existing_body, "When to apply"))
+
+    steps = Map.get(params, :steps, extract_section(existing_body, "Steps"))
+    notes = Map.get(params, :notes, extract_section(existing_body, "Notes"))
 
     """
     ## When to apply
@@ -113,6 +122,15 @@ defmodule Goodwizard.Actions.Memory.Procedural.UpdateProcedure do
     #{notes}
     """
     |> String.trim()
+  end
+
+  defp extract_section(body, heading) when is_binary(body) do
+    regex = ~r/##\s+#{Regex.escape(heading)}\s*\n+(.*?)(?=\n##\s+|\z)/ms
+
+    case Regex.run(regex, body) do
+      [_, content] -> String.trim(content)
+      _ -> ""
+    end
   end
 
   defp maybe_put(map, _key, nil), do: map

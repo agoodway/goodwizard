@@ -102,6 +102,35 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidateTest do
       {:ok, procedures} = Procedural.list(dir, limit: 10)
       assert Enum.any?(procedures, &(&1["summary"] == "Run checks after editing"))
     end
+
+    test "skips malformed LLM suggestion items and still creates valid ones", %{
+      context: ctx,
+      memory_dir: dir
+    } do
+      for i <- 1..6, do: create_successful_episode(dir, "Episode #{i}")
+
+      Process.put(
+        {CrossConsolidate, :test_llm_response},
+        Jason.encode!([
+          "bad-item",
+          42,
+          %{
+            "type" => "workflow",
+            "summary" => "Keep good suggestions",
+            "tags" => ["quality"],
+            "when_to_apply" => "After changes",
+            "steps" => "Run checks",
+            "notes" => "Only valid map should persist"
+          }
+        ])
+      )
+
+      assert {:ok, result} = CrossConsolidate.run(%{min_episodes: 5}, ctx)
+      assert result.procedures_created == 1
+
+      {:ok, procedures} = Procedural.list(dir, limit: 10)
+      assert Enum.any?(procedures, &(&1["summary"] == "Keep good suggestions"))
+    end
   end
 
   describe "existing procedures included in LLM prompt" do
