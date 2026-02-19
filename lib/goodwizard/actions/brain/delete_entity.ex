@@ -16,18 +16,31 @@ defmodule Goodwizard.Actions.Brain.DeleteEntity do
     ]
 
   alias Goodwizard.Actions.Brain.Helpers
+  alias Goodwizard.Brain.Seeds
 
   @impl true
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(params, context) do
     workspace = Helpers.workspace(context)
 
-    case Goodwizard.Brain.delete(workspace, params.entity_type, params.id) do
-      :ok ->
-        {:ok, %{message: "Entity #{params.id} deleted from #{params.entity_type}"}}
+    if protected_seeded_schema_delete?(params.entity_type, params.id) do
+      {:error, Helpers.format_error({:protected_entity_type, params.entity_type})}
+    else
+      case Goodwizard.Brain.delete(workspace, params.entity_type, params.id) do
+        :ok ->
+          {:ok, %{message: "Entity #{params.id} deleted from #{params.entity_type}"}}
 
-      {:error, reason} ->
-        {:error, Helpers.format_error(reason)}
+        {:error, reason} ->
+          {:error, Helpers.format_error(reason)}
+      end
     end
+  end
+
+  defp protected_seeded_schema_delete?(entity_type, id) do
+    Seeds.seeded_type?(entity_type) and schema_delete_target?(entity_type, id)
+  end
+
+  defp schema_delete_target?(entity_type, id) do
+    id in [entity_type, "schema", "__schema__", "#{entity_type}.json"]
   end
 end

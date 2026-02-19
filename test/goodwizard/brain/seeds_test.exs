@@ -206,6 +206,19 @@ defmodule Goodwizard.Brain.SeedsTest do
       assert length(Seeds.entity_types()) == length(@expected_types)
     end
   end
+
+  describe "seeded_type?/1" do
+    test "returns true for all seeded entity types" do
+      for type <- Seeds.entity_types() do
+        assert Seeds.seeded_type?(type), "Expected #{type} to be treated as seeded"
+      end
+    end
+
+    test "returns false for non-seeded values" do
+      refute Seeds.seeded_type?("widgets")
+      refute Seeds.seeded_type?(nil)
+    end
+  end
 end
 
 defmodule Goodwizard.BrainTest do
