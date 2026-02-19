@@ -19,12 +19,14 @@ defmodule Goodwizard.Scheduling.OneTimeRegistry do
   @doc "Register a timer reference for the given job_id."
   @spec register(atom(), timer_ref()) :: :ok
   def register(job_id, timer_ref) when is_atom(job_id) do
+    ensure_server()
     GenServer.call(__MODULE__, {:register, job_id, timer_ref})
   end
 
   @doc "Look up the timer reference for a job_id."
   @spec lookup(atom() | binary()) :: {:ok, timer_ref()} | :error
   def lookup(job_id) do
+    ensure_server()
     GenServer.call(__MODULE__, {:lookup, job_id})
   end
 
@@ -36,12 +38,14 @@ defmodule Goodwizard.Scheduling.OneTimeRegistry do
   """
   @spec cancel(atom() | binary()) :: :ok
   def cancel(job_id) do
+    ensure_server()
     GenServer.call(__MODULE__, {:cancel, job_id})
   end
 
   @doc "Remove a job_id from the registry without cancelling the timer."
   @spec deregister(atom() | binary()) :: :ok
   def deregister(job_id) do
+    ensure_server()
     GenServer.call(__MODULE__, {:deregister, job_id})
   end
 
@@ -101,5 +105,17 @@ defmodule Goodwizard.Scheduling.OneTimeRegistry do
     String.to_existing_atom(job_id)
   rescue
     ArgumentError -> job_id
+  end
+
+  defp ensure_server do
+    if Process.whereis(__MODULE__) == nil do
+      case start_link([]) do
+        {:ok, _pid} -> :ok
+        {:error, {:already_started, _pid}} -> :ok
+        {:error, _reason} -> :ok
+      end
+    else
+      :ok
+    end
   end
 end

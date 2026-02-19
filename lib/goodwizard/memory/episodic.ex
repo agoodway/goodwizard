@@ -66,18 +66,7 @@ defmodule Goodwizard.Memory.Episodic do
         |> truncate_summary()
 
       dir = Paths.episodic_dir(memory_dir)
-
-      with :ok <- File.mkdir_p(dir) do
-        content = Entry.serialize(enriched, body)
-        path = Path.join(dir, "#{id}.md")
-
-        case File.write(path, content) do
-          :ok -> {:ok, enriched}
-          {:error, reason} -> {:error, {:fs_error, reason}}
-        end
-      else
-        {:error, reason} -> {:error, {:fs_error, reason}}
-      end
+      persist_episode(dir, id, enriched, body)
     end
   end
 
@@ -86,7 +75,7 @@ defmodule Goodwizard.Memory.Episodic do
 
   Returns `{:ok, {frontmatter_map, body_string}}` or `{:error, :not_found}`.
   """
-  @spec read(String.t(), String.t()) :: {:ok, {map(), String.t()}} | {:error, :not_found}
+  @spec read(String.t(), String.t()) :: {:ok, {map(), String.t()}} | {:error, term()}
   def read(memory_dir, id) do
     with {:ok, _} <- Paths.validate_memory_dir(memory_dir),
          {:ok, path} <- Paths.episode_path(memory_dir, id) do
@@ -170,25 +159,12 @@ defmodule Goodwizard.Memory.Episodic do
     with {:ok, _} <- Paths.validate_memory_dir(memory_dir) do
       limit = Keyword.get(opts, :limit, @default_search_limit)
 
-      if query == "" do
-        list(memory_dir, Keyword.put(opts, :limit, limit))
-      else
-        dir = Paths.episodic_dir(memory_dir)
-        downcased_query = String.downcase(query)
+      case query do
+        "" ->
+          list(memory_dir, Keyword.put(opts, :limit, limit))
 
-        results =
-          dir
-          |> list_episode_files()
-          |> read_entries()
-          |> apply_entry_filters(opts)
-          |> Enum.filter(fn {frontmatter, body} ->
-            text_matches?(frontmatter, body, downcased_query)
-          end)
-          |> Enum.map(fn {frontmatter, _body} -> frontmatter end)
-          |> sort_by_timestamp_desc()
-          |> Enum.take(limit)
-
-        {:ok, results}
+        _ ->
+          do_search(memory_dir, query, opts, limit)
       end
     end
   end
@@ -267,19 +243,60 @@ defmodule Goodwizard.Memory.Episodic do
     Enum.flat_map(paths, fn path ->
       case File.read(path) do
         {:ok, content} ->
-          case Entry.parse(content) do
-            {:ok, {frontmatter, body}} ->
-              [{frontmatter, body}]
-
-            _ ->
-              Logger.warning("Skipping corrupted episode file: #{path}")
-              []
-          end
+          parse_episode_entry(path, content)
 
         _ ->
           []
       end
     end)
+  end
+
+  defp persist_episode(dir, id, enriched, body) do
+    with :ok <- File.mkdir_p(dir) do
+      path = Path.join(dir, "#{id}.md")
+      write_episode(path, enriched, body)
+    else
+      {:error, reason} -> {:error, {:fs_error, reason}}
+    end
+  end
+
+  defp write_episode(path, enriched, body) do
+    content = Entry.serialize(enriched, body)
+
+    case File.write(path, content) do
+      :ok -> {:ok, enriched}
+      {:error, reason} -> {:error, {:fs_error, reason}}
+    end
+  end
+
+  defp do_search(memory_dir, query, opts, limit) do
+    dir = Paths.episodic_dir(memory_dir)
+    downcased_query = String.downcase(query)
+
+    results =
+      dir
+      |> list_episode_files()
+      |> read_entries()
+      |> apply_entry_filters(opts)
+      |> Enum.filter(fn {frontmatter, body} ->
+        text_matches?(frontmatter, body, downcased_query)
+      end)
+      |> Enum.map(fn {frontmatter, _body} -> frontmatter end)
+      |> sort_by_timestamp_desc()
+      |> Enum.take(limit)
+
+    {:ok, results}
+  end
+
+  defp parse_episode_entry(path, content) do
+    case Entry.parse(content) do
+      {:ok, {frontmatter, body}} ->
+        [{frontmatter, body}]
+
+      _ ->
+        Logger.warning("Skipping corrupted episode file: #{path}")
+        []
+    end
   end
 
   defp apply_entry_filters(entries, opts) do

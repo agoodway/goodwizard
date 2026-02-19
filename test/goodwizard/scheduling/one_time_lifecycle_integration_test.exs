@@ -63,7 +63,7 @@ defmodule Goodwizard.Scheduling.OneTimeLifecycleIntegrationTest do
 
   test "full lifecycle: schedule, persist, list, reload, cancel", %{one_time_dir: one_time_dir} do
     # 1. Schedule a one-time task
-    params = %{delay_minutes: 60, task: "lifecycle test", room_id: "room_lifecycle"}
+    params = %{delay_minutes: 60, task: "lifecycle test", channel: "cli", external_id: "direct"}
     context = %{agent_id: "test_agent"}
     assert {:ok, result} = OneTime.run(params, context)
     assert result.scheduled == true
@@ -103,10 +103,16 @@ defmodule Goodwizard.Scheduling.OneTimeLifecycleIntegrationTest do
 
     # Schedule two jobs
     assert {:ok, r1} =
-             OneTime.run(%{delay_minutes: 60, task: "job one", room_id: "room_1"}, context)
+             OneTime.run(
+               %{delay_minutes: 60, task: "job one", channel: "cli", external_id: "direct"},
+               context
+             )
 
     assert {:ok, r2} =
-             OneTime.run(%{delay_minutes: 120, task: "job two", room_id: "room_1"}, context)
+             OneTime.run(
+               %{delay_minutes: 120, task: "job two", channel: "cli", external_id: "direct"},
+               context
+             )
 
     assert {:ok, jobs} = OneTimeStore.list()
     assert length(jobs) == 2

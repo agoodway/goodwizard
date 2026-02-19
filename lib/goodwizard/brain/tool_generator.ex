@@ -216,7 +216,14 @@ defmodule Goodwizard.Brain.ToolGenerator do
   end
 
   defp create_module(mod_name, body) do
-    Module.create(mod_name, body, Macro.Env.location(__ENV__))
+    :global.trans({__MODULE__, mod_name}, fn ->
+      if Code.ensure_loaded?(mod_name) do
+        purge_module(mod_name)
+      end
+
+      Module.create(mod_name, body, Macro.Env.location(__ENV__))
+    end)
+
     {:ok, mod_name}
   rescue
     e ->

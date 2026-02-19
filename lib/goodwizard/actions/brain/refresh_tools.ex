@@ -21,7 +21,13 @@ defmodule Goodwizard.Actions.Brain.RefreshTools do
   def run(_params, context) do
     workspace = Helpers.workspace(context)
     {:ok, modules} = ToolGenerator.generate_all(workspace)
-    tool_names = Enum.map(modules, & &1.name())
+
+    tool_names =
+      modules
+      |> Enum.filter(&Code.ensure_loaded?/1)
+      |> Enum.filter(&function_exported?(&1, :name, 0))
+      |> Enum.map(& &1.name())
+
     {:ok, %{message: "Regenerated #{length(modules)} brain tools", tools: tool_names}}
   end
 end

@@ -36,6 +36,5 @@ defmodule Goodwizard.Actions.Memory.Episodic.ReadEpisode do
   end
 
   defp format_error(:invalid_id), do: "Invalid episode ID format"
-  defp format_error({:fs_error, reason}), do: "File system error: #{:file.format_error(reason)}"
   defp format_error(reason), do: "Failed to read episode: #{inspect(reason)}"
 end

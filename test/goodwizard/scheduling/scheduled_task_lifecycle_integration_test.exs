@@ -105,7 +105,13 @@ defmodule Goodwizard.Scheduling.CronLifecycleIntegrationTest do
     scheduled_task_dir: scheduled_task_dir
   } do
     # 1. Schedule a scheduled task
-    params = %{schedule: "0 9 * * *", task: "lifecycle test", room_id: "room_lifecycle"}
+    params = %{
+      schedule: "0 9 * * *",
+      task: "lifecycle test",
+      channel: "cli",
+      external_id: "direct"
+    }
+
     assert {:ok, result} = ScheduledTask.run(params, %{})
     assert result.scheduled == true
     job_id = result.job_id
@@ -138,10 +144,16 @@ defmodule Goodwizard.Scheduling.CronLifecycleIntegrationTest do
   test "scheduling multiple jobs and cancelling one preserves others" do
     # Schedule two jobs
     assert {:ok, r1} =
-             ScheduledTask.run(%{schedule: "0 9 * * *", task: "job one", room_id: "room_1"}, %{})
+             ScheduledTask.run(
+               %{schedule: "0 9 * * *", task: "job one", channel: "cli", external_id: "direct"},
+               %{}
+             )
 
     assert {:ok, r2} =
-             ScheduledTask.run(%{schedule: "0 10 * * *", task: "job two", room_id: "room_1"}, %{})
+             ScheduledTask.run(
+               %{schedule: "0 10 * * *", task: "job two", channel: "cli", external_id: "direct"},
+               %{}
+             )
 
     assert {:ok, jobs} = ScheduledTaskStore.list()
     assert length(jobs) == 2
