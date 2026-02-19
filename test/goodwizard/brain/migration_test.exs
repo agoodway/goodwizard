@@ -64,6 +64,22 @@ defmodule Goodwizard.Brain.MigrationTest do
       assert unchanged["status"] == "pending"
     end
 
+    test "add_field preserves explicit false defaults from string keys" do
+      data = %{"id" => "1"}
+
+      ops = [
+        %{
+          "op" => "add_field",
+          "field" => "is_active",
+          "default" => false,
+          default: true
+        }
+      ]
+
+      assert {:ok, updated} = Migration.apply_operations(data, ops)
+      assert updated["is_active"] == false
+    end
+
     test "rename_field preserves value under new key" do
       data = %{"full_name" => "Alice"}
       ops = [%{"op" => "rename_field", "from" => "full_name", "to" => "name"}]
@@ -90,6 +106,14 @@ defmodule Goodwizard.Brain.MigrationTest do
 
       assert {:ok, unchanged} = Migration.apply_operations(%{"status" => "active"}, ops)
       assert unchanged["status"] == "active"
+    end
+
+    test "set_default preserves explicit false values from atom keys" do
+      data = %{"id" => "1"}
+      ops = [%{op: "set_default", field: "is_active", value: false}]
+
+      assert {:ok, updated} = Migration.apply_operations(data, ops)
+      assert updated["is_active"] == false
     end
 
     test "applies operations in order" do

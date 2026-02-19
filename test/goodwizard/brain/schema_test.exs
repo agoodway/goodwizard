@@ -94,6 +94,28 @@ defmodule Goodwizard.Brain.SchemaTest do
       assert {:error, :migration_required} = Schema.save(workspace, "test_entity", updated_schema)
     end
 
+    test "save preserves explicit false values when reading migration keys", %{
+      workspace: workspace
+    } do
+      assert :ok = Schema.save(workspace, "test_entity", @test_schema)
+
+      updated_schema =
+        @test_schema
+        |> Map.put("version", 2)
+        |> Map.put("title", "TestEntityV2")
+
+      invalid_migration = %{
+        "from_version" => false,
+        :from_version => 1,
+        "to_version" => 2,
+        :to_version => 2,
+        "operations" => []
+      }
+
+      assert {:error, {:invalid_migration_definition, :from_version}} =
+               Schema.save(workspace, "test_entity", updated_schema, invalid_migration)
+    end
+
     test "save archives current schema before overwrite and stores migration", %{
       workspace: workspace
     } do

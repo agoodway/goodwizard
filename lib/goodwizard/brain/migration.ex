@@ -320,6 +320,15 @@ defmodule Goodwizard.Brain.Migration do
 
   @spec migration_value(map(), String.t(), atom()) :: term()
   defp migration_value(map, string_key, atom_key) do
-    Map.get(map, string_key) || Map.get(map, atom_key)
+    cond do
+      Map.has_key?(map, string_key) ->
+        Map.get(map, string_key)
+
+      Map.has_key?(map, atom_key) ->
+        Map.get(map, atom_key)
+
+      true ->
+        nil
+    end
   end
 end
