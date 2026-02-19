@@ -129,22 +129,23 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidateTest do
         "tags" => ["deployment", "debugging"]
       }
 
-      body = """
-      ## When to apply
+      body =
+        """
+        ## When to apply
 
-      After any production deployment
+        After any production deployment
 
-      ## Steps
+        ## Steps
 
-      1. Check application logs
-      2. Verify health endpoints
-      3. Monitor error rates
+        1. Check application logs
+        2. Verify health endpoints
+        3. Monitor error rates
 
-      ## Notes
+        ## Notes
 
-      Inferred from episodic patterns
-      """
-      |> String.trim()
+        Inferred from episodic patterns
+        """
+        |> String.trim()
 
       {:ok, fm} = Procedural.create(dir, frontmatter, body)
 

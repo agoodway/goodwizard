@@ -14,7 +14,9 @@ defmodule Goodwizard.Actions.Memory.Episodic.RecordEpisodeTest do
   }
 
   setup do
-    tmp_dir = Path.join(System.tmp_dir!(), "record_episode_test_#{:erlang.unique_integer([:positive])}")
+    tmp_dir =
+      Path.join(System.tmp_dir!(), "record_episode_test_#{:erlang.unique_integer([:positive])}")
+
     File.mkdir_p!(tmp_dir)
     on_exit(fn -> File.rm_rf!(tmp_dir) end)
     context = %{state: %{memory: %{memory_dir: tmp_dir}}}

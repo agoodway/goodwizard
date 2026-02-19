@@ -16,7 +16,8 @@ defmodule Goodwizard.Actions.Memory.Episodic.ListEpisodes do
       type: [
         type: :string,
         required: false,
-        doc: "Filter by episode type: task_completion, problem_solved, error_encountered, decision_made, or interaction"
+        doc:
+          "Filter by episode type: task_completion, problem_solved, error_encountered, decision_made, or interaction"
       ],
       outcome: [
         type: :string,

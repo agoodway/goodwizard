@@ -84,12 +84,7 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
     case Episodic.list(memory_dir, outcome: "success", limit: limit) do
       {:ok, episodes} ->
         episodes_with_bodies =
-          Enum.flat_map(episodes, fn fm ->
-            case Episodic.read(memory_dir, fm["id"]) do
-              {:ok, {full_fm, body}} -> [{full_fm, body}]
-              _ -> [{fm, ""}]
-            end
-          end)
+          Enum.map(episodes, &hydrate_episode(memory_dir, &1))
 
         {:ok, episodes_with_bodies}
 
@@ -163,7 +158,7 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
 
   defp format_episodes_for_prompt(episodes) do
     episodes
-    |> Enum.map(fn {fm, body} ->
+    |> Enum.map_join("\n", fn {fm, body} ->
       """
       Episode: #{fm["summary"]}
       Type: #{fm["type"]}
@@ -174,7 +169,6 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
       ===
       """
     end)
-    |> Enum.join("\n")
   end
 
   defp format_procedures_for_prompt(procedures) do
@@ -182,10 +176,9 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
       "(none)"
     else
       procedures
-      |> Enum.map(fn fm ->
+      |> Enum.map_join("\n", fn fm ->
         "- [#{fm["type"]}] #{fm["summary"]} (confidence: #{fm["confidence"]}, tags: #{Enum.join(fm["tags"] || [], ", ")})"
       end)
-      |> Enum.join("\n")
     end
   end
 
@@ -215,6 +208,13 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
     |> String.replace("&", "&amp;")
     |> String.replace("<", "&lt;")
     |> String.replace(">", "&gt;")
+  end
+
+  defp hydrate_episode(memory_dir, frontmatter) do
+    case Episodic.read(memory_dir, frontmatter["id"]) do
+      {:ok, {full_fm, body}} -> {full_fm, body}
+      _ -> {frontmatter, ""}
+    end
   end
 
   defp call_llm(prompt) do

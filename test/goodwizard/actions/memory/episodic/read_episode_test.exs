@@ -5,7 +5,9 @@ defmodule Goodwizard.Actions.Memory.Episodic.ReadEpisodeTest do
   alias Goodwizard.Memory.Episodic
 
   setup do
-    tmp_dir = Path.join(System.tmp_dir!(), "read_episode_test_#{:erlang.unique_integer([:positive])}")
+    tmp_dir =
+      Path.join(System.tmp_dir!(), "read_episode_test_#{:erlang.unique_integer([:positive])}")
+
     File.mkdir_p!(tmp_dir)
     on_exit(fn -> File.rm_rf!(tmp_dir) end)
     context = %{state: %{memory: %{memory_dir: tmp_dir}}}
@@ -17,11 +19,15 @@ defmodule Goodwizard.Actions.Memory.Episodic.ReadEpisodeTest do
       body = "## Observation\n\nSomething happened\n\n## Result\n\nFixed it"
 
       {:ok, fm} =
-        Episodic.create(dir, %{
-          "type" => "problem_solved",
-          "summary" => "Fixed the thing",
-          "outcome" => "success"
-        }, body)
+        Episodic.create(
+          dir,
+          %{
+            "type" => "problem_solved",
+            "summary" => "Fixed the thing",
+            "outcome" => "success"
+          },
+          body
+        )
 
       assert {:ok, %{frontmatter: frontmatter, body: returned_body}} =
                ReadEpisode.run(%{id: fm["id"]}, ctx)
@@ -36,12 +42,16 @@ defmodule Goodwizard.Actions.Memory.Episodic.ReadEpisodeTest do
 
     test "frontmatter is a map with metadata", %{memory_dir: dir, context: ctx} do
       {:ok, fm} =
-        Episodic.create(dir, %{
-          "type" => "task_completion",
-          "summary" => "Completed task",
-          "outcome" => "success",
-          "tags" => ["test"]
-        }, "Body content")
+        Episodic.create(
+          dir,
+          %{
+            "type" => "task_completion",
+            "summary" => "Completed task",
+            "outcome" => "success",
+            "tags" => ["test"]
+          },
+          "Body content"
+        )
 
       assert {:ok, %{frontmatter: frontmatter}} = ReadEpisode.run(%{id: fm["id"]}, ctx)
 
@@ -53,7 +63,9 @@ defmodule Goodwizard.Actions.Memory.Episodic.ReadEpisodeTest do
 
   describe "reading a nonexistent episode" do
     test "returns error for nonexistent ID", %{context: ctx} do
-      assert {:error, message} = ReadEpisode.run(%{id: "00000000-0000-0000-0000-000000000000"}, ctx)
+      assert {:error, message} =
+               ReadEpisode.run(%{id: "00000000-0000-0000-0000-000000000000"}, ctx)
+
       assert message =~ "not found"
     end
   end

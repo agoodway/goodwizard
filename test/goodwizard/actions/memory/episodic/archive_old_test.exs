@@ -37,7 +37,12 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOldTest do
       "tags" => Keyword.get(opts, :tags, [])
     }
 
-    body_parts = ["## Observation\n\nTest observation", "## Approach\n\nTest approach", "## Result\n\nTest result"]
+    body_parts = [
+      "## Observation\n\nTest observation",
+      "## Approach\n\nTest approach",
+      "## Result\n\nTest result"
+    ]
+
     body_parts = if lessons, do: body_parts ++ ["## Lessons\n\n#{lessons}"], else: body_parts
     body = Enum.join(body_parts, "\n\n")
 
@@ -153,7 +158,7 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOldTest do
 
       # Find the summary episode
       {:ok, episodes} = Episodic.list(dir, type: "monthly_summary", limit: 10)
-      assert length(episodes) >= 1
+      assert episodes != []
 
       summary = hd(episodes)
       {:ok, {_fm, body}} = Episodic.read(dir, summary["id"])
@@ -177,7 +182,7 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOldTest do
       assert {:ok, _result} = ArchiveOld.run(%{file_threshold: 3}, ctx)
 
       {:ok, episodes} = Episodic.list(dir, type: "monthly_summary", limit: 10)
-      assert length(episodes) >= 1
+      assert episodes != []
 
       summary = hd(episodes)
       {:ok, {_fm, body}} = Episodic.read(dir, summary["id"])

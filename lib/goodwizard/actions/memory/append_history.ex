@@ -31,6 +31,9 @@ defmodule Goodwizard.Actions.Memory.AppendHistory do
           {:error, "Failed to append to HISTORY.md: #{:file.format_error(reason)}"}
       end
     else
+      {:error, :path_traversal} ->
+        {:error, "memory_dir path traversal is not allowed"}
+
       {:error, reason} when is_binary(reason) ->
         {:error, reason}
 
