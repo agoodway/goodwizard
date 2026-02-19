@@ -75,6 +75,13 @@ defmodule Goodwizard.FrontmatterTest do
       # Body should contain everything after the second ---
       assert body =~ "before"
     end
+
+    test "accepts CRLF frontmatter fences" do
+      content = "---\r\ntype: test\r\n---\r\nbody"
+      assert {:ok, {meta, body}} = Frontmatter.parse(content)
+      assert meta["type"] == "test"
+      assert body == "body"
+    end
   end
 
   describe "parse/1 with size limits" do

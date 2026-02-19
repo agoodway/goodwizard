@@ -145,28 +145,35 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
 
   defp create_inferred_procedures(memory_dir, suggestions) do
     created =
-      Enum.flat_map(suggestions, fn suggestion ->
-        frontmatter = %{
-          "type" => suggestion["type"] || "rule",
-          "summary" => suggestion["summary"] || "Inferred procedure",
-          "source" => "inferred",
-          "confidence" => "low",
-          "tags" => suggestion["tags"] || []
-        }
-
-        body = build_procedure_body(suggestion)
-
-        case Procedural.create(memory_dir, frontmatter, body) do
-          {:ok, fm} ->
-            [fm]
-
-          {:error, reason} ->
-            Logger.warning("Failed to create inferred procedure: #{inspect(reason)}")
-            []
-        end
-      end)
+      Enum.flat_map(suggestions, &create_inferred_from_suggestion(memory_dir, &1))
 
     {:ok, created}
+  end
+
+  defp create_inferred_from_suggestion(memory_dir, suggestion) when is_map(suggestion) do
+    frontmatter = %{
+      "type" => suggestion_value(suggestion, "type") || "rule",
+      "summary" => suggestion_value(suggestion, "summary") || "Inferred procedure",
+      "source" => "inferred",
+      "confidence" => "low",
+      "tags" => normalize_tags(suggestion_value(suggestion, "tags"))
+    }
+
+    body = build_procedure_body(suggestion)
+
+    case Procedural.create(memory_dir, frontmatter, body) do
+      {:ok, fm} ->
+        [fm]
+
+      {:error, reason} ->
+        Logger.warning("Failed to create inferred procedure: #{inspect(reason)}")
+        []
+    end
+  end
+
+  defp create_inferred_from_suggestion(_memory_dir, malformed) do
+    Logger.warning("Skipping malformed inferred procedure suggestion: #{inspect(malformed)}")
+    []
   end
 
   defp format_episodes_for_prompt(episodes) do
@@ -196,9 +203,11 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
   end
 
   defp build_procedure_body(suggestion) do
-    when_to_apply = suggestion["when_to_apply"] || "When the pattern is recognized"
-    steps = suggestion["steps"] || "Follow the identified pattern"
-    notes = suggestion["notes"] || "Inferred from episodic patterns"
+    when_to_apply =
+      suggestion_value(suggestion, "when_to_apply") || "When the pattern is recognized"
+
+    steps = suggestion_value(suggestion, "steps") || "Follow the identified pattern"
+    notes = suggestion_value(suggestion, "notes") || "Inferred from episodic patterns"
 
     """
     ## When to apply
@@ -215,6 +224,30 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
     """
     |> String.trim()
   end
+
+  defp suggestion_value(suggestion, "type"),
+    do: Map.get(suggestion, "type") || Map.get(suggestion, :type)
+
+  defp suggestion_value(suggestion, "summary"),
+    do: Map.get(suggestion, "summary") || Map.get(suggestion, :summary)
+
+  defp suggestion_value(suggestion, "when_to_apply"),
+    do: Map.get(suggestion, "when_to_apply") || Map.get(suggestion, :when_to_apply)
+
+  defp suggestion_value(suggestion, "steps"),
+    do: Map.get(suggestion, "steps") || Map.get(suggestion, :steps)
+
+  defp suggestion_value(suggestion, "notes"),
+    do: Map.get(suggestion, "notes") || Map.get(suggestion, :notes)
+
+  defp suggestion_value(suggestion, "tags"),
+    do: Map.get(suggestion, "tags") || Map.get(suggestion, :tags)
+
+  defp normalize_tags(tags) when is_list(tags) do
+    Enum.filter(tags, &is_binary/1)
+  end
+
+  defp normalize_tags(_), do: []
 
   defp hydrate_episode(memory_dir, frontmatter) do
     case Episodic.read(memory_dir, frontmatter["id"]) do

@@ -72,6 +72,26 @@ defmodule Goodwizard.Actions.Memory.Procedural.UpdateProcedureTest do
     assert body =~ "Prefer read-only checks first"
   end
 
+  test "updates one body section without erasing others", %{
+    context: ctx,
+    memory_dir: dir,
+    procedure: procedure
+  } do
+    assert {:ok, %{procedure: _updated}} =
+             UpdateProcedure.run(
+               %{
+                 id: procedure["id"],
+                 notes: "Updated notes only"
+               },
+               ctx
+             )
+
+    assert {:ok, {_fm, body}} = Procedural.read(dir, procedure["id"])
+    assert body =~ "Original trigger"
+    assert body =~ "Original steps"
+    assert body =~ "Updated notes only"
+  end
+
   test "updates confidence", %{context: ctx, procedure: procedure} do
     assert {:ok, %{procedure: updated}} =
              UpdateProcedure.run(%{id: procedure["id"], confidence: "high"}, ctx)

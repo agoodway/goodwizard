@@ -41,7 +41,7 @@ defmodule Goodwizard.Frontmatter do
   end
 
   defp split_and_parse(content, max_fm, max_body) do
-    case String.split(content, ~r/^---$/m, parts: 3) do
+    case String.split(content, ~r/^---\r?$/m, parts: 3) do
       ["", frontmatter, _body] when byte_size(frontmatter) > max_fm ->
         {:error, :frontmatter_too_large}
 
