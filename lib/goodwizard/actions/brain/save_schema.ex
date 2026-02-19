@@ -16,6 +16,12 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
         type: {:map, :string, :any},
         required: true,
         doc: "A valid JSON Schema object defining the entity structure"
+      ],
+      migration: [
+        type: {:map, :string, :any},
+        required: false,
+        doc:
+          "Optional migration definition map; required when updating an existing schema version"
       ]
     ]
 
@@ -30,7 +36,7 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
     schema = ensure_metadata_property(params.schema)
 
     with :ok <- validate_schema_structure(schema) do
-      case Schema.save(workspace, params.entity_type, schema) do
+      case Schema.save(workspace, params.entity_type, schema, Map.get(params, :migration)) do
         :ok ->
           Goodwizard.Cache.delete("brain:schema_summaries:#{workspace}")
           tool_msg = regenerate_tools(workspace, params.entity_type)

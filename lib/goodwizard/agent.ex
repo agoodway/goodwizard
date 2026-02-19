@@ -79,6 +79,7 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Brain.ListEntities,
       Goodwizard.Actions.Brain.GetSchema,
       Goodwizard.Actions.Brain.SaveSchema,
+      Goodwizard.Actions.Brain.MigrateEntities,
       Goodwizard.Actions.Brain.ListEntityTypes
     ],
     model: "anthropic:claude-sonnet-4-5",

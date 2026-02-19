@@ -1,7 +1,7 @@
 defmodule Goodwizard.Brain.SchemaTest do
   use ExUnit.Case, async: true
 
-  alias Goodwizard.Brain.Schema
+  alias Goodwizard.Brain.{Paths, Schema}
 
   @test_schema %{
     "$schema" => "http://json-schema.org/draft-07/schema#",
@@ -18,6 +18,14 @@ defmodule Goodwizard.Brain.SchemaTest do
       "tags" => %{"type" => "array", "items" => %{"type" => "string"}}
     },
     "additionalProperties" => false
+  }
+
+  @migration_v1_to_v2 %{
+    "from_version" => 1,
+    "to_version" => 2,
+    "operations" => [
+      %{"op" => "add_field", "field" => "nickname", "default" => nil}
+    ]
   }
 
   setup do
@@ -45,6 +53,95 @@ defmodule Goodwizard.Brain.SchemaTest do
       assert {:ok, decoded} = Jason.decode(content)
       assert decoded["title"] == "TestEntity"
       assert decoded["version"] == 1
+    end
+
+    test "save allows updating a schema only when version increments by one", %{
+      workspace: workspace
+    } do
+      assert :ok = Schema.save(workspace, "test_entity", @test_schema)
+
+      updated_schema =
+        @test_schema
+        |> Map.put("version", 2)
+        |> Map.put("title", "TestEntityV2")
+
+      assert :ok = Schema.save(workspace, "test_entity", updated_schema, @migration_v1_to_v2)
+      assert {:ok, resolved} = Schema.load(workspace, "test_entity")
+      assert %ExJsonSchema.Schema.Root{} = resolved
+    end
+
+    test "save rejects update when new version is not current+1", %{workspace: workspace} do
+      assert :ok = Schema.save(workspace, "test_entity", @test_schema)
+
+      same_version = Map.put(@test_schema, "title", "TestEntitySameVersion")
+      skipped_version = Map.put(@test_schema, "version", 3)
+
+      assert {:error, {:version_mismatch, 2, 1}} =
+               Schema.save(workspace, "test_entity", same_version)
+
+      assert {:error, {:version_mismatch, 2, 3}} =
+               Schema.save(workspace, "test_entity", skipped_version)
+    end
+
+    test "save rejects schema updates without a migration definition", %{workspace: workspace} do
+      assert :ok = Schema.save(workspace, "test_entity", @test_schema)
+
+      updated_schema =
+        @test_schema
+        |> Map.put("version", 2)
+        |> Map.put("title", "TestEntityV2")
+
+      assert {:error, :migration_required} = Schema.save(workspace, "test_entity", updated_schema)
+    end
+
+    test "save preserves explicit false values when reading migration keys", %{
+      workspace: workspace
+    } do
+      assert :ok = Schema.save(workspace, "test_entity", @test_schema)
+
+      updated_schema =
+        @test_schema
+        |> Map.put("version", 2)
+        |> Map.put("title", "TestEntityV2")
+
+      invalid_migration = %{
+        "from_version" => false,
+        :from_version => 1,
+        "to_version" => 2,
+        :to_version => 2,
+        "operations" => []
+      }
+
+      assert {:error, {:invalid_migration_definition, :from_version}} =
+               Schema.save(workspace, "test_entity", updated_schema, invalid_migration)
+    end
+
+    test "save archives current schema before overwrite and stores migration", %{
+      workspace: workspace
+    } do
+      assert :ok = Schema.save(workspace, "test_entity", @test_schema)
+
+      updated_schema =
+        @test_schema
+        |> Map.put("version", 2)
+        |> Map.put("title", "TestEntityV2")
+
+      assert :ok = Schema.save(workspace, "test_entity", updated_schema, @migration_v1_to_v2)
+
+      assert {:ok, history_path} = Paths.schema_history_path(workspace, "test_entity", 1)
+
+      assert {:ok, history_content} = File.read(history_path)
+      assert {:ok, history_schema} = Jason.decode(history_content)
+      assert history_schema["version"] == 1
+      assert history_schema["title"] == "TestEntity"
+
+      assert {:ok, migration_path} = Paths.migration_path(workspace, "test_entity", 1, 2)
+
+      assert {:ok, migration_content} = File.read(migration_path)
+      assert {:ok, stored_migration} = Jason.decode(migration_content)
+      assert stored_migration["from_version"] == 1
+      assert stored_migration["to_version"] == 2
+      assert is_list(stored_migration["operations"])
     end
 
     test "load returns error for non-existent schema", %{workspace: workspace} do
