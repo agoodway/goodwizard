@@ -25,7 +25,7 @@ defmodule Goodwizard.Actions.Memory.Procedural.ListProcedures do
       ]
     ]
 
-  alias Goodwizard.Actions.Memory.Procedural.Helpers
+  alias Goodwizard.Actions.Memory.Helpers
   alias Goodwizard.Memory.Procedural
 
   @impl true

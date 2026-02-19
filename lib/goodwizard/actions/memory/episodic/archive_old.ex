@@ -32,7 +32,7 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOld do
 
   require Logger
 
-  alias Goodwizard.Actions.Memory.Episodic.Helpers
+  alias Goodwizard.Actions.Memory.Helpers
   alias Goodwizard.Memory.Entry
   alias Goodwizard.Memory.Episodic
   alias Goodwizard.Memory.Paths
@@ -45,23 +45,28 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOld do
     recent_days = Map.get(params, :recent_days, 30)
     success_retention_days = Map.get(params, :success_retention_days, 90)
 
-    episodic_dir = Paths.episodic_dir(memory_dir)
+    with {:ok, _validated_path} <- Paths.validate_memory_dir(memory_dir) do
+      episodic_dir = Paths.episodic_dir(memory_dir)
 
-    case count_episode_files(episodic_dir) do
-      {:ok, count} when count <= file_threshold ->
-        {:ok,
-         %{
-           archived: 0,
-           summaries_created: 0,
-           retained: count,
-           message: "No archival needed (#{count} files, threshold #{file_threshold})"
-         }}
+      case count_episode_files(episodic_dir) do
+        {:ok, count} when count <= file_threshold ->
+          {:ok,
+           %{
+             archived: 0,
+             summaries_created: 0,
+             retained: count,
+             message: "No archival needed (#{count} files, threshold #{file_threshold})"
+           }}
 
-      {:ok, _count} ->
-        run_archive(memory_dir, episodic_dir, recent_days, success_retention_days)
+        {:ok, _count} ->
+          run_archive(memory_dir, episodic_dir, recent_days, success_retention_days)
 
-      {:error, reason} ->
-        {:error, "Failed to count episode files: #{inspect(reason)}"}
+        {:error, reason} ->
+          {:error, "Failed to count episode files: #{inspect(reason)}"}
+      end
+    else
+      {:error, :path_traversal} -> {:error, "memory_dir path traversal is not allowed"}
+      {:error, reason} -> {:error, "Invalid memory_dir: #{inspect(reason)}"}
     end
   end
 
@@ -256,9 +261,43 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOld do
     Enum.each(episodes, fn {fm, _body} ->
       case fm["id"] do
         nil -> :ok
-        id -> Episodic.delete(memory_dir, id)
+        id -> archive_and_delete_episode(memory_dir, id)
       end
     end)
+  end
+
+  defp archive_and_delete_episode(memory_dir, id) do
+    live_path = Path.join(Paths.episodic_dir(memory_dir), "#{id}.md")
+    archived_path = live_path <> ".archived"
+
+    case rename_to_archived(live_path, archived_path) do
+      :ok ->
+        maybe_delete_archived_file(id, archived_path)
+
+      {:error, reason} ->
+        Logger.warning("Failed to mark archived episode #{id}: #{inspect(reason)}")
+    end
+  end
+
+  defp maybe_delete_archived_file(id, archived_path) do
+    case File.rm(archived_path) do
+      :ok ->
+        :ok
+
+      {:error, :enoent} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to delete archived episode #{id}: #{inspect(reason)}")
+    end
+  end
+
+  defp rename_to_archived(live_path, archived_path) do
+    case File.rename(live_path, archived_path) do
+      :ok -> :ok
+      {:error, :enoent} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp maybe_archive_month(memory_dir, month, episodes) do

@@ -14,6 +14,8 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidateTest do
 
     File.mkdir_p!(tmp_dir)
     on_exit(fn -> File.rm_rf!(tmp_dir) end)
+    Process.delete({CrossConsolidate, :test_llm_response})
+    Process.delete({CrossConsolidate, :last_prompt})
     context = %{state: %{memory: %{memory_dir: tmp_dir}}}
     %{memory_dir: tmp_dir, context: context}
   end
@@ -74,38 +76,59 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidateTest do
   end
 
   describe "cross-consolidation creates inferred low-confidence procedures" do
-    # This test requires an LLM call, so we test the structure when it would succeed
-    # In a real test environment, you'd mock the LLM
-    test "action returns expected result structure", %{context: ctx, memory_dir: dir} do
-      # Create enough episodes to pass the minimum check
+    test "creates procedures from deterministic LLM stub", %{context: ctx, memory_dir: dir} do
       for i <- 1..6 do
         create_successful_episode(dir, "Episode #{i}")
       end
 
-      # The LLM call will fail in test (no API key), but we verify the action
-      # handles errors gracefully
-      result = CrossConsolidate.run(%{min_episodes: 5}, ctx)
+      Process.put(
+        {CrossConsolidate, :test_llm_response},
+        Jason.encode!([
+          %{
+            "type" => "workflow",
+            "summary" => "Run checks after editing",
+            "tags" => ["quality", "workflow"],
+            "when_to_apply" => "After code changes",
+            "steps" => "Run mix check and address findings",
+            "notes" => "Inferred from repeated episodes"
+          }
+        ])
+      )
 
-      case result do
-        {:ok, %{procedures_created: count}} ->
-          assert is_integer(count)
+      assert {:ok, result} = CrossConsolidate.run(%{min_episodes: 5}, ctx)
+      assert result.procedures_created == 1
+      assert result.message =~ "1 procedures inferred"
 
-        {:error, msg} ->
-          # Expected in test environment without LLM access
-          assert is_binary(msg)
-      end
+      {:ok, procedures} = Procedural.list(dir, limit: 10)
+      assert Enum.any?(procedures, &(&1["summary"] == "Run checks after editing"))
     end
   end
 
   describe "existing procedures included in LLM prompt" do
-    test "existing procedures are loaded for deduplication", %{memory_dir: dir} do
-      # Create existing procedures
+    test "existing procedures are loaded for deduplication", %{context: ctx, memory_dir: dir} do
       create_procedure(dir, "Existing workflow A")
       create_procedure(dir, "Existing workflow B")
+      for i <- 1..6, do: create_successful_episode(dir, "Episode #{i}")
 
-      # Verify they can be listed (used in the prompt)
-      {:ok, procedures} = Procedural.list(dir, limit: 200)
-      assert length(procedures) == 2
+      Process.put({CrossConsolidate, :test_llm_response}, "[]")
+
+      assert {:ok, _result} = CrossConsolidate.run(%{min_episodes: 5}, ctx)
+
+      prompt = Process.get({CrossConsolidate, :last_prompt})
+      assert is_binary(prompt)
+      assert prompt =~ "Existing workflow A"
+      assert prompt =~ "Existing workflow B"
+    end
+
+    test "cross-consolidation errors when LLM response is invalid JSON", %{
+      context: ctx,
+      memory_dir: dir
+    } do
+      for i <- 1..6, do: create_successful_episode(dir, "Episode #{i}")
+      Process.put({CrossConsolidate, :test_llm_response}, "not json")
+
+      assert {:error, message} = CrossConsolidate.run(%{min_episodes: 5}, ctx)
+      assert message =~ "Pattern detection failed"
     end
   end
 

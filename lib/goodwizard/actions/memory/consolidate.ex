@@ -20,6 +20,7 @@ defmodule Goodwizard.Actions.Memory.Consolidate do
 
   require Logger
 
+  alias Goodwizard.Actions.Memory.Helpers
   alias Goodwizard.Memory.Episodic
   alias Goodwizard.Memory.Paths
   alias Goodwizard.Memory.Procedural
@@ -140,21 +141,14 @@ defmodule Goodwizard.Actions.Memory.Consolidate do
   end
 
   defp build_prompt(current_memory, formatted_messages, existing_procedures) do
-    escaped_memory = xml_escape(current_memory)
-    escaped_messages = xml_escape(formatted_messages)
-    escaped_procedures = xml_escape(format_existing_procedures(existing_procedures))
+    escaped_memory = Helpers.xml_escape(current_memory)
+    escaped_messages = Helpers.xml_escape(formatted_messages)
+    escaped_procedures = Helpers.xml_escape(format_existing_procedures(existing_procedures))
 
     @consolidation_prompt
     |> String.replace("<%= current_memory %>", escaped_memory)
     |> String.replace("<%= existing_procedures %>", escaped_procedures)
     |> String.replace("<%= formatted_messages %>", escaped_messages)
-  end
-
-  defp xml_escape(text) do
-    text
-    |> String.replace("&", "&amp;")
-    |> String.replace("<", "&lt;")
-    |> String.replace(">", "&gt;")
   end
 
   defp format_messages(messages) do
@@ -191,15 +185,26 @@ defmodule Goodwizard.Actions.Memory.Consolidate do
   end
 
   defp call_llm(prompt) do
-    Process.put({__MODULE__, :last_prompt}, prompt)
+    maybe_store_last_prompt(prompt)
 
-    case Process.get({__MODULE__, :test_llm_response}) do
-      nil ->
-        do_call_llm(prompt)
-
-      test_response ->
-        parse_json_response(test_response)
+    case test_llm_response() do
+      nil -> do_call_llm(prompt)
+      test_response -> parse_json_response(test_response)
     end
+  end
+
+  if Mix.env() == :test do
+    defp maybe_store_last_prompt(prompt) do
+      Process.put({__MODULE__, :last_prompt}, prompt)
+    end
+
+    defp test_llm_response do
+      Process.get({__MODULE__, :test_llm_response})
+    end
+  else
+    defp maybe_store_last_prompt(_prompt), do: :ok
+
+    defp test_llm_response, do: nil
   end
 
   defp do_call_llm(prompt) do

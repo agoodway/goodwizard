@@ -65,6 +65,12 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOldTest do
   end
 
   describe "archival skips when file count at/below threshold" do
+    test "rejects unsafe memory_dir before file operations" do
+      bad_context = %{state: %{memory: %{memory_dir: "../tmp/memory"}}}
+      assert {:error, message} = ArchiveOld.run(%{}, bad_context)
+      assert message =~ "path traversal"
+    end
+
     test "returns without modifying files when below threshold", %{
       memory_dir: dir,
       context: ctx

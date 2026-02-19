@@ -20,7 +20,7 @@ defmodule Goodwizard.Actions.Memory.Procedural.UseProcedure do
       ]
     ]
 
-  alias Goodwizard.Actions.Memory.Procedural.Helpers
+  alias Goodwizard.Actions.Memory.Helpers
   alias Goodwizard.Memory.Procedural
 
   @impl true

@@ -25,7 +25,7 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
 
   require Logger
 
-  alias Goodwizard.Actions.Memory.Episodic.Helpers
+  alias Goodwizard.Actions.Memory.Helpers
   alias Goodwizard.Memory.Episodic
   alias Goodwizard.Memory.Procedural
 
@@ -63,12 +63,23 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
   @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
   def run(params, context) do
     memory_dir = Helpers.memory_dir(context)
-    episode_limit = Map.get(params, :episode_limit, 20)
+    episode_limit = Map.get(params, :episode_limit, 20) |> min(50)
     min_episodes = Map.get(params, :min_episodes, 5)
 
-    with {:ok, episodes} <- load_successful_episodes(memory_dir, episode_limit),
-         {:ok, :sufficient} <- check_minimum_episodes(episodes, min_episodes),
-         {:ok, existing_procedures} <- load_existing_procedures(memory_dir),
+    with {:ok, episodes} <- load_successful_episodes(memory_dir, episode_limit) do
+      continue_run(memory_dir, episodes, min_episodes)
+    end
+  end
+
+  defp continue_run(memory_dir, episodes, min_episodes) do
+    case check_minimum_episodes(episodes, min_episodes) do
+      :sufficient -> create_from_patterns(memory_dir, episodes)
+      {:insufficient, count} -> {:ok, insufficient_result(count, min_episodes)}
+    end
+  end
+
+  defp create_from_patterns(memory_dir, episodes) do
+    with {:ok, existing_procedures} <- load_existing_procedures(memory_dir),
          {:ok, suggestions} <- detect_patterns(episodes, existing_procedures),
          {:ok, created} <- create_inferred_procedures(memory_dir, suggestions) do
       {:ok,
@@ -78,6 +89,14 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
          message: "Cross-consolidation complete: #{length(created)} procedures inferred"
        }}
     end
+  end
+
+  defp insufficient_result(count, min_episodes) do
+    %{
+      procedures_created: 0,
+      created_summaries: [],
+      message: "Insufficient episodes for cross-consolidation (#{count}/#{min_episodes})"
+    }
   end
 
   defp load_successful_episodes(memory_dir, limit) do
@@ -95,15 +114,9 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
 
   defp check_minimum_episodes(episodes, min_episodes) do
     if length(episodes) >= min_episodes do
-      {:ok, :sufficient}
+      :sufficient
     else
-      {:ok,
-       %{
-         procedures_created: 0,
-         created_summaries: [],
-         message:
-           "Insufficient episodes for cross-consolidation (#{length(episodes)}/#{min_episodes})"
-       }}
+      {:insufficient, length(episodes)}
     end
   end
 
@@ -120,8 +133,8 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
 
     prompt =
       @cross_consolidation_prompt
-      |> String.replace("<%= existing_procedures %>", xml_escape(procedures_text))
-      |> String.replace("<%= episodes %>", xml_escape(episodes_text))
+      |> String.replace("<%= existing_procedures %>", Helpers.xml_escape(procedures_text))
+      |> String.replace("<%= episodes %>", Helpers.xml_escape(episodes_text))
 
     case call_llm(prompt) do
       {:ok, suggestions} when is_list(suggestions) -> {:ok, suggestions}
@@ -203,13 +216,6 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
     |> String.trim()
   end
 
-  defp xml_escape(text) do
-    text
-    |> String.replace("&", "&amp;")
-    |> String.replace("<", "&lt;")
-    |> String.replace(">", "&gt;")
-  end
-
   defp hydrate_episode(memory_dir, frontmatter) do
     case Episodic.read(memory_dir, frontmatter["id"]) do
       {:ok, {full_fm, body}} -> {full_fm, body}
@@ -218,6 +224,28 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
   end
 
   defp call_llm(prompt) do
+    maybe_store_last_prompt(prompt)
+
+    case test_llm_response() do
+      nil -> do_call_llm(prompt)
+      response -> parse_json_response(response)
+    end
+  end
+
+  if Mix.env() == :test do
+    defp maybe_store_last_prompt(prompt) do
+      Process.put({__MODULE__, :last_prompt}, prompt)
+    end
+
+    defp test_llm_response do
+      Process.get({__MODULE__, :test_llm_response})
+    end
+  else
+    defp maybe_store_last_prompt(_prompt), do: :ok
+    defp test_llm_response, do: nil
+  end
+
+  defp do_call_llm(prompt) do
     case Jido.Exec.run(Jido.AI.Actions.LLM.Chat, %{
            prompt: prompt,
            model: "anthropic:claude-haiku-4-5",

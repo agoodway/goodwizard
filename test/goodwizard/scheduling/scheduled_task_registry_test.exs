@@ -58,6 +58,18 @@ defmodule Goodwizard.Scheduling.ScheduledTaskRegistryTest do
     test "cancel is idempotent for unknown job_id" do
       assert :ok = ScheduledTaskRegistry.cancel(:scheduled_task_never_registered_test)
     end
+
+    test "cancel handles dead pid without crashing registry" do
+      pid = spawn(fn -> :ok end)
+      ref = Process.monitor(pid)
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
+
+      job_id = :scheduled_task_dead_pid_cancel
+      ScheduledTaskRegistry.register(job_id, pid)
+
+      assert :ok = ScheduledTaskRegistry.cancel(job_id)
+      assert :error = ScheduledTaskRegistry.lookup(job_id)
+    end
   end
 
   describe "auto-cleanup on process death" do
@@ -69,8 +81,9 @@ defmodule Goodwizard.Scheduling.ScheduledTaskRegistryTest do
       assert {:ok, ^pid} = ScheduledTaskRegistry.lookup(job_id)
 
       Process.exit(pid, :kill)
-      # Give the GenServer time to process the :DOWN message
-      Process.sleep(50)
+      ref = Process.monitor(pid)
+      assert_receive {:DOWN, ^ref, :process, ^pid, reason} when reason in [:killed, :noproc]
+      _ = :sys.get_state(ScheduledTaskRegistry)
 
       assert :error = ScheduledTaskRegistry.lookup(job_id)
     end

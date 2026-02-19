@@ -9,6 +9,8 @@ defmodule Goodwizard.Scheduling.ScheduledTaskStore do
 
   require Logger
 
+  @job_id_pattern ~r/\Ascheduled_task_[0-9a-zA-Z_\-]{1,64}\z/
+
   @doc """
   Persists a scheduled task record to disk.
 
@@ -22,8 +24,12 @@ defmodule Goodwizard.Scheduling.ScheduledTaskStore do
     with :ok <- validate_job_id(job_id),
          :ok <- File.mkdir_p(dir) do
       path = job_path(dir, job_id)
+      tmp_path = path <> ".tmp"
       json = Jason.encode!(normalize_record(record), pretty: true)
-      File.write(path, json)
+
+      with :ok <- File.write(tmp_path, json) do
+        File.rename(tmp_path, path)
+      end
     end
   end
 
@@ -119,19 +125,10 @@ defmodule Goodwizard.Scheduling.ScheduledTaskStore do
   defp validate_job_id(job_id) do
     id_str = to_string(job_id)
 
-    cond do
-      id_str == "" ->
-        {:error, :invalid_job_id}
-
-      String.contains?(id_str, "..") or String.contains?(id_str, "/") or
-          String.contains?(id_str, <<0>>) ->
-        {:error, :path_traversal}
-
-      byte_size(id_str) > 255 ->
-        {:error, :invalid_job_id}
-
-      true ->
-        :ok
+    if Regex.match?(@job_id_pattern, id_str) do
+      :ok
+    else
+      {:error, :invalid_job_id}
     end
   end
 

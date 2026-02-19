@@ -135,7 +135,7 @@ defmodule Goodwizard.Actions.Shell.Exec do
   defp deny_patterns_from_config do
     Goodwizard.Config.get(["tools", "exec", "deny_patterns"]) || []
   catch
-    :exit, _ -> []
+    :exit, _ -> @default_deny_pattern_sources
   end
 
   defp has_outside_absolute_path?(command, working_dir) when is_binary(working_dir) do
