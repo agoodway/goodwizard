@@ -71,6 +71,5 @@ defmodule Goodwizard.Actions.Memory.Procedural.RecallProcedures do
     end)
   end
 
-  defp format_error({:fs_error, reason}), do: "File system error: #{:file.format_error(reason)}"
   defp format_error(reason), do: "Failed to recall procedures: #{inspect(reason)}"
 end

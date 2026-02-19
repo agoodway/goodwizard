@@ -54,6 +54,5 @@ defmodule Goodwizard.Actions.Memory.Episodic.ListEpisodes do
   defp maybe_add(opts, _key, nil), do: opts
   defp maybe_add(opts, key, value), do: Keyword.put(opts, key, value)
 
-  defp format_error({:fs_error, reason}), do: "File system error: #{:file.format_error(reason)}"
   defp format_error(reason), do: "Failed to list episodes: #{inspect(reason)}"
 end
