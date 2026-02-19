@@ -13,15 +13,15 @@
 
 ## 3. Handler Integration
 
-- [x] 3.1 Update `dispatch_to_agent/4` in `handler.ex` to convert agent response via `Formatter.to_telegram_html/1` before calling `send_reply`, preserving original markdown for DB save
-- [x] 3.2 Update `send_reply/2` in `handler.ex` to return `{:reply, text, parse_mode: "HTML"}` 3-tuple instead of `{:reply, text}` 2-tuple
-- [x] 3.3 Update `send_extra_chunks/2` in `handler.ex` to pass `parse_mode: "HTML"` to `Telegex.send_message/3`
+- [ ] 3.1 Update `dispatch_to_agent/4` in `handler.ex` to convert agent response via `Formatter.to_telegram_html/1` before calling `send_reply`, preserving original markdown for DB save
+- [ ] 3.2 Update `send_reply/2` in `handler.ex` to return `{:reply, text, parse_mode: "HTML"}` 3-tuple instead of `{:reply, text}` 2-tuple
+- [ ] 3.3 Update `send_extra_chunks/2` in `handler.ex` to pass `parse_mode: "HTML"` to `Telegex.send_message/3`
 
 ## 4. Delivery Integration
 
-- [x] 4.1 Add `format_for_channel/2` private function to `delivery.ex` that converts content to Telegram HTML for `:telegram` channel and returns `{formatted_content, [parse_mode: "HTML"]}`, passthrough for other channels
-- [x] 4.2 Update `deliver_to_channel/4` in `delivery.ex` to call `format_for_channel/2` and pass opts to `JidoMessaging.Deliver.send_to_room/5`
+- [ ] 4.1 Add `format_for_channel/2` private function to `delivery.ex` that converts content to Telegram HTML for `:telegram` channel and returns `{formatted_content, [parse_mode: "HTML"]}`, passthrough for other channels
+- [ ] 4.2 Update `deliver_to_channel/4` in `delivery.ex` to call `format_for_channel/2` and pass opts to `JidoMessaging.Deliver.send_to_room/5`
 
 ## 5. Handler Test Updates
 
-- [x] 5.1 Update existing handler tests in `handler_test.exs` that assert `{:reply, _}` 2-tuple to accept `{:reply, _, _}` 3-tuple with `parse_mode: "HTML"`
+- [ ] 5.1 Update existing handler tests in `handler_test.exs` that assert `{:reply, _}` 2-tuple to accept `{:reply, _, _}` 3-tuple with `parse_mode: "HTML"`
