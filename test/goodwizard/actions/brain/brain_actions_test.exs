@@ -136,6 +136,15 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
   end
 
   describe "DeleteEntity" do
+    test "rejects deleting a seeded type schema target", %{workspace: workspace, context: context} do
+      init_brain(context)
+
+      assert {:error, "Cannot delete protected entity type: people"} =
+               DeleteEntity.run(%{entity_type: "people", id: "__schema__"}, context)
+
+      assert File.exists?(Path.join([workspace, "brain", "schemas", "people.json"]))
+    end
+
     test "deletes an existing entity", %{context: context} do
       {:ok, created} =
         CreateEntity.run(%{entity_type: "people", data: %{"name" => "Jack"}, body: ""}, context)
@@ -151,6 +160,36 @@ defmodule Goodwizard.Actions.Brain.BrainActionsTest do
     test "returns error for nonexistent entity", %{context: context} do
       init_brain(context)
       assert {:error, _} = DeleteEntity.run(%{entity_type: "people", id: "nonexistent"}, context)
+    end
+
+    test "deletes an entity in a non-seeded custom type", %{context: context} do
+      init_brain(context)
+
+      schema = %{
+        "type" => "object",
+        "properties" => %{
+          "id" => %{"type" => "string"},
+          "title" => %{"type" => "string"},
+          "created_at" => %{"type" => "string"},
+          "updated_at" => %{"type" => "string"}
+        },
+        "required" => ["id", "title"],
+        "additionalProperties" => true
+      }
+
+      assert {:ok, _} = SaveSchema.run(%{entity_type: "widgets", schema: schema}, context)
+
+      assert {:ok, created} =
+               CreateEntity.run(
+                 %{entity_type: "widgets", data: %{"title" => "Widget 1"}, body: ""},
+                 context
+               )
+
+      assert {:ok, %{message: msg}} =
+               DeleteEntity.run(%{entity_type: "widgets", id: created.id}, context)
+
+      assert msg =~ "deleted"
+      assert {:error, _} = ReadEntity.run(%{entity_type: "widgets", id: created.id}, context)
     end
   end
 
