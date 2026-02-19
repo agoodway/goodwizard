@@ -34,6 +34,15 @@ defmodule Goodwizard.AgentTest do
       assert Goodwizard.Actions.Shell.Exec in tools
     end
 
+    test "does not expose lifecycle maintenance actions as callable tools" do
+      agent = GoodwizardAgent.new()
+      tools = ReAct.list_tools(agent)
+
+      refute Goodwizard.Actions.Memory.Procedural.DecayUnused in tools
+      refute Goodwizard.Actions.Memory.Episodic.ArchiveOld in tools
+      refute Goodwizard.Actions.Memory.CrossConsolidate in tools
+    end
+
     test "registers all brain action tools" do
       agent = GoodwizardAgent.new()
       tools = ReAct.list_tools(agent)
