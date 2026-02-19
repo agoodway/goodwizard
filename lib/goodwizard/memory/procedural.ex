@@ -145,24 +145,7 @@ defmodule Goodwizard.Memory.Procedural do
       with {:ok, _} <- Paths.validate_memory_dir(memory_dir),
            {:ok, path} <- Paths.procedure_path(memory_dir, id),
            {:ok, {existing_fm, existing_body}} <- read_file(path) do
-        # Strip auto-managed fields from caller updates
-        safe_updates = Map.drop(frontmatter_updates, @auto_managed_fields)
-
-        merged = Map.merge(existing_fm, safe_updates)
-        timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
-        merged = Map.put(merged, "updated_at", timestamp)
-
-        with :ok <- validate_type(merged),
-             :ok <- validate_source(merged),
-             :ok <- validate_confidence(merged) do
-          final_body = if body != nil, do: body, else: existing_body
-          content = Entry.serialize(merged, final_body)
-
-          case File.write(path, content) do
-            :ok -> {:ok, merged}
-            {:error, reason} -> {:error, {:fs_error, reason}}
-          end
-        end
+        persist_update(path, existing_fm, existing_body, frontmatter_updates, body)
       end
     end)
   end
@@ -297,37 +280,7 @@ defmodule Goodwizard.Memory.Procedural do
       with {:ok, _} <- Paths.validate_memory_dir(memory_dir),
            {:ok, path} <- Paths.procedure_path(memory_dir, id),
            {:ok, {fm, body}} <- read_file(path) do
-        timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
-
-        updated =
-          fm
-          |> Map.update("usage_count", 1, &((&1 || 0) + 1))
-          |> increment_outcome(outcome)
-          |> Map.put("last_used", timestamp)
-          |> Map.put("updated_at", timestamp)
-
-        old_confidence = fm["confidence"] || "medium"
-        new_confidence = adjust_confidence(updated)
-
-        # Reset opposing counter on transition to prevent oscillation
-        updated =
-          cond do
-            confidence_level_value(new_confidence) > confidence_level_value(old_confidence) ->
-              updated |> Map.put("confidence", new_confidence) |> Map.put("failure_count", 0)
-
-            confidence_level_value(new_confidence) < confidence_level_value(old_confidence) ->
-              updated |> Map.put("confidence", new_confidence) |> Map.put("success_count", 0)
-
-            true ->
-              Map.put(updated, "confidence", new_confidence)
-          end
-
-        content = Entry.serialize(updated, body)
-
-        case File.write(path, content) do
-          :ok -> {:ok, updated}
-          {:error, reason} -> {:error, {:fs_error, reason}}
-        end
+        persist_usage(path, fm, body, outcome)
       end
     end)
   end
@@ -371,29 +324,10 @@ defmodule Goodwizard.Memory.Procedural do
 
       {demoted, deleted, unchanged} =
         Enum.reduce(entries, {0, 0, 0}, fn {fm, _body}, {dem, del, unch} ->
-          # Skip procedures already updated today (idempotency)
-          if updated_today?(fm, today) do
-            {dem, del, unch}
-          else
-            case classify_for_decay(fm, decay_cutoff, archive_cutoff) do
-              :delete ->
-                case delete(memory_dir, fm["id"]) do
-                  :ok -> {dem, del + 1, unch}
-                  _ -> {dem, del, unch}
-                end
+          {d_dem, d_del, d_unch} =
+            process_decay_entry(memory_dir, fm, today, decay_cutoff, archive_cutoff)
 
-              :demote ->
-                new_confidence = demote_confidence(fm["confidence"])
-
-                case update(memory_dir, fm["id"], %{"confidence" => new_confidence}) do
-                  {:ok, _} -> {dem + 1, del, unch}
-                  _ -> {dem, del, unch}
-                end
-
-              :keep ->
-                {dem, del, unch + 1}
-            end
-          end
+          {dem + d_dem, del + d_del, unch + d_unch}
         end)
 
       {:ok, %{demoted: demoted, deleted: deleted, unchanged: unchanged}}
@@ -417,26 +351,12 @@ defmodule Goodwizard.Memory.Procedural do
     confidence = fm["confidence"] || "medium"
     last_used = parse_iso_datetime(fm["last_used"])
     created_at = parse_iso_datetime(fm["created_at"])
-
     activity_time = last_used || created_at
 
     cond do
-      confidence == "low" and activity_time != nil and
-          DateTime.compare(activity_time, archive_cutoff) == :lt ->
-        :delete
-
-      confidence == "low" and activity_time == nil ->
-        :delete
-
-      activity_time != nil and DateTime.compare(activity_time, decay_cutoff) == :lt and
-          confidence in ["high", "medium"] ->
-        :demote
-
-      activity_time == nil and confidence in ["high", "medium"] ->
-        :demote
-
-      true ->
-        :keep
+      should_delete?(confidence, activity_time, archive_cutoff) -> :delete
+      should_demote?(confidence, activity_time, decay_cutoff) -> :demote
+      true -> :keep
     end
   end
 
@@ -467,23 +387,7 @@ defmodule Goodwizard.Memory.Procedural do
     successes = frontmatter["success_count"] || 0
     failures = frontmatter["failure_count"] || 0
 
-    case confidence do
-      "low" ->
-        if successes >= @promote_low_to_medium, do: "medium", else: "low"
-
-      "medium" ->
-        cond do
-          successes >= @promote_medium_to_high -> "high"
-          failures >= @demote_medium_to_low -> "low"
-          true -> "medium"
-        end
-
-      "high" ->
-        if failures >= @demote_high_to_medium, do: "medium", else: "high"
-
-      other ->
-        other
-    end
+    promote_confidence(confidence, successes, failures)
   end
 
   # --- Scoring helpers ---
@@ -627,6 +531,10 @@ defmodule Goodwizard.Memory.Procedural do
 
       {:error, :enoent} ->
         []
+
+      {:error, reason} ->
+        Logger.warning("Unable to list procedural directory #{dir}: #{inspect(reason)}")
+        []
     end
   end
 
@@ -634,19 +542,138 @@ defmodule Goodwizard.Memory.Procedural do
     Enum.flat_map(paths, fn path ->
       case File.read(path) do
         {:ok, content} ->
-          case Entry.parse(content) do
-            {:ok, {frontmatter, body}} ->
-              [{frontmatter, body}]
-
-            _ ->
-              Logger.warning("Skipping corrupted procedure file: #{path}")
-              []
-          end
+          parse_entry(path, content)
 
         _ ->
           []
       end
     end)
+  end
+
+  defp persist_update(path, existing_fm, existing_body, frontmatter_updates, body) do
+    safe_updates = Map.drop(frontmatter_updates, @auto_managed_fields)
+
+    merged =
+      existing_fm
+      |> Map.merge(safe_updates)
+      |> Map.put("updated_at", DateTime.utc_now() |> DateTime.to_iso8601())
+
+    with :ok <- validate_type(merged),
+         :ok <- validate_source(merged),
+         :ok <- validate_confidence(merged) do
+      final_body = if body != nil, do: body, else: existing_body
+      write_serialized(path, merged, final_body)
+    end
+  end
+
+  defp persist_usage(path, fm, body, outcome) do
+    timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    updated =
+      fm
+      |> Map.update("usage_count", 1, &((&1 || 0) + 1))
+      |> increment_outcome(outcome)
+      |> Map.put("last_used", timestamp)
+      |> Map.put("updated_at", timestamp)
+      |> apply_confidence_transition(fm)
+
+    write_serialized(path, updated, body)
+  end
+
+  defp apply_confidence_transition(updated, previous_fm) do
+    old_confidence = previous_fm["confidence"] || "medium"
+    new_confidence = adjust_confidence(updated)
+    direction = confidence_level_value(new_confidence) - confidence_level_value(old_confidence)
+
+    updated
+    |> Map.put("confidence", new_confidence)
+    |> maybe_reset_opposing_counter(direction)
+  end
+
+  defp maybe_reset_opposing_counter(frontmatter, direction) when direction > 0,
+    do: Map.put(frontmatter, "failure_count", 0)
+
+  defp maybe_reset_opposing_counter(frontmatter, direction) when direction < 0,
+    do: Map.put(frontmatter, "success_count", 0)
+
+  defp maybe_reset_opposing_counter(frontmatter, _direction), do: frontmatter
+
+  defp write_serialized(path, frontmatter, body) do
+    content = Entry.serialize(frontmatter, body)
+
+    case File.write(path, content) do
+      :ok -> {:ok, frontmatter}
+      {:error, reason} -> {:error, {:fs_error, reason}}
+    end
+  end
+
+  defp process_decay_entry(memory_dir, fm, today, decay_cutoff, archive_cutoff) do
+    if updated_today?(fm, today) do
+      {0, 0, 0}
+    else
+      apply_decay_action(memory_dir, fm, classify_for_decay(fm, decay_cutoff, archive_cutoff))
+    end
+  end
+
+  defp apply_decay_action(memory_dir, fm, :delete) do
+    case delete(memory_dir, fm["id"]) do
+      :ok -> {0, 1, 0}
+      _ -> {0, 0, 0}
+    end
+  end
+
+  defp apply_decay_action(memory_dir, fm, :demote) do
+    new_confidence = demote_confidence(fm["confidence"])
+
+    case update(memory_dir, fm["id"], %{"confidence" => new_confidence}) do
+      {:ok, _} -> {1, 0, 0}
+      _ -> {0, 0, 0}
+    end
+  end
+
+  defp apply_decay_action(_memory_dir, _fm, :keep), do: {0, 0, 1}
+
+  defp should_delete?("low", nil, _archive_cutoff), do: true
+
+  defp should_delete?("low", activity_time, archive_cutoff) do
+    DateTime.compare(activity_time, archive_cutoff) == :lt
+  end
+
+  defp should_delete?(_confidence, _activity_time, _archive_cutoff), do: false
+
+  defp should_demote?(confidence, nil, _decay_cutoff), do: confidence in ["high", "medium"]
+
+  defp should_demote?(confidence, activity_time, decay_cutoff) do
+    confidence in ["high", "medium"] and DateTime.compare(activity_time, decay_cutoff) == :lt
+  end
+
+  defp promote_confidence("low", successes, _failures) do
+    if successes >= @promote_low_to_medium, do: "medium", else: "low"
+  end
+
+  defp promote_confidence("medium", successes, failures) do
+    cond do
+      successes >= @promote_medium_to_high -> "high"
+      failures >= @demote_medium_to_low -> "low"
+      true -> "medium"
+    end
+  end
+
+  defp promote_confidence("high", _successes, failures) do
+    if failures >= @demote_high_to_medium, do: "medium", else: "high"
+  end
+
+  defp promote_confidence(other, _successes, _failures), do: other
+
+  defp parse_entry(path, content) do
+    case Entry.parse(content) do
+      {:ok, {frontmatter, body}} ->
+        [{frontmatter, body}]
+
+      _ ->
+        Logger.warning("Skipping corrupted procedure file: #{path}")
+        []
+    end
   end
 
   # --- Entry filters (operate on {frontmatter, body} tuples) ---

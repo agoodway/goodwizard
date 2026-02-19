@@ -26,6 +26,7 @@ defmodule Goodwizard.Character.Hydrator do
   ## Options
 
     * `:memory` - Memory content string to inject as long-term-memory knowledge
+    * `:memory_context` - Episodic/procedural context string to inject into prompt
     * `:skills` - Skills state map with `:summary` and optional `:active` list
     * `:config_overrides` - Map of character overrides (normally from Config)
   """
@@ -41,6 +42,7 @@ defmodule Goodwizard.Character.Hydrator do
       |> inject_bootstrap_files(workspace)
       |> inject_brain_awareness(workspace)
       |> maybe_inject_memory(Keyword.get(opts, :memory))
+      |> maybe_inject_memory_context(Keyword.get(opts, :memory_context))
       |> maybe_inject_skills(Keyword.get(opts, :skills))
 
     rendered = Jido.Character.to_system_prompt(character)
@@ -246,6 +248,18 @@ defmodule Goodwizard.Character.Hydrator do
   defp maybe_inject_memory(character, nil), do: character
   defp maybe_inject_memory(character, ""), do: character
   defp maybe_inject_memory(character, memory), do: inject_memory(character, memory)
+
+  defp maybe_inject_memory_context(character, nil), do: character
+  defp maybe_inject_memory_context(character, ""), do: character
+
+  defp maybe_inject_memory_context(character, context) when is_binary(context) do
+    labeled = "## Conversation Start Memory Context\n\n" <> context
+
+    {:ok, character} =
+      Jido.Character.add_knowledge(character, labeled, category: "memory-context")
+
+    character
+  end
 
   defp maybe_inject_skills(character, nil), do: character
 

@@ -33,12 +33,10 @@ defmodule Goodwizard.Frontmatter do
     max_fm = Keyword.get(opts, :max_frontmatter_bytes, 65_536)
     max_body = Keyword.get(opts, :max_body_bytes)
 
-    cond do
-      max_content && byte_size(content) > max_content ->
-        {:error, :content_too_large}
-
-      true ->
-        split_and_parse(content, max_fm, max_body)
+    if max_content && byte_size(content) > max_content do
+      {:error, :content_too_large}
+    else
+      split_and_parse(content, max_fm, max_body)
     end
   end
 

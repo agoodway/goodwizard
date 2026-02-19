@@ -25,6 +25,10 @@ defmodule Goodwizard.Actions.Memory.ReadLongTerm do
         end
 
       {:ok, %{content: content}}
+    else
+      {:error, :path_traversal} -> {:error, "memory_dir path traversal is not allowed"}
+      {:error, reason} when is_binary(reason) -> {:error, reason}
+      {:error, reason} -> {:error, "Invalid memory_dir: #{inspect(reason)}"}
     end
   end
 end

@@ -20,6 +20,10 @@ defmodule Goodwizard.Actions.Memory.SearchHistory do
       path = Paths.history_path(params.memory_dir)
       matches = search_file(path, params.pattern)
       {:ok, %{matches: matches}}
+    else
+      {:error, :path_traversal} -> {:error, "memory_dir path traversal is not allowed"}
+      {:error, reason} when is_binary(reason) -> {:error, reason}
+      {:error, reason} -> {:error, "Invalid memory_dir: #{inspect(reason)}"}
     end
   end
 

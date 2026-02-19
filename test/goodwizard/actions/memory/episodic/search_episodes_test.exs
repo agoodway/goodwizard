@@ -5,7 +5,9 @@ defmodule Goodwizard.Actions.Memory.Episodic.SearchEpisodesTest do
   alias Goodwizard.Memory.Episodic
 
   setup do
-    tmp_dir = Path.join(System.tmp_dir!(), "search_episodes_test_#{:erlang.unique_integer([:positive])}")
+    tmp_dir =
+      Path.join(System.tmp_dir!(), "search_episodes_test_#{:erlang.unique_integer([:positive])}")
+
     File.mkdir_p!(tmp_dir)
     on_exit(fn -> File.rm_rf!(tmp_dir) end)
     context = %{state: %{memory: %{memory_dir: tmp_dir}}}
@@ -34,7 +36,11 @@ defmodule Goodwizard.Actions.Memory.Episodic.SearchEpisodesTest do
     end
 
     test "search is case-insensitive", %{memory_dir: dir, context: ctx} do
-      create_episode(dir, %{"summary" => "ELIXIR upgrade"}, "## Observation\n\nUpgraded ELIXIR version")
+      create_episode(
+        dir,
+        %{"summary" => "ELIXIR upgrade"},
+        "## Observation\n\nUpgraded ELIXIR version"
+      )
 
       assert {:ok, %{episodes: [_], count: 1}} =
                SearchEpisodes.run(%{query: "elixir"}, ctx)
@@ -83,10 +89,17 @@ defmodule Goodwizard.Actions.Memory.Episodic.SearchEpisodesTest do
     end
 
     test "combines text query with filters", %{memory_dir: dir, context: ctx} do
-      create_episode(dir, %{"summary" => "Auth success", "tags" => ["auth"], "outcome" => "success"},
-        "## Observation\n\nFixed auth bug")
-      create_episode(dir, %{"summary" => "Auth failure", "tags" => ["auth"], "outcome" => "failure"},
-        "## Observation\n\nAuth bug persisted")
+      create_episode(
+        dir,
+        %{"summary" => "Auth success", "tags" => ["auth"], "outcome" => "success"},
+        "## Observation\n\nFixed auth bug"
+      )
+
+      create_episode(
+        dir,
+        %{"summary" => "Auth failure", "tags" => ["auth"], "outcome" => "failure"},
+        "## Observation\n\nAuth bug persisted"
+      )
 
       assert {:ok, %{episodes: [episode], count: 1}} =
                SearchEpisodes.run(%{query: "auth bug", outcome: "success"}, ctx)

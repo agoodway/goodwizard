@@ -9,9 +9,12 @@ defmodule Goodwizard.Actions.Memory.Episodic.RecordEpisode do
       "Record a notable experience (task completion, problem solved, error encountered, decision made, or interaction) as an episodic memory entry",
     schema: [
       type: [
-        type: {:in, ~w(task_completion problem_solved error_encountered decision_made interaction monthly_summary)},
+        type:
+          {:in,
+           ~w(task_completion problem_solved error_encountered decision_made interaction monthly_summary)},
         required: true,
-        doc: "Type of episode: task_completion, problem_solved, error_encountered, decision_made, or interaction"
+        doc:
+          "Type of episode: task_completion, problem_solved, error_encountered, decision_made, or interaction"
       ],
       summary: [
         type: :string,

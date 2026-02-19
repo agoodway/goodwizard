@@ -103,15 +103,7 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOld do
 
       summaries_created =
         Enum.reduce(monthly_groups, 0, fn {month, episodes}, acc ->
-          case create_monthly_summary(memory_dir, month, episodes) do
-            {:ok, _} ->
-              delete_archived_episodes(memory_dir, episodes)
-              acc + 1
-
-            {:error, reason} ->
-              Logger.warning("Failed to create summary for #{month}: #{inspect(reason)}")
-              acc
-          end
+          acc + maybe_archive_month(memory_dir, month, episodes)
         end)
 
       archived_count = length(archive)
@@ -132,20 +124,7 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOld do
       {:ok, files} ->
         files
         |> Enum.filter(&String.ends_with?(&1, ".md"))
-        |> Enum.flat_map(fn file ->
-          path = Path.join(dir, file)
-
-          case File.read(path) do
-            {:ok, content} ->
-              case Entry.parse(content) do
-                {:ok, {fm, body}} -> [{fm, body}]
-                _ -> []
-              end
-
-            _ ->
-              []
-          end
-        end)
+        |> Enum.flat_map(fn file -> read_episode_file(dir, file) end)
 
       {:error, _} ->
         []
@@ -173,20 +152,7 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOld do
 
   defp group_by_month(entries) do
     Enum.group_by(entries, fn {fm, _body} ->
-      case fm["timestamp"] do
-        nil ->
-          "unknown"
-
-        ts ->
-          case DateTime.from_iso8601(ts) do
-            {:ok, dt, _} ->
-              month = String.pad_leading("#{dt.month}", 2, "0")
-              "#{dt.year}-#{month}"
-
-            _ ->
-              "unknown"
-          end
-      end
+      month_from_timestamp(fm["timestamp"])
     end)
     |> Map.delete("unknown")
   end
@@ -257,7 +223,7 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOld do
       if lessons == [] do
         "No specific lessons extracted."
       else
-        Enum.map_join(lessons, "\n", &("- #{&1}"))
+        Enum.map_join(lessons, "\n", &"- #{&1}")
       end
 
     events_text = Enum.join(notable_events, "\n")
@@ -293,5 +259,41 @@ defmodule Goodwizard.Actions.Memory.Episodic.ArchiveOld do
         id -> Episodic.delete(memory_dir, id)
       end
     end)
+  end
+
+  defp maybe_archive_month(memory_dir, month, episodes) do
+    case create_monthly_summary(memory_dir, month, episodes) do
+      {:ok, _} ->
+        delete_archived_episodes(memory_dir, episodes)
+        1
+
+      {:error, reason} ->
+        Logger.warning("Failed to create summary for #{month}: #{inspect(reason)}")
+        0
+    end
+  end
+
+  defp read_episode_file(dir, file) do
+    path = Path.join(dir, file)
+
+    with {:ok, content} <- File.read(path),
+         {:ok, {fm, body}} <- Entry.parse(content) do
+      [{fm, body}]
+    else
+      _ -> []
+    end
+  end
+
+  defp month_from_timestamp(nil), do: "unknown"
+
+  defp month_from_timestamp(timestamp) do
+    case DateTime.from_iso8601(timestamp) do
+      {:ok, dt, _} ->
+        month = String.pad_leading("#{dt.month}", 2, "0")
+        "#{dt.year}-#{month}"
+
+      _ ->
+        "unknown"
+    end
   end
 end

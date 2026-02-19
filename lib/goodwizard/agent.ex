@@ -22,12 +22,18 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Memory.AppendHistory,
       Goodwizard.Actions.Memory.SearchHistory,
       Goodwizard.Actions.Memory.Consolidate,
+      Goodwizard.Actions.Memory.LoadContext,
       # Episodic memory
       Goodwizard.Actions.Memory.Episodic.RecordEpisode,
       Goodwizard.Actions.Memory.Episodic.SearchEpisodes,
       Goodwizard.Actions.Memory.Episodic.ReadEpisode,
       Goodwizard.Actions.Memory.Episodic.ListEpisodes,
       # Procedural memory
+      Goodwizard.Actions.Memory.Procedural.LearnProcedure,
+      Goodwizard.Actions.Memory.Procedural.RecallProcedures,
+      Goodwizard.Actions.Memory.Procedural.UpdateProcedure,
+      Goodwizard.Actions.Memory.Procedural.UseProcedure,
+      Goodwizard.Actions.Memory.Procedural.ListProcedures,
       Goodwizard.Actions.Memory.Procedural.DecayUnused,
       # Lifecycle management
       Goodwizard.Actions.Memory.Episodic.ArchiveOld,
@@ -92,6 +98,7 @@ defmodule Goodwizard.Agent do
   require Logger
 
   alias Goodwizard.Actions.Memory.Consolidate
+  alias Goodwizard.Actions.Memory.LoadContext
   alias Goodwizard.Brain.ToolGenerator
   alias Goodwizard.BrowserSessionStore
   alias Goodwizard.Character.Hydrator
@@ -111,16 +118,19 @@ defmodule Goodwizard.Agent do
     try do
       # Check if consolidation is needed before building the prompt
       agent = maybe_consolidate(agent)
+      {:react_start, %{query: query}} = action
+      agent = maybe_load_memory_context(agent, query)
 
       # Build dynamic system prompt from workspace state
       workspace = Map.get(agent.state, :workspace) || Goodwizard.Config.workspace()
       character_overrides = Map.get(agent.state, :character_overrides)
       memory_content = get_in(agent.state, [:memory, :long_term_content]) || ""
+      memory_context = get_in(agent.state, [:memory, :startup_context]) || ""
 
       skills_state = build_skills_state(agent)
 
       hydrate_opts =
-        [memory: memory_content, skills: skills_state] ++
+        [memory: memory_content, memory_context: memory_context, skills: skills_state] ++
           if(character_overrides, do: [config_overrides: character_overrides], else: [])
 
       system_prompt =
@@ -287,26 +297,32 @@ defmodule Goodwizard.Agent do
       # The wrapper adds --one_time which bypasses the daemon entirely,
       # but stop any lingering daemon from previous non-one_time runs.
       # Read the wrapper to find the real binary path.
-      stop_daemon_from_wrapper(wrapper_path)
+      wrapper_path
+      |> extract_vibium_binary_path()
+      |> maybe_stop_vibium_daemon()
     end
   rescue
     _ -> :ok
   end
 
-  defp stop_daemon_from_wrapper(wrapper_path) do
+  defp extract_vibium_binary_path(wrapper_path) do
     case File.read(wrapper_path) do
       {:ok, content} ->
-        case Regex.run(~r/exec "(.+)" --one_time/, content) do
-          [_, real_binary] ->
-            System.cmd(real_binary, ["daemon", "stop"], stderr_to_stdout: true)
-
-          _ ->
-            :ok
+        case Regex.run(~r/exec "(.+)" --oneshot/, content) do
+          [_, real_binary] -> real_binary
+          _ -> nil
         end
 
       _ ->
-        :ok
+        nil
     end
+  end
+
+  defp maybe_stop_vibium_daemon(nil), do: :ok
+
+  defp maybe_stop_vibium_daemon(real_binary) do
+    System.cmd(real_binary, ["daemon", "stop"], stderr_to_stdout: true)
+    :ok
   end
 
   defp maybe_consolidate(agent) do
@@ -343,6 +359,53 @@ defmodule Goodwizard.Agent do
       end
     else
       agent
+    end
+  end
+
+  defp maybe_load_memory_context(agent, topic) do
+    messages = get_in(agent.state, [:session, :messages]) || []
+    loaded? = get_in(agent.state, [:memory, :startup_context_loaded]) == true
+
+    cond do
+      loaded? ->
+        agent
+
+      messages != [] ->
+        agent
+
+      true ->
+        memory_dir = get_in(agent.state, [:memory, :memory_dir]) || Goodwizard.Config.memory_dir()
+
+        context = %{state: %{memory: %{memory_dir: memory_dir}}}
+
+        case LoadContext.run(%{topic: topic}, context) do
+          {:ok, %{memory_context: memory_context}} ->
+            state = ensure_memory_state(agent.state)
+
+            state =
+              state
+              |> put_in([:memory, :startup_context], memory_context)
+              |> put_in([:memory, :startup_context_loaded], true)
+
+            %{agent | state: state}
+
+          {:error, reason} ->
+            Logger.debug("Memory context load failed on session start: #{inspect(reason)}")
+
+            state =
+              agent.state
+              |> ensure_memory_state()
+              |> put_in([:memory, :startup_context_loaded], true)
+
+            %{agent | state: state}
+        end
+    end
+  end
+
+  defp ensure_memory_state(state) do
+    case Map.get(state, :memory) do
+      %{} -> state
+      _ -> Map.put(state, :memory, %{})
     end
   end
 

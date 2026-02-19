@@ -5,7 +5,9 @@ defmodule Goodwizard.Actions.Memory.Episodic.ListEpisodesTest do
   alias Goodwizard.Memory.Episodic
 
   setup do
-    tmp_dir = Path.join(System.tmp_dir!(), "list_episodes_test_#{:erlang.unique_integer([:positive])}")
+    tmp_dir =
+      Path.join(System.tmp_dir!(), "list_episodes_test_#{:erlang.unique_integer([:positive])}")
+
     File.mkdir_p!(tmp_dir)
     on_exit(fn -> File.rm_rf!(tmp_dir) end)
     context = %{state: %{memory: %{memory_dir: tmp_dir}}}
@@ -82,7 +84,9 @@ defmodule Goodwizard.Actions.Memory.Episodic.ListEpisodesTest do
 
     test "combines type and outcome filters", %{memory_dir: dir, context: ctx} do
       create_episode(dir, %{"summary" => "A", "type" => "task_completion", "outcome" => "success"})
+
       create_episode(dir, %{"summary" => "B", "type" => "task_completion", "outcome" => "failure"})
+
       create_episode(dir, %{"summary" => "C", "type" => "problem_solved", "outcome" => "success"})
 
       assert {:ok, %{episodes: [episode], count: 1}} =

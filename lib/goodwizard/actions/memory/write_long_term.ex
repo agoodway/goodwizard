@@ -26,6 +26,9 @@ defmodule Goodwizard.Actions.Memory.WriteLongTerm do
          :ok <- Paths.ensure_dir(params.memory_dir) do
       write_memory_file(params.memory_dir, params.content, content_size)
     else
+      {:error, :path_traversal} ->
+        {:error, "memory_dir path traversal is not allowed"}
+
       {:error, reason} when is_binary(reason) ->
         {:error, reason}
 
