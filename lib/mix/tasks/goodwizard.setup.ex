@@ -10,7 +10,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
     - priv/workspace/memory/procedural/
     - priv/workspace/memory/MEMORY.md (agent-authored learned context, if missing)
     - priv/workspace/sessions/
-    - priv/workspace/skills/
+    - priv/workspace/skills/ (copied from source workspace, e.g. weather)
     - priv/workspace/brain/schemas/ (with default schemas)
     - priv/workspace/brain/<type>/ for each entity type
     - priv/workspace/IDENTITY.md (agent identity, if missing)
@@ -19,6 +19,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
     - priv/workspace/TOOLS.md (tool usage guidance, if missing)
     - priv/workspace/AGENTS.md (sub-agent configuration, if missing)
     - priv/workspace/HEARTBEAT.md (periodic awareness checks, if missing)
+    - priv/workspace/worldcities.csv (city reference data, copied from source)
     - config.toml (project root, if missing)
   """
   use Mix.Task
@@ -115,6 +116,8 @@ defmodule Mix.Tasks.Goodwizard.Setup do
     setup_brain(base)
     setup_memory(base)
     setup_bootstrap_files(base)
+    setup_skills(base)
+    setup_data_files(base)
     setup_config()
   end
 
@@ -302,6 +305,40 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   defp setup_bootstrap_files(base) do
     Enum.each(@bootstrap_files, fn {filename, content} ->
       seed_file(base, filename, content)
+    end)
+  end
+
+  defp setup_skills(base) do
+    source = Application.app_dir(:goodwizard, "priv/workspace/skills")
+    dest = Path.join(base, "skills")
+
+    if source != dest and File.dir?(source) do
+      case File.cp_r(source, dest) do
+        {:ok, _} ->
+          Mix.shell().info("Copied skills to #{dest}")
+
+        {:error, reason, _file} ->
+          Mix.shell().error("Failed to copy skills: #{inspect(reason)}")
+      end
+    end
+  end
+
+  @data_files ~w(worldcities.csv)
+
+  defp setup_data_files(base) do
+    Enum.each(@data_files, fn filename ->
+      source = Application.app_dir(:goodwizard, "priv/workspace/#{filename}")
+      dest = Path.join(base, filename)
+
+      if source != dest and File.regular?(source) and not File.exists?(dest) do
+        case File.cp(source, dest) do
+          :ok ->
+            Mix.shell().info("Copied #{filename} to #{dest}")
+
+          {:error, reason} ->
+            Mix.shell().error("Failed to copy #{filename}: #{inspect(reason)}")
+        end
+      end
     end)
   end
 

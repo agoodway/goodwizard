@@ -1,0 +1,70 @@
+description = "Procedural memory test — agent recalls a seeded procedure to look up city data and fetch weather."
+
+# Step 0: Seed a procedural memory file that teaches the weather-lookup workflow.
+[[steps]]
+type = "setup"
+action = "write_file"
+path = "memory/procedural/weather-city-lookup.md"
+content = """
+---
+topic: weather lookup for cities
+tags:
+  - weather
+  - cities
+  - location
+  - temperature
+  - forecast
+confidence: high
+created_at: "2025-01-01T00:00:00Z"
+last_used: "2025-06-01T00:00:00Z"
+use_count: 5
+---
+
+# Weather Lookup for Cities
+
+## When
+
+User asks about current weather, conditions, forecast, or temperature in a specific city.
+
+## Steps
+
+1. **Find the city in worldcities.csv** — The file `worldcities.csv` is in the workspace root. Use `read_file` to search or `exec` with `grep -i "<city>" worldcities.csv` to find the city row. Extract coordinates (lat, lng), country, population, and admin region.
+2. **Activate the weather skill** — Use `activate_skill` with skill name `weather` to load weather tool instructions. This is REQUIRED before fetching weather.
+3. **Fetch current weather** — Use the `exec` tool to run `curl -s "wttr.in/<City>?format=3"` to get a one-line weather summary with temperature. For more detail use `curl -s "wttr.in/<City>?format=%l:+%c+%t+%h+%w"`. Do NOT use the browser for this — curl is faster and more reliable.
+4. **Present results** — Combine city reference data (coordinates, country, population) with the weather data in a clear response. Always mention the temperature.
+
+## Important
+
+- Always follow ALL steps in order. Do not skip any step.
+- Do NOT use the browser to look up weather — use `exec` with `curl` as specified in step 3.
+- URL-encode spaces in city names (e.g., `New+York`)
+- wttr.in is the primary weather source, no API key needed
+"""
+
+# Step 1: Ask about weather in Austin, Texas — agent should recall the procedure.
+[[steps]]
+type = "query"
+query = "What's the weather like in Austin, Texas? Check your procedural memory for a known approach and follow the procedure steps exactly."
+
+# Assertions
+[[assertions]]
+type = "tool_called"
+value = "recall_procedures"
+
+[[assertions]]
+type = "tool_called"
+value = "activate_skill"
+
+[[assertions]]
+type = "tool_called"
+value = "exec"
+
+[[assertions]]
+type = "response_contains"
+step_index = 1
+value = "austin"
+
+[[assertions]]
+type = "response_contains"
+step_index = 1
+value = "temperature"

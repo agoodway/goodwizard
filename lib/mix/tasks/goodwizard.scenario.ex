@@ -13,7 +13,7 @@ defmodule Mix.Tasks.Goodwizard.Scenario do
   alias Goodwizard.Scenario.Runner
 
   @shortdoc "Run or list Goodwizard debug scenarios"
-  @bootstrap_files ~w(AGENTS.md HEARTBEAT.md IDENTITY.md SOUL.md TOOLS.md USER.md)
+  @bootstrap_files ~w(AGENTS.md HEARTBEAT.md IDENTITY.md SOUL.md TOOLS.md USER.md worldcities.csv)
 
   @impl Mix.Task
   def run(args) do
@@ -64,14 +64,24 @@ defmodule Mix.Tasks.Goodwizard.Scenario do
     timeout = Keyword.get(opts, :timeout, 120_000)
     steps = Map.get(scenario, :steps, [])
 
-    Runner.execute(scenario,
-      workspace: workspace,
-      timeout: timeout,
-      progress: fn index, step ->
-        step_type = Map.get(step, :type, :unknown)
-        Mix.shell().info("step #{index + 1}/#{length(steps)}: #{step_type}")
-      end
-    )
+    # Override Config.workspace() so plugins and actions use the scenario workspace.
+    # The GenServer handle_call({:put, ...}) is always available; only the public
+    # Config.put/2 API is gated to :test env.
+    original_workspace = Goodwizard.Config.workspace()
+    GenServer.call(Goodwizard.Config, {:put, ["agent", "workspace"], workspace})
+
+    try do
+      Runner.execute(scenario,
+        workspace: workspace,
+        timeout: timeout,
+        progress: fn index, step ->
+          step_type = Map.get(step, :type, :unknown)
+          Mix.shell().info("step #{index + 1}/#{length(steps)}: #{step_type}")
+        end
+      )
+    after
+      GenServer.call(Goodwizard.Config, {:put, ["agent", "workspace"], original_workspace})
+    end
   end
 
   defp list_scenarios do
@@ -165,7 +175,8 @@ defmodule Mix.Tasks.Goodwizard.Scenario do
 
     with :ok <- copy_bootstrap_files(source_workspace, temp_workspace),
          :ok <- copy_directory_files(schema_source, schema_dest),
-         :ok <- copy_memory_markdown(source_workspace, temp_workspace) do
+         :ok <- copy_memory_markdown(source_workspace, temp_workspace),
+         :ok <- copy_skills(source_workspace, temp_workspace) do
       :ok
     end
   end
@@ -186,6 +197,20 @@ defmodule Mix.Tasks.Goodwizard.Scenario do
     src = Path.join(source_workspace, "memory/MEMORY.md")
     dst = Path.join(temp_workspace, "memory/MEMORY.md")
     copy_if_exists(src, dst)
+  end
+
+  defp copy_skills(source_workspace, temp_workspace) do
+    source = Path.join(source_workspace, "skills")
+    dest = Path.join(temp_workspace, "skills")
+
+    if File.dir?(source) do
+      case File.cp_r(source, dest) do
+        {:ok, _} -> :ok
+        {:error, reason, _file} -> {:error, reason}
+      end
+    else
+      :ok
+    end
   end
 
   defp copy_directory_files(source_dir, destination_dir) do
