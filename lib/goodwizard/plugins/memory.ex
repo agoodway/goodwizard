@@ -19,8 +19,6 @@ defmodule Goodwizard.Plugins.Memory do
 
   require Logger
 
-  @default_memory_dir "priv/workspace/memory"
-
   @impl Jido.Plugin
   def mount(_agent, config) do
     memory_dir = Map.get(config, :memory_dir)
@@ -31,8 +29,8 @@ defmodule Goodwizard.Plugins.Memory do
     {:ok, %{memory_dir: resolved_dir, long_term_content: content}}
   end
 
-  defp resolve_memory_dir(nil), do: Path.expand(@default_memory_dir)
-  defp resolve_memory_dir(""), do: Path.expand(@default_memory_dir)
+  defp resolve_memory_dir(nil), do: Goodwizard.Config.memory_dir()
+  defp resolve_memory_dir(""), do: Goodwizard.Config.memory_dir()
   defp resolve_memory_dir(dir) when is_binary(dir), do: Path.expand(dir)
 
   defp load_memory_md(memory_dir) do

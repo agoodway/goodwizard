@@ -233,7 +233,10 @@ defmodule Goodwizard.Memory.Procedural do
         |> filter_entries_by_confidence(Keyword.get(opts, :min_confidence))
         |> Enum.map(fn {fm, body} ->
           score = compute_score(fm, situation, query_tags, body)
-          Map.put(fm, "score", score)
+
+          fm
+          |> Map.put("score", score)
+          |> Map.put("content", body)
         end)
         |> Enum.sort_by(& &1["score"], :desc)
         |> Enum.take(limit)
