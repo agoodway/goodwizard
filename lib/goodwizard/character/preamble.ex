@@ -26,6 +26,10 @@ defmodule Goodwizard.Character.Preamble do
   - **skills/** — Prompt-based skills that extend your capabilities
   - **scheduling/** — Scheduled tasks and scheduled task definitions
 
+  ### Reference Data
+
+  - **worldcities.csv** — City reference data (name, coordinates, country, population) for location lookups
+
   ### Memory System
 
   You have three types of long-term memory, each serving a different purpose:

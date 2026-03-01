@@ -21,7 +21,6 @@ defmodule Goodwizard.Actions.Shell.Exec do
     ~S/`/,
     ~S/\|/,
     ~S/[<>]\(/,
-    ~S/\bcurl\b/,
     ~S/\b(sudo|su|doas)\b/,
     ~S/\b(chmod|chown|chgrp)\b/,
     ~S/\b(kill|killall|pkill)\b/

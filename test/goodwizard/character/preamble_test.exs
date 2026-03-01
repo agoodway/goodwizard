@@ -47,21 +47,25 @@ defmodule Goodwizard.Character.PreambleTest do
 
       orientation_pos = :binary.match(result, "## System Orientation")
       directories_pos = :binary.match(result, "### Workspace Directories")
+      reference_pos = :binary.match(result, "### Reference Data")
       memory_pos = :binary.match(result, "### Memory System")
       bootstrap_pos = :binary.match(result, "### Bootstrap Files")
 
       assert orientation_pos != :nomatch
       assert directories_pos != :nomatch
+      assert reference_pos != :nomatch
       assert memory_pos != :nomatch
       assert bootstrap_pos != :nomatch
 
       {o, _} = orientation_pos
       {d, _} = directories_pos
+      {r, _} = reference_pos
       {m, _} = memory_pos
       {b, _} = bootstrap_pos
 
       assert o < d
-      assert d < m
+      assert d < r
+      assert r < m
       assert m < b
     end
 
@@ -99,6 +103,12 @@ defmodule Goodwizard.Character.PreambleTest do
       assert m < mf
       assert mf < mb
       assert mb < b
+    end
+
+    test "mentions worldcities.csv reference data" do
+      result = Preamble.generate()
+
+      assert result =~ "worldcities.csv"
     end
 
     test "mentions HISTORY.md" do

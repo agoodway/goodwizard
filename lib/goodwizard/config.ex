@@ -38,7 +38,6 @@ defmodule Goodwizard.Config do
           "`",
           "\\|",
           "[<>]\\(",
-          "\\b(curl|wget|nc|ncat|netcat)\\b",
           "\\b(kill|killall|pkill)\\b",
           "\\b(chmod|chown|chgrp)\\b",
           "\\b(sudo|su|doas)\\b",
