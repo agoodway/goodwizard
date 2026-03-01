@@ -30,7 +30,6 @@ defmodule Goodwizard.Actions.Shell.Exec do
   @impl true
   def run(params, _context) do
     command = params.command
-    working_dir = Map.get(params, :working_dir)
     timeout = Map.get(params, :timeout, 60)
     deny_patterns = build_deny_patterns(params)
     allow_patterns = build_allow_patterns(params)
@@ -39,8 +38,9 @@ defmodule Goodwizard.Actions.Shell.Exec do
          {:ok, allow_patterns} <- allow_patterns,
          :ok <- check_allow_patterns(command, allow_patterns),
          :ok <- check_deny_patterns(command, deny_patterns),
-         :ok <- check_workspace_restriction(command, working_dir) do
-      execute(command, working_dir, timeout)
+         {:ok, effective_dir} <- resolve_working_dir(Map.get(params, :working_dir)),
+         :ok <- check_workspace_restriction(command, effective_dir) do
+      execute(command, effective_dir, timeout)
     end
   end
 
@@ -66,6 +66,30 @@ defmodule Goodwizard.Actions.Shell.Exec do
     end
   end
 
+  defp resolve_working_dir(requested_dir) do
+    if restrict_to_workspace?() do
+      workspace = workspace_dir()
+
+      case requested_dir do
+        nil ->
+          {:ok, workspace}
+
+        dir ->
+          expanded = Path.expand(dir)
+          real = resolve_symlinks(expanded)
+          real_ws = resolve_symlinks(workspace)
+
+          if String.starts_with?(real, real_ws <> "/") or real == real_ws do
+            {:ok, expanded}
+          else
+            {:error, "Command blocked by safety guard (working_dir outside workspace)"}
+          end
+      end
+    else
+      {:ok, requested_dir}
+    end
+  end
+
   defp check_workspace_restriction(command, working_dir) do
     if restrict_to_workspace?() do
       check_workspace_paths(command, working_dir)
@@ -76,7 +100,7 @@ defmodule Goodwizard.Actions.Shell.Exec do
 
   defp check_workspace_paths(command, working_dir) do
     cond do
-      String.contains?(command, "../") ->
+      Regex.match?(~r/(^|\s|\/)\.\.(\/|\s|$)/, command) ->
         {:error, "Command blocked by safety guard (path traversal detected)"}
 
       Regex.match?(~r/\$\w|\$\{/, command) ->
@@ -86,7 +110,7 @@ defmodule Goodwizard.Actions.Shell.Exec do
         {:error, "Command blocked by safety guard (directory change detected)"}
 
       has_outside_absolute_path?(command, working_dir) ->
-        {:error, "Command blocked by safety guard (path outside working dir)"}
+        {:error, "Command blocked by safety guard (path outside workspace)"}
 
       true ->
         :ok
@@ -138,21 +162,45 @@ defmodule Goodwizard.Actions.Shell.Exec do
     :exit, _ -> @default_deny_pattern_sources
   end
 
-  defp has_outside_absolute_path?(command, working_dir) when is_binary(working_dir) do
-    expanded_dir = Path.expand(working_dir)
+  defp has_outside_absolute_path?(command, _working_dir) do
+    workspace = workspace_dir()
+    expanded_ws = Path.expand(workspace)
 
     Regex.scan(~r/(?:^|\s)(\/\S+)/, command)
     |> Enum.any?(fn [_full, path] ->
-      not String.starts_with?(path, expanded_dir)
+      not String.starts_with?(path, expanded_ws)
     end)
   end
-
-  defp has_outside_absolute_path?(_command, _working_dir), do: false
 
   defp restrict_to_workspace? do
     Goodwizard.Config.get(["tools", "restrict_to_workspace"]) != false
   catch
     :exit, _ -> true
+  end
+
+  defp workspace_dir do
+    Goodwizard.Config.workspace()
+  catch
+    :exit, _ -> Path.expand("priv/workspace")
+  end
+
+  defp resolve_symlinks(path) do
+    case :file.read_link_all(path) do
+      {:ok, target} ->
+        target
+        |> List.to_string()
+        |> Path.expand(Path.dirname(path))
+        |> resolve_symlinks()
+
+      {:error, _} ->
+        parent = Path.dirname(path)
+
+        if parent == path do
+          path
+        else
+          Path.join(resolve_symlinks(parent), Path.basename(path))
+        end
+    end
   end
 
   defp execute(command, working_dir, timeout) do

@@ -3,6 +3,11 @@ defmodule Goodwizard.Actions.Shell.ExecTest do
 
   alias Goodwizard.Actions.Shell.Exec
 
+  # In tests, Config GenServer isn't running, so:
+  # - restrict_to_workspace?() catches :exit and returns true
+  # - workspace_dir() catches :exit and returns Path.expand("priv/workspace")
+  @workspace Path.expand("priv/workspace")
+
   test "executes a simple command" do
     assert {:ok, %{output: output}} = Exec.run(%{command: "echo hello"}, %{})
     assert output =~ "hello"
@@ -41,33 +46,52 @@ defmodule Goodwizard.Actions.Shell.ExecTest do
     assert {:ok, %{output: _}} = Exec.run(%{command: "ls -la"}, %{})
   end
 
-  test "workspace restriction blocks path traversal" do
+  test "workspace restriction blocks path traversal with trailing slash" do
     assert {:error, msg} =
              Exec.run(
-               %{
-                 command: "cat ../../etc/passwd",
-                 working_dir: "/tmp"
-               },
+               %{command: "cat ../../etc/passwd", working_dir: @workspace},
                %{}
              )
 
     assert msg =~ "path traversal detected"
   end
 
-  test "workspace restriction blocks absolute paths outside working dir" do
+  test "workspace restriction blocks path traversal without trailing slash" do
+    assert {:error, msg} =
+             Exec.run(%{command: "ls ..", working_dir: @workspace}, %{})
+
+    assert msg =~ "path traversal detected"
+  end
+
+  test "workspace restriction blocks working_dir outside workspace" do
+    assert {:error, msg} = Exec.run(%{command: "ls", working_dir: "/tmp"}, %{})
+    assert msg =~ "working_dir outside workspace"
+  end
+
+  test "workspace restriction blocks absolute paths outside workspace" do
     assert {:error, msg} =
              Exec.run(
-               %{command: "cat /etc/passwd", working_dir: "/tmp"},
+               %{command: "cat /etc/passwd", working_dir: @workspace},
                %{}
              )
 
-    assert msg =~ "path outside working dir"
+    assert msg =~ "path outside workspace"
   end
 
-  test "workspace restriction allows paths within working dir" do
+  test "workspace restriction blocks absolute paths even without working_dir" do
+    assert {:error, msg} = Exec.run(%{command: "cat /etc/passwd"}, %{})
+    assert msg =~ "path outside workspace"
+  end
+
+  test "workspace restriction defaults working_dir to workspace" do
+    # Without working_dir, should still execute within workspace
+    assert {:ok, %{output: _}} = Exec.run(%{command: "ls"}, %{})
+  end
+
+  test "workspace restriction allows paths within workspace" do
     assert {:ok, %{output: _}} =
              Exec.run(
-               %{command: "ls /tmp", working_dir: "/tmp"},
+               %{command: "ls #{@workspace}", working_dir: @workspace},
                %{}
              )
   end
@@ -95,7 +119,7 @@ defmodule Goodwizard.Actions.Shell.ExecTest do
 
   test "non-zero exit code with output" do
     assert {:ok, %{output: output}} =
-             Exec.run(%{command: "echo failure && exit 5"}, %{deny_patterns: []})
+             Exec.run(%{command: "echo failure && exit 5", deny_patterns: []}, %{})
 
     assert output =~ "failure"
     assert output =~ "Exit code: 5"
@@ -141,7 +165,7 @@ defmodule Goodwizard.Actions.Shell.ExecTest do
   test "workspace restriction blocks env var expansion" do
     assert {:error, msg} =
              Exec.run(
-               %{command: "cat $HOME/secrets", working_dir: "/tmp"},
+               %{command: "cat $HOME/secrets", working_dir: @workspace},
                %{}
              )
 
@@ -151,10 +175,7 @@ defmodule Goodwizard.Actions.Shell.ExecTest do
   test "workspace restriction blocks ${VAR} expansion" do
     assert {:error, msg} =
              Exec.run(
-               %{
-                 command: "cat ${HOME}/secrets",
-                 working_dir: "/tmp"
-               },
+               %{command: "cat ${HOME}/secrets", working_dir: @workspace},
                %{}
              )
 
@@ -166,7 +187,7 @@ defmodule Goodwizard.Actions.Shell.ExecTest do
              Exec.run(
                %{
                  command: "cd / && ls",
-                 working_dir: "/tmp",
+                 working_dir: @workspace,
                  deny_patterns: []
                },
                %{}
