@@ -44,7 +44,7 @@ defmodule Goodwizard.SubAgent do
   alias Goodwizard.SubAgent.Character
 
   @impl true
-  def on_before_cmd(agent, {:react_start, params} = _action) do
+  def on_before_cmd(agent, {:ai_react_start, params} = _action) do
     {:ok, character} = Character.new()
 
     character =
@@ -60,7 +60,7 @@ defmodule Goodwizard.SubAgent do
       end
 
     system_prompt = Jido.Character.to_system_prompt(character)
-    action = {:react_start, Map.put(params, :system_prompt, system_prompt)}
+    action = {:ai_react_start, Map.put(params, :system_prompt, system_prompt)}
     super(agent, action)
   end
 

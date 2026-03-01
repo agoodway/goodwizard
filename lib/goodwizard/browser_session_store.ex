@@ -2,12 +2,12 @@ defmodule Goodwizard.BrowserSessionStore do
   @moduledoc """
   ETS-backed store for browser sessions, keyed by agent ID.
 
-  The ReAct strategy's `run_tool_context` is set once at `react_start` and never
+  The ReAct strategy's `run_tool_context` is set once at `ai_react_start` and never
   updated between iterations. When Navigate returns an updated session (with
   `current_url` set), subsequent browser actions still see the stale session.
 
   This store acts as a side-channel: Navigate wrappers write the updated session
-  here, and `on_before_cmd(:react_llm_result)` reads it back into the strategy
+  here, and `on_before_cmd(:ai_react_llm_result)` reads it back into the strategy
   state before `lift_directives` builds ToolExec directives.
   """
 

@@ -99,8 +99,8 @@ defmodule Goodwizard.AgentTest do
       agent = GoodwizardAgent.new(state: %{workspace: workspace})
 
       # Simulate a react_start action
-      action = {:react_start, %{query: "Hello", request_id: "req_1"}}
-      {:ok, updated_agent, {:react_start, params}} = GoodwizardAgent.on_before_cmd(agent, action)
+      action = {:ai_react_start, %{query: "Hello", request_id: "req_1"}}
+      {:ok, updated_agent, {:ai_react_start, params}} = GoodwizardAgent.on_before_cmd(agent, action)
 
       # The system prompt should be set
       assert is_binary(params.system_prompt)
@@ -119,15 +119,15 @@ defmodule Goodwizard.AgentTest do
 
       agent = GoodwizardAgent.new(state: %{workspace: workspace})
 
-      action1 = {:react_start, %{query: "First", request_id: "req_1"}}
-      {:ok, _, {:react_start, params1}} = GoodwizardAgent.on_before_cmd(agent, action1)
+      action1 = {:ai_react_start, %{query: "First", request_id: "req_1"}}
+      {:ok, _, {:ai_react_start, params1}} = GoodwizardAgent.on_before_cmd(agent, action1)
       assert params1.system_prompt =~ "Version 1"
 
       # Modify the file between queries
       File.write!(Path.join(workspace, "AGENTS.md"), "Version 2")
 
-      action2 = {:react_start, %{query: "Second", request_id: "req_2"}}
-      {:ok, _, {:react_start, params2}} = GoodwizardAgent.on_before_cmd(agent, action2)
+      action2 = {:ai_react_start, %{query: "Second", request_id: "req_2"}}
+      {:ok, _, {:ai_react_start, params2}} = GoodwizardAgent.on_before_cmd(agent, action2)
       assert params2.system_prompt =~ "Version 2"
     end
 
@@ -144,8 +144,8 @@ defmodule Goodwizard.AgentTest do
           }
         )
 
-      action = {:react_start, %{query: "Hello", request_id: "req_1"}}
-      {:ok, _, {:react_start, params}} = GoodwizardAgent.on_before_cmd(agent, action)
+      action = {:ai_react_start, %{query: "Hello", request_id: "req_1"}}
+      {:ok, _, {:ai_react_start, params}} = GoodwizardAgent.on_before_cmd(agent, action)
 
       assert params.system_prompt =~ "TestBot"
     end
@@ -166,7 +166,7 @@ defmodule Goodwizard.AgentTest do
       agent = GoodwizardAgent.new(state: %{workspace: workspace})
 
       # Start a request first (sets up request tracking)
-      start_action = {:react_start, %{query: "What is Elixir?", request_id: "req_1"}}
+      start_action = {:ai_react_start, %{query: "What is Elixir?", request_id: "req_1"}}
       {:ok, agent, _action} = GoodwizardAgent.on_before_cmd(agent, start_action)
 
       # Simulate the strategy completing with a result
@@ -181,7 +181,7 @@ defmodule Goodwizard.AgentTest do
       agent = StratState.put(agent, strat_state)
 
       # Call on_after_cmd
-      action = {:react_start, %{query: "What is Elixir?", request_id: "req_1"}}
+      action = {:ai_react_start, %{query: "What is Elixir?", request_id: "req_1"}}
       {:ok, updated_agent, _directives} = GoodwizardAgent.on_after_cmd(agent, action, [])
 
       # Check session was updated
@@ -206,11 +206,11 @@ defmodule Goodwizard.AgentTest do
 
       agent = GoodwizardAgent.new(state: %{workspace: workspace})
 
-      start_action = {:react_start, %{query: "Hello", request_id: "req_1"}}
+      start_action = {:ai_react_start, %{query: "Hello", request_id: "req_1"}}
       {:ok, agent, _action} = GoodwizardAgent.on_before_cmd(agent, start_action)
 
       # Strategy state is still :reasoning (not completed)
-      action = {:react_start, %{query: "Hello", request_id: "req_1"}}
+      action = {:ai_react_start, %{query: "Hello", request_id: "req_1"}}
       {:ok, updated_agent, _directives} = GoodwizardAgent.on_after_cmd(agent, action, [])
 
       messages = Session.get_history(updated_agent.state)
@@ -231,7 +231,7 @@ defmodule Goodwizard.AgentTest do
       agent = GoodwizardAgent.new(state: %{workspace: workspace})
 
       # Set up request tracking with a valid query first
-      start_action = {:react_start, %{query: "test", request_id: "req_1"}}
+      start_action = {:ai_react_start, %{query: "test", request_id: "req_1"}}
       {:ok, agent, _action} = GoodwizardAgent.on_before_cmd(agent, start_action)
 
       strat_state = StratState.get(agent, %{})
@@ -244,7 +244,7 @@ defmodule Goodwizard.AgentTest do
       agent = StratState.put(agent, strat_state)
 
       # Call on_after_cmd — query comes from agent.state[:last_query], answer from [:last_answer]
-      action = {:react_start, %{request_id: "req_1"}}
+      action = {:ai_react_start, %{request_id: "req_1"}}
       {:ok, updated_agent, _directives} = GoodwizardAgent.on_after_cmd(agent, action, [])
 
       messages = Session.get_history(updated_agent.state)
@@ -262,7 +262,7 @@ defmodule Goodwizard.AgentTest do
 
       agent = GoodwizardAgent.new(state: %{workspace: workspace})
 
-      start_action = {:react_start, %{query: "", request_id: "req_1"}}
+      start_action = {:ai_react_start, %{query: "", request_id: "req_1"}}
       {:ok, agent, _action} = GoodwizardAgent.on_before_cmd(agent, start_action)
 
       strat_state = StratState.get(agent, %{})
@@ -274,7 +274,7 @@ defmodule Goodwizard.AgentTest do
 
       agent = StratState.put(agent, strat_state)
 
-      action = {:react_start, %{query: "", request_id: "req_1"}}
+      action = {:ai_react_start, %{query: "", request_id: "req_1"}}
       {:ok, updated_agent, _directives} = GoodwizardAgent.on_after_cmd(agent, action, [])
 
       messages = Session.get_history(updated_agent.state)
@@ -291,9 +291,9 @@ defmodule Goodwizard.AgentTest do
       agent = GoodwizardAgent.new(state: %{workspace: nil})
       agent = %{agent | state: Map.put(agent.state, :workspace, nil)}
 
-      action = {:react_start, %{query: "Hello", request_id: "req_rescue"}}
+      action = {:ai_react_start, %{query: "Hello", request_id: "req_rescue"}}
 
-      {:ok, _updated_agent, {:react_start, params}} =
+      {:ok, _updated_agent, {:ai_react_start, params}} =
         GoodwizardAgent.on_before_cmd(agent, action)
 
       assert params.system_prompt =~ "System Orientation"
@@ -308,11 +308,11 @@ defmodule Goodwizard.AgentTest do
       # Put session.messages as a non-list to trigger length/1 failure in maybe_consolidate
       agent = %{agent | state: put_in(agent.state, [:session, :messages], :not_a_list)}
 
-      action = {:react_start, %{query: "Hello", request_id: "req_outer_rescue"}}
+      action = {:ai_react_start, %{query: "Hello", request_id: "req_outer_rescue"}}
 
       log =
         capture_log(fn ->
-          {:ok, _updated_agent, {:react_start, params}} =
+          {:ok, _updated_agent, {:ai_react_start, params}} =
             GoodwizardAgent.on_before_cmd(agent, action)
 
           # Outer rescue should inject safe default prompt
@@ -338,11 +338,11 @@ defmodule Goodwizard.AgentTest do
       on_exit(fn -> File.rm_rf!(workspace) end)
 
       agent = GoodwizardAgent.new(state: %{workspace: workspace})
-      action = {:react_start, %{query: "Hello", request_id: "req_stale_module"}}
+      action = {:ai_react_start, %{query: "Hello", request_id: "req_stale_module"}}
 
       log =
         capture_log(fn ->
-          {:ok, _updated_agent, {:react_start, params}} =
+          {:ok, _updated_agent, {:ai_react_start, params}} =
             GoodwizardAgent.on_before_cmd(agent, action)
 
           assert is_binary(params.system_prompt)
@@ -360,7 +360,7 @@ defmodule Goodwizard.AgentTest do
       agent = GoodwizardAgent.new(state: %{workspace: System.tmp_dir!()})
 
       # Set up request tracking
-      start_action = {:react_start, %{query: "test", request_id: "req_rescue_after"}}
+      start_action = {:ai_react_start, %{query: "test", request_id: "req_rescue_after"}}
       {:ok, agent, _action} = GoodwizardAgent.on_before_cmd(agent, start_action)
 
       # Make strategy state show completed to trigger session update path
@@ -371,7 +371,7 @@ defmodule Goodwizard.AgentTest do
       # Corrupt the state to cause session operations to fail
       agent = %{agent | state: Map.put(agent.state, :session, :not_a_map)}
 
-      action = {:react_start, %{query: "test", request_id: "req_rescue_after"}}
+      action = {:ai_react_start, %{query: "test", request_id: "req_rescue_after"}}
 
       log =
         capture_log(fn ->

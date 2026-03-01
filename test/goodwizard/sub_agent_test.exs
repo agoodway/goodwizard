@@ -8,8 +8,8 @@ defmodule Goodwizard.SubAgentTest do
       agent = SubAgent.new()
       params = %{query: "test query", system_prompt: ""}
 
-      {:ok, updated_agent, {:react_start, updated_params}} =
-        SubAgent.on_before_cmd(agent, {:react_start, params})
+      {:ok, updated_agent, {:ai_react_start, updated_params}} =
+        SubAgent.on_before_cmd(agent, {:ai_react_start, params})
 
       assert is_binary(updated_params.system_prompt)
       assert updated_params.system_prompt =~ "background research and file processing agent"
@@ -20,8 +20,8 @@ defmodule Goodwizard.SubAgentTest do
       agent = SubAgent.new()
       params = %{query: "test query", system_prompt: "Research Elixir OTP patterns"}
 
-      {:ok, _agent, {:react_start, updated_params}} =
-        SubAgent.on_before_cmd(agent, {:react_start, params})
+      {:ok, _agent, {:ai_react_start, updated_params}} =
+        SubAgent.on_before_cmd(agent, {:ai_react_start, params})
 
       assert updated_params.system_prompt =~ "Research Elixir OTP patterns"
       assert updated_params.system_prompt =~ "background research and file processing agent"

@@ -279,14 +279,17 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
   end
 
   defp do_call_llm(prompt) do
-    case Jido.Exec.run(Jido.AI.Actions.LLM.Chat, %{
-           prompt: prompt,
-           model: "anthropic:claude-haiku-4-5",
-           max_tokens: 2048
-         }) do
-      {:ok, %{text: text}} ->
-        parse_json_response(text)
-
+    # Call ReqLLM directly — see consolidate.ex for explanation.
+    with {:ok, context} <- ReqLLM.Context.normalize(prompt),
+         {:ok, response} <-
+           ReqLLM.Generation.generate_text(
+             "anthropic:claude-haiku-4-5",
+             context.messages,
+             max_tokens: 2048, temperature: 0.7
+           ) do
+      text = Jido.AI.Text.extract_text(response)
+      parse_json_response(text)
+    else
       {:error, reason} ->
         {:error, reason}
     end

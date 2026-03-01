@@ -208,14 +208,20 @@ defmodule Goodwizard.Actions.Memory.Consolidate do
   end
 
   defp do_call_llm(prompt) do
-    case Jido.Exec.run(Jido.AI.Actions.LLM.Chat, %{
-           prompt: prompt,
-           model: "anthropic:claude-haiku-4-5",
-           max_tokens: 2048
-         }) do
-      {:ok, %{text: text}} ->
-        parse_json_response(text)
-
+    # Call ReqLLM directly to avoid BadMapError in the pinned jido_ai dep's
+    # Chat action (context = build_messages(...) assigns the {:ok, ctx} tuple
+    # then tries context.messages on it). Fixed in jido_ai main but not in
+    # the ref goodwizard pins.
+    with {:ok, context} <- ReqLLM.Context.normalize(prompt),
+         {:ok, response} <-
+           ReqLLM.Generation.generate_text(
+             "anthropic:claude-haiku-4-5",
+             context.messages,
+             max_tokens: 2048, temperature: 0.7
+           ) do
+      text = Jido.AI.Text.extract_text(response)
+      parse_json_response(text)
+    else
       {:error, reason} ->
         {:error, reason}
     end

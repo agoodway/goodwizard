@@ -102,9 +102,9 @@ defmodule Goodwizard.Plugins.ScheduledTaskScheduler do
     query = "[Scheduled Task] #{task}"
 
     new_signal =
-      Jido.Signal.new!("react.input", %{query: query}, source: "/scheduled_task/main")
+      Jido.Signal.new!("ai.react.query", %{query: query}, source: "/scheduled_task/main")
 
-    {:ok, {:override, {:strategy_cmd, :react_start}, new_signal}}
+    {:ok, {:override, {:strategy_cmd, :ai_react_start}, new_signal}}
   end
 
   # Isolated mode: spawn a child agent in a background task. Overrides

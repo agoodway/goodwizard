@@ -98,12 +98,12 @@ defmodule Goodwizard.Agent do
   alias Goodwizard.Plugins.Session
 
   @impl true
-  def on_before_cmd(agent, {:react_start, %{query: _query}} = action) do
+  def on_before_cmd(agent, {:ai_react_start, %{query: _query}} = action) do
     # First let the parent macro handle request tracking
     {:ok, agent, action} = super(agent, action)
 
     Logger.debug(fn ->
-      {:react_start, %{query: q}} = action
+      {:ai_react_start, %{query: q}} = action
       "[Agent] Query received, length=#{String.length(q)}"
     end)
 
@@ -117,17 +117,17 @@ defmodule Goodwizard.Agent do
         )
 
         # Inject a safe default system prompt so the agent doesn't proceed with stale action
-        {:react_start, params} = action
+        {:ai_react_start, params} = action
 
         safe_action =
-          {:react_start, Map.put(params, :system_prompt, "You are a helpful AI assistant.")}
+          {:ai_react_start, Map.put(params, :system_prompt, "You are a helpful AI assistant.")}
 
         {:ok, agent, safe_action}
     end
   end
 
   @impl true
-  def on_before_cmd(agent, {:react_llm_result, _params} = action) do
+  def on_before_cmd(agent, {:ai_react_llm_result, _params} = action) do
     {:ok, agent, action} = super(agent, action)
     agent = refresh_browser_session(agent)
     {:ok, agent, action}

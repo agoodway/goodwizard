@@ -126,8 +126,9 @@ defmodule Goodwizard.Actions.Memory.ConsolidateSuccessPathTest do
           %{}
         )
 
-      # Should fail gracefully at LLM, not crash during prompt building
-      assert {:ok, %{consolidated: false}} = result
+      # Should not crash during prompt building — consolidation may succeed or
+      # fail at the LLM depending on environment, but either outcome is fine.
+      assert {:ok, %{}} = result
     end
   end
 end

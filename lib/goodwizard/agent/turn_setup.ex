@@ -12,8 +12,8 @@ defmodule Goodwizard.Agent.TurnSetup do
 
   @doc false
   @spec prepare(map(), tuple()) :: {map(), tuple()}
-  def prepare(agent, {:react_start, params} = action) do
-    {:react_start, %{query: query}} = action
+  def prepare(agent, {:ai_react_start, params} = action) do
+    {:ai_react_start, %{query: query}} = action
 
     agent = maybe_consolidate(agent)
     agent = maybe_load_memory_context(agent, query)
@@ -65,7 +65,7 @@ defmodule Goodwizard.Agent.TurnSetup do
         &Map.put(&1, :session, browser_session)
       )
 
-    {agent, {:react_start, params}}
+    {agent, {:ai_react_start, params}}
   end
 
   defp ensure_browser_session(agent) do

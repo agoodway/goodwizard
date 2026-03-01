@@ -58,10 +58,10 @@ defmodule Goodwizard.Plugins.ScheduledTaskSchedulerTest do
       signal =
         make_signal(%{task: "check email", channel: "cli", external_id: "direct", mode: "main"})
 
-      assert {:ok, {:override, {:strategy_cmd, :react_start}, new_signal}} =
+      assert {:ok, {:override, {:strategy_cmd, :ai_react_start}, new_signal}} =
                ScheduledTaskScheduler.handle_signal(signal, %{})
 
-      assert new_signal.type == "react.input"
+      assert new_signal.type == "ai.react.query"
       assert new_signal.data.query == "[Scheduled Task] check email"
     end
   end
@@ -98,7 +98,7 @@ defmodule Goodwizard.Plugins.ScheduledTaskSchedulerTest do
           "mode" => "main"
         })
 
-      assert {:ok, {:override, {:strategy_cmd, :react_start}, new_signal}} =
+      assert {:ok, {:override, {:strategy_cmd, :ai_react_start}, new_signal}} =
                ScheduledTaskScheduler.handle_signal(signal, %{})
 
       assert new_signal.data.query == "[Scheduled Task] check email"

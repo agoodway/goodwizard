@@ -33,7 +33,7 @@ defmodule Goodwizard.MixProject do
   defp deps do
     [
       {:jido, "~> 2.0.0-rc", override: true},
-      {:jido_ai, github: "agentjido/jido_ai", ref: "2e42e09", override: true},
+      {:jido_ai, github: "agentjido/jido_ai", ref: "764bb6d", override: true},
       {:jido_character, github: "agentjido/jido_character", ref: "20ae4ef"},
       {:jido_browser, "~> 0.8", override: true},
       {:jido_messaging, github: "agentjido/jido_messaging", ref: "96e62c7"},
