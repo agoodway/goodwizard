@@ -1,0 +1,13 @@
+description = "Basic single-turn sanity check for scenario execution."
+
+[[steps]]
+type = "query"
+query = "Hello, who are you?"
+
+[[assertions]]
+type = "response_contains"
+step_index = 0
+value = "goodwizard"
+
+[[assertions]]
+type = "no_errors"

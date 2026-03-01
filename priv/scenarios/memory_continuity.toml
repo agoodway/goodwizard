@@ -1,0 +1,17 @@
+description = "Two-turn memory continuity check — agent remembers context across queries."
+
+[[steps]]
+type = "query"
+query = "My name is Tom."
+
+[[steps]]
+type = "query"
+query = "What is my name?"
+
+[[assertions]]
+type = "response_contains"
+step_index = 1
+value = "tom"
+
+[[assertions]]
+type = "no_errors"
