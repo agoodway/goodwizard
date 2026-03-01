@@ -67,26 +67,23 @@ defmodule Goodwizard.Actions.Shell.Exec do
   end
 
   defp resolve_working_dir(requested_dir) do
-    if restrict_to_workspace?() do
-      workspace = workspace_dir()
+    if restrict_to_workspace?(),
+      do: resolve_workspace_working_dir(requested_dir),
+      else: {:ok, requested_dir}
+  end
 
-      case requested_dir do
-        nil ->
-          {:ok, workspace}
+  defp resolve_workspace_working_dir(nil), do: {:ok, workspace_dir()}
 
-        dir ->
-          expanded = Path.expand(dir)
-          real = resolve_symlinks(expanded)
-          real_ws = resolve_symlinks(workspace)
+  defp resolve_workspace_working_dir(dir) do
+    workspace = workspace_dir()
+    expanded = Path.expand(dir)
+    real = resolve_symlinks(expanded)
+    real_ws = resolve_symlinks(workspace)
 
-          if String.starts_with?(real, real_ws <> "/") or real == real_ws do
-            {:ok, expanded}
-          else
-            {:error, "Command blocked by safety guard (working_dir outside workspace)"}
-          end
-      end
+    if String.starts_with?(real, real_ws <> "/") or real == real_ws do
+      {:ok, expanded}
     else
-      {:ok, requested_dir}
+      {:error, "Command blocked by safety guard (working_dir outside workspace)"}
     end
   end
 
