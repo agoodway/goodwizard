@@ -100,7 +100,9 @@ defmodule Goodwizard.AgentTest do
 
       # Simulate a react_start action
       action = {:ai_react_start, %{query: "Hello", request_id: "req_1"}}
-      {:ok, updated_agent, {:ai_react_start, params}} = GoodwizardAgent.on_before_cmd(agent, action)
+
+      {:ok, updated_agent, {:ai_react_start, params}} =
+        GoodwizardAgent.on_before_cmd(agent, action)
 
       # The system prompt should be set
       assert is_binary(params.system_prompt)
