@@ -24,6 +24,7 @@ defmodule Goodwizard.Actions.Memory.Consolidate do
   alias Goodwizard.Memory.Episodic
   alias Goodwizard.Memory.Paths
   alias Goodwizard.Memory.Procedural
+  alias Jido.AI.Text
 
   @consolidation_prompt """
   You are a memory consolidation assistant. You will receive a conversation transcript,
@@ -217,9 +218,10 @@ defmodule Goodwizard.Actions.Memory.Consolidate do
            ReqLLM.Generation.generate_text(
              "anthropic:claude-haiku-4-5",
              context.messages,
-             max_tokens: 2048, temperature: 0.7
+             max_tokens: 2048,
+             temperature: 0.7
            ) do
-      text = Jido.AI.Text.extract_text(response)
+      text = Text.extract_text(response)
       parse_json_response(text)
     else
       {:error, reason} ->

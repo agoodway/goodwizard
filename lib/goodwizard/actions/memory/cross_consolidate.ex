@@ -28,6 +28,7 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
   alias Goodwizard.Actions.Memory.Helpers
   alias Goodwizard.Memory.Episodic
   alias Goodwizard.Memory.Procedural
+  alias Jido.AI.Text
 
   @cross_consolidation_prompt """
   You are a pattern detection assistant. You will receive a set of successful episodic memories
@@ -285,9 +286,10 @@ defmodule Goodwizard.Actions.Memory.CrossConsolidate do
            ReqLLM.Generation.generate_text(
              "anthropic:claude-haiku-4-5",
              context.messages,
-             max_tokens: 2048, temperature: 0.7
+             max_tokens: 2048,
+             temperature: 0.7
            ) do
-      text = Jido.AI.Text.extract_text(response)
+      text = Text.extract_text(response)
       parse_json_response(text)
     else
       {:error, reason} ->
