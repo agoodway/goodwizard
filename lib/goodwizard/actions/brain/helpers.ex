@@ -139,13 +139,53 @@ defmodule Goodwizard.Actions.Brain.Helpers do
     "Unexpected error: #{inspect(reason)}"
   end
 
+  # Fields injected by Brain.create/update that the LLM never provides.
+  # Validation errors on these indicate a schema config issue, not user error.
+  @system_fields ~w(id created_at updated_at metadata)
+
   defp format_validation_errors(errors) do
-    details =
-      Enum.map_join(errors, "; ", fn
-        {message, path} when is_binary(message) -> "#{path}: #{message}"
-        other -> inspect(other)
+    {system_errors, user_errors} =
+      Enum.split_with(errors, fn
+        {_message, "#/" <> field} -> field in @system_fields
+        {_message, "#"} -> false
+        _ -> false
       end)
 
-    "Validation failed: #{details}"
+    if system_errors != [] do
+      fields = Enum.map_join(system_errors, ", ", &extract_field_name/1)
+
+      Logger.warning(
+        "[Brain] Schema validation failed on system-injected fields: #{fields}. " <>
+          "This indicates the on-disk schema is missing these fields — re-seed or update the schema."
+      )
+    end
+
+    case {system_errors, user_errors} do
+      {[_ | _], []} ->
+        "Internal error: the entity schema is misconfigured " <>
+          "(missing system fields). This is not something you can fix — " <>
+          "tell the user the schema needs updating."
+
+      {_, user_errors} ->
+        details = Enum.map_join(user_errors, "; ", &format_single_error/1)
+        "Validation failed: #{details}"
+    end
   end
+
+  defp format_single_error({message, "#/" <> field}) do
+    "field '#{field}': #{message}"
+  end
+
+  defp format_single_error({message, "#"}) do
+    message
+  end
+
+  defp format_single_error({message, path}) when is_binary(message) do
+    "#{path}: #{message}"
+  end
+
+  defp format_single_error(other), do: inspect(other)
+
+  defp extract_field_name({_message, "#/" <> field}), do: field
+  defp extract_field_name({_message, path}), do: path
 end
