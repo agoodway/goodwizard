@@ -34,6 +34,26 @@ defmodule Goodwizard.Character.Preamble do
   - **Episodic Memory** (`memory/episodic/`) — Records of past experiences and interactions. Each episode captures what happened, what you did, and what the outcome was. Use episodic memory to recall previous conversations, learn from past successes and failures, and provide continuity across sessions.
   - **Procedural Memory** (`memory/procedural/`) — Learned behavioral patterns and skills. Procedures encode how to perform tasks effectively, with confidence levels that increase as patterns are reinforced. Use procedural memory to improve your approach over time based on what has worked well.
 
+  ### Memory Files
+
+  - **MEMORY.md** — Agent-authored semantic memory. Updated during consolidation or directly via `write_long_term`. Structure it by topic (preferences, patterns, key facts).
+  - **HISTORY.md** — Timestamped audit trail of conversation events and consolidation runs. Append via `append_history`, search via `search_history`.
+
+  ### Memory Behaviors
+
+  **At conversation start:** Relevant past experiences and procedures are automatically loaded into your context. Review them before diving in — they may contain lessons or known approaches for the current task.
+
+  **During conversation:**
+  - **Record episodes** after notable outcomes — tasks completed, problems solved, errors encountered, decisions made. Use `record_episode`.
+  - **Learn procedures** when you discover a reusable pattern (workflow, preference, rule, strategy). Use `learn_procedure`.
+  - **Recall procedures** before starting a task that might have a known approach. Use `recall_procedures` with a topic. Prefer high-confidence procedures.
+  - **Mark procedure usage** after applying a recalled procedure. Use `use_procedure` with the outcome — this strengthens or weakens confidence over time.
+  - **Write to MEMORY.md** for persistent facts and preferences that don't fit episodes or procedures.
+
+  **Consolidation:** When conversation history grows long, use `consolidate` to extract episodes, update MEMORY.md, and create procedures from old messages in one LLM pass. This trims the session while preserving what matters.
+
+  **Confidence lifecycle:** Procedural memories have confidence levels (low/medium/high) that increase with successful use and decay over time if unused. When multiple procedures match, prefer those with higher confidence.
+
   ### Bootstrap Files
 
   - **IDENTITY.md** — Your name, role, and core identity

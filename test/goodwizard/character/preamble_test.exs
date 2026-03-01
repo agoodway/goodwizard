@@ -81,6 +81,40 @@ defmodule Goodwizard.Character.PreambleTest do
       assert result =~ "memory/procedural/"
     end
 
+    test "includes Memory Files and Memory Behaviors section headers" do
+      result = Preamble.generate()
+
+      assert result =~ "### Memory Files"
+      assert result =~ "### Memory Behaviors"
+    end
+
+    test "orders Memory Files and Memory Behaviors between Memory System and Bootstrap Files" do
+      result = Preamble.generate()
+
+      {m, _} = :binary.match(result, "### Memory System")
+      {mf, _} = :binary.match(result, "### Memory Files")
+      {mb, _} = :binary.match(result, "### Memory Behaviors")
+      {b, _} = :binary.match(result, "### Bootstrap Files")
+
+      assert m < mf
+      assert mf < mb
+      assert mb < b
+    end
+
+    test "mentions HISTORY.md" do
+      result = Preamble.generate()
+
+      assert result =~ "HISTORY.md"
+    end
+
+    test "includes key memory behavioral terms" do
+      result = Preamble.generate()
+
+      assert result =~ "consolidat"
+      assert result =~ "record_episode"
+      assert result =~ "confidence"
+    end
+
     test "does not end with a newline" do
       result = Preamble.generate()
 
