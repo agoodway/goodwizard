@@ -228,6 +228,57 @@ defmodule Goodwizard.TelemetryTest do
     end
   end
 
+  describe "agent command events" do
+    test "start logs at debug with agent id and action" do
+      log =
+        capture_log([level: :debug], fn ->
+          :telemetry.execute(
+            [:jido, :agent, :cmd, :start],
+            %{},
+            %{agent_id: "agent-1", action: "run"}
+          )
+        end)
+
+      assert log =~ "agent_cmd=start"
+      assert log =~ "agent_id=agent-1"
+      assert log =~ "action=run"
+    end
+
+    test "stop logs at debug with directive count and duration" do
+      log =
+        capture_log([level: :debug], fn ->
+          :telemetry.execute(
+            [:jido, :agent, :cmd, :stop],
+            %{duration: System.convert_time_unit(17, :millisecond, :native)},
+            %{agent_id: "agent-2", action: "think", directive_count: 3}
+          )
+        end)
+
+      assert log =~ "agent_cmd=stop"
+      assert log =~ "agent_id=agent-2"
+      assert log =~ "action=think"
+      assert log =~ "directives=3"
+      assert log =~ "duration_ms=17"
+    end
+
+    test "exception logs at error with error and duration" do
+      log =
+        capture_log([level: :error], fn ->
+          :telemetry.execute(
+            [:jido, :agent, :cmd, :exception],
+            %{duration: System.convert_time_unit(9, :millisecond, :native)},
+            %{agent_id: "agent-3", action: "run", error: :badarg}
+          )
+        end)
+
+      assert log =~ "agent_cmd=exception"
+      assert log =~ "agent_id=agent-3"
+      assert log =~ "action=run"
+      assert log =~ "error=:badarg"
+      assert log =~ "duration_ms=9"
+    end
+  end
+
   describe "attach/detach" do
     test "detach stops logging, re-attach resumes" do
       Telemetry.detach()

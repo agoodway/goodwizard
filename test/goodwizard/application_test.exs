@@ -47,4 +47,28 @@ defmodule Goodwizard.ApplicationTest do
       assert Code.ensure_loaded?(Goodwizard.Messaging)
     end
   end
+
+  describe "telemetry wiring" do
+    test "application startup attaches one handler per Goodwizard telemetry event family" do
+      Application.ensure_all_started(:goodwizard)
+
+      tool_handlers = :telemetry.list_handlers([:jido, :ai, :tool, :execute, :start])
+      react_handlers = :telemetry.list_handlers([:jido, :ai, :react, :start])
+      agent_cmd_handlers = :telemetry.list_handlers([:jido, :agent, :cmd, :start])
+
+      assert Enum.count(tool_handlers, &(&1.id == "goodwizard-tool-handler")) == 1
+      assert Enum.count(react_handlers, &(&1.id == "goodwizard-react-handler")) == 1
+      assert Enum.count(agent_cmd_handlers, &(&1.id == "goodwizard-agent-cmd-handler")) == 1
+
+      Application.ensure_all_started(:goodwizard)
+
+      tool_handlers = :telemetry.list_handlers([:jido, :ai, :tool, :execute, :start])
+      react_handlers = :telemetry.list_handlers([:jido, :ai, :react, :start])
+      agent_cmd_handlers = :telemetry.list_handlers([:jido, :agent, :cmd, :start])
+
+      assert Enum.count(tool_handlers, &(&1.id == "goodwizard-tool-handler")) == 1
+      assert Enum.count(react_handlers, &(&1.id == "goodwizard-react-handler")) == 1
+      assert Enum.count(agent_cmd_handlers, &(&1.id == "goodwizard-agent-cmd-handler")) == 1
+    end
+  end
 end
