@@ -231,7 +231,7 @@ defmodule Goodwizard.Character.HydratorTest do
     end
   end
 
-  describe "inject_brain_awareness/2" do
+  describe "inject_knowledge_base_awareness/2" do
     setup %{workspace: workspace} do
       schemas_dir = Path.join([workspace, "knowledge_base", "schemas"])
       File.mkdir_p!(schemas_dir)
@@ -277,8 +277,8 @@ defmodule Goodwizard.Character.HydratorTest do
       assert character.instructions == original_instructions
     end
 
-    test "returns character unchanged when brain dir missing" do
-      workspace = Path.join(System.tmp_dir!(), "no_brain_#{:rand.uniform(100_000)}")
+    test "returns character unchanged when knowledge base dir missing" do
+      workspace = Path.join(System.tmp_dir!(), "no_kb_#{:rand.uniform(100_000)}")
       on_cleanup(fn -> File.rm_rf!(workspace) end)
       Cache.delete("brain:schema_summaries:#{workspace}")
 
@@ -290,7 +290,7 @@ defmodule Goodwizard.Character.HydratorTest do
     end
   end
 
-  describe "hydrate/2 with brain awareness" do
+  describe "hydrate/2 with knowledge base awareness" do
     test "includes entity types in system prompt when schemas exist", %{workspace: workspace} do
       schemas_dir = Path.join([workspace, "knowledge_base", "schemas"])
       File.mkdir_p!(schemas_dir)
@@ -318,7 +318,7 @@ defmodule Goodwizard.Character.HydratorTest do
       assert prompt =~ "meetings"
     end
 
-    test "omits brain awareness section when no brain dir exists", %{workspace: workspace} do
+    test "omits knowledge base awareness section when no knowledge base dir exists", %{workspace: workspace} do
       Cache.delete("brain:schema_summaries:#{workspace}")
 
       {:ok, prompt} = Hydrator.hydrate(workspace)

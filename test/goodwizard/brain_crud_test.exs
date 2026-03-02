@@ -40,7 +40,7 @@ defmodule Goodwizard.BrainCrudTest do
       assert String.contains?(content, "name: Charlie")
     end
 
-    test "auto-initializes brain on first create", %{workspace: workspace} do
+    test "auto-initializes knowledge base on first create", %{workspace: workspace} do
       refute File.exists?(Path.join(workspace, "knowledge_base"))
 
       {:ok, _} = Brain.create(workspace, "people", %{"name" => "Dave"})
@@ -157,7 +157,7 @@ defmodule Goodwizard.BrainCrudTest do
       assert names == ["Alice", "Bob", "Charlie"]
     end
 
-    test "auto-initializes brain on first list", %{workspace: workspace} do
+    test "auto-initializes knowledge base on first list", %{workspace: workspace} do
       refute File.exists?(Path.join(workspace, "knowledge_base"))
 
       {:ok, []} = Brain.list(workspace, "people")

@@ -253,7 +253,7 @@ defmodule Goodwizard.BrainTest do
       assert {:ok, %{"custom" => true}} = Jason.decode(content)
     end
 
-    test "migrates legacy brain directory and reruns idempotently", %{workspace: workspace} do
+    test "migrates legacy brain directory to knowledge base and reruns idempotently", %{workspace: workspace} do
       legacy_root = Path.join(workspace, "brain")
       legacy_schemas = Path.join(legacy_root, "schemas")
       legacy_people = Path.join(legacy_root, "people")

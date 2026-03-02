@@ -47,7 +47,7 @@ defmodule Goodwizard.AgentTest do
       agent = GoodwizardAgent.new()
       tools = ReAct.list_tools(agent)
 
-      # Static brain tools (typed create/update tools are registered dynamically)
+      # Static knowledge base tools (typed create/update tools are registered dynamically)
       assert Goodwizard.Actions.Brain.ReadEntity in tools
       assert Goodwizard.Actions.Brain.DeleteEntity in tools
       assert Goodwizard.Actions.Brain.ListEntities in tools
@@ -328,7 +328,7 @@ defmodule Goodwizard.AgentTest do
       assert log =~ "on_before_cmd error"
     end
 
-    test "ignores stale generated brain modules without triggering rescue" do
+    test "ignores stale generated knowledge base modules without triggering rescue" do
       import ExUnit.CaptureLog
 
       # Simulate stale generated tool cache containing an unloaded module.

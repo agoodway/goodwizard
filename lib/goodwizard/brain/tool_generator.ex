@@ -1,6 +1,6 @@
 defmodule Goodwizard.Brain.ToolGenerator do
   @moduledoc """
-  Generates typed Jido.Action modules at runtime from brain JSON Schema files.
+  Generates typed Jido.Action modules at runtime from knowledge base JSON Schema files.
 
   Instead of generic `create_entity(type, data)`, produces specific tools like
   `create_person(name, email, company)` with proper field-level parameters,
