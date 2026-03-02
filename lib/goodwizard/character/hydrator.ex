@@ -106,7 +106,7 @@ defmodule Goodwizard.Character.Hydrator do
   end
 
   @doc """
-  Injects brain awareness instructions based on available entity types.
+  Injects knowledge base awareness instructions based on available entity types.
 
   Reads schema summaries (cached with 5-minute TTL), builds an instruction
   describing available entity types and when to create entities, and adds
@@ -133,7 +133,7 @@ defmodule Goodwizard.Character.Hydrator do
       end)
 
     """
-    ## Brain — Proactive Entity Extraction
+    ## Knowledge Base — Proactive Entity Extraction
 
     When the user mentions people, companies, events, or other notable entities \
     in conversation, proactively extract and save them using `create_entity`. \

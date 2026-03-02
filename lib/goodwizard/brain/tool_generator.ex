@@ -30,7 +30,7 @@ defmodule Goodwizard.Brain.ToolGenerator do
       {:ok, files} ->
         modules = generate_modules_from_files(workspace, files)
         Goodwizard.Cache.put(@cache_key, modules)
-        Logger.info("[ToolGenerator] Generated #{length(modules)} brain tools")
+        Logger.info("[ToolGenerator] Generated #{length(modules)} knowledge base tools")
         {:ok, modules}
 
       {:error, :enoent} ->
