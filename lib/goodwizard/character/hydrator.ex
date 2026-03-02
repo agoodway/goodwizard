@@ -148,7 +148,7 @@ defmodule Goodwizard.Character.Hydrator do
   end
 
   defp cached_schema_summaries(workspace) do
-    cache_key = "brain:schema_summaries:#{workspace}"
+    cache_key = "knowledge_base:schema_summaries:#{workspace}"
 
     case Goodwizard.Cache.get(cache_key) do
       nil ->

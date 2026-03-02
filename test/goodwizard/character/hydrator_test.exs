@@ -253,7 +253,7 @@ defmodule Goodwizard.Character.HydratorTest do
 
       Schema.save(workspace, "people", schema)
       # Clear any cached value from prior tests
-      Cache.delete("brain:schema_summaries:#{workspace}")
+      Cache.delete("knowledge_base:schema_summaries:#{workspace}")
 
       {:ok, character} = Goodwizard.Character.new()
       character = Hydrator.inject_brain_awareness(character, workspace)
@@ -268,7 +268,7 @@ defmodule Goodwizard.Character.HydratorTest do
 
     test "returns character unchanged when no schemas exist", %{workspace: workspace} do
       # schemas dir exists but is empty — clear cache
-      Cache.delete("brain:schema_summaries:#{workspace}")
+      Cache.delete("knowledge_base:schema_summaries:#{workspace}")
 
       {:ok, character} = Goodwizard.Character.new()
       original_instructions = character.instructions
@@ -280,7 +280,7 @@ defmodule Goodwizard.Character.HydratorTest do
     test "returns character unchanged when knowledge base dir missing" do
       workspace = Path.join(System.tmp_dir!(), "no_kb_#{:rand.uniform(100_000)}")
       on_cleanup(fn -> File.rm_rf!(workspace) end)
-      Cache.delete("brain:schema_summaries:#{workspace}")
+      Cache.delete("knowledge_base:schema_summaries:#{workspace}")
 
       {:ok, character} = Goodwizard.Character.new()
       original_instructions = character.instructions
@@ -309,7 +309,7 @@ defmodule Goodwizard.Character.HydratorTest do
       }
 
       Schema.save(workspace, "meetings", schema)
-      Cache.delete("brain:schema_summaries:#{workspace}")
+      Cache.delete("knowledge_base:schema_summaries:#{workspace}")
 
       {:ok, prompt} = Hydrator.hydrate(workspace)
 
@@ -319,7 +319,7 @@ defmodule Goodwizard.Character.HydratorTest do
     end
 
     test "omits knowledge base awareness section when no knowledge base dir exists", %{workspace: workspace} do
-      Cache.delete("brain:schema_summaries:#{workspace}")
+      Cache.delete("knowledge_base:schema_summaries:#{workspace}")
 
       {:ok, prompt} = Hydrator.hydrate(workspace)
 

@@ -33,7 +33,7 @@ defmodule Goodwizard.Actions.Brain.SaveSchema do
     with :ok <- validate_schema_structure(schema) do
       case Schema.save(workspace, params.entity_type, schema) do
         :ok ->
-          Goodwizard.Cache.delete("brain:schema_summaries:#{workspace}")
+          Goodwizard.Cache.delete("knowledge_base:schema_summaries:#{workspace}")
           tool_msg = regenerate_tools(workspace, params.entity_type)
           {:ok, %{message: "Schema saved for type: #{params.entity_type}. #{tool_msg}"}}
 
