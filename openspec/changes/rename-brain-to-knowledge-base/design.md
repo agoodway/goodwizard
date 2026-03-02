@@ -42,6 +42,26 @@ Constraints:
 - Rationale: Gives users predictable time to update while enabling eventual cleanup.
 - Alternative considered: Permanent alias support. Rejected due to indefinite maintenance burden and continued terminology drift.
 
+5. Migration-window duration and cutoff behavior
+- Decision: Use a 90-day migration window from rollout, with a configurable cutoff for non-production or phased rollouts.
+- Rationale: Gives integrators enough time to migrate while keeping deprecation bounded.
+- Alternative considered: No fixed window. Rejected because removal readiness becomes ambiguous and difficult to test.
+
+6. Config key acceptance policy
+- Decision: `knowledge_base` is canonical. Accept `kb` as an external shorthand key during and after migration. Accept `brain` as legacy-only during the migration window with deprecation warnings.
+- Rationale: Maintains usability for shorthand while ensuring a single canonical internal key.
+- Alternative considered: Only `knowledge_base` with no alias. Rejected because it creates unnecessary friction for existing CLI and automation usage.
+
+7. Canonical on-disk directory naming
+- Decision: Use `knowledge_base/` as the canonical persisted directory. Do not create a canonical `kb/` directory. Treat `brain/` as legacy input that migrates/maps to `knowledge_base/`.
+- Rationale: Keeps persisted layout explicit and descriptive while still supporting legacy workspaces.
+- Alternative considered: Canonicalize to `kb/`. Rejected because it is less self-descriptive and increases doc ambiguity.
+
+8. Migration command strategy
+- Decision: Startup-time migration/mapping is required and must be idempotent. A dedicated migration command is optional and can call the same migration routine, but correctness cannot depend on manual command execution.
+- Rationale: Ensures safe automatic convergence in normal runtime paths.
+- Alternative considered: Dedicated command only. Rejected because manual-only migration is easy to miss and hard to enforce.
+
 ## Risks / Trade-offs
 
 - [Mixed naming during transition causes confusion] -> Mitigation: central naming policy, consistent warning text, and migration docs/checklist.
@@ -62,9 +82,9 @@ Rollback strategy:
 - Keep compatibility mapper and legacy path resolution behind feature flags/configurable cutover points during rollout.
 - If issues occur, re-enable compatibility behavior and rerun migration checks without data deletion.
 
-## Open Questions
+## Resolved Policy Questions
 
-- What is the exact migration-window duration before hard removal?
-- Should canonical config keys use `knowledge_base` only, or accept both `knowledge_base` and `kb`?
-- Should on-disk canonical directory be `knowledge_base/` or `kb/` (with the other only as alias)?
-- Do we need a dedicated migration command, or is startup-time migration sufficient?
+- Migration-window duration: 90 days with configurable cutoff support.
+- Accepted config keys: `knowledge_base` (canonical), `kb` (supported alias), `brain` (legacy-only during window).
+- Canonical directory name: `knowledge_base/` only; `brain/` is legacy and migrated/mapped.
+- Migration command strategy: startup-time migration is required and idempotent; dedicated command is optional.

@@ -8,7 +8,9 @@ The product and codebase currently use the term "brain" for structured long-term
 - Introduce a canonical "knowledge base" naming model with `kb` as an accepted short alias where appropriate.
 - Update workspace paths, configuration keys, and schema/discovery references that currently use `brain` naming.
 - Define migration/compatibility behavior for existing workspaces and integrations.
-- **BREAKING**: remove or deprecate direct `brain`-named interfaces and paths in favor of `knowledge_base`/`kb` naming.
+- Use a staged legacy policy:
+  - During the migration window, legacy `brain` interfaces continue to resolve to canonical behavior with deprecation warnings.
+  - After the migration window closes, deprecated `brain` interfaces are rejected with actionable replacement guidance to `knowledge_base`/`kb`.
 
 ## Capabilities
 

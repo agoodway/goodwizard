@@ -326,20 +326,22 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   @data_files ~w(worldcities.csv)
 
   defp setup_data_files(base) do
-    Enum.each(@data_files, fn filename ->
-      source = Application.app_dir(:goodwizard, "priv/workspace/#{filename}")
-      dest = Path.join(base, filename)
+    Enum.each(@data_files, &copy_data_file(&1, base))
+  end
 
-      if source != dest and File.regular?(source) and not File.exists?(dest) do
-        case File.cp(source, dest) do
-          :ok ->
-            Mix.shell().info("Copied #{filename} to #{dest}")
+  defp copy_data_file(filename, base) do
+    source = Application.app_dir(:goodwizard, "priv/workspace/#{filename}")
+    dest = Path.join(base, filename)
 
-          {:error, reason} ->
-            Mix.shell().error("Failed to copy #{filename}: #{inspect(reason)}")
-        end
+    if source != dest and File.regular?(source) and not File.exists?(dest) do
+      case File.cp(source, dest) do
+        :ok ->
+          Mix.shell().info("Copied #{filename} to #{dest}")
+
+        {:error, reason} ->
+          Mix.shell().error("Failed to copy #{filename}: #{inspect(reason)}")
       end
-    end)
+    end
   end
 
   defp seed_file(base, filename, content) do
