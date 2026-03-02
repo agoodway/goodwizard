@@ -1,66 +1,105 @@
 # Goodwizard
 
-An AI agent built in Elixir on Jido v2.
+A personal AI agent built in Elixir on [Jido](https://github.com/agentjido/jido).
 
-## Prerequisites
+## Getting Started
 
-### Install Just
+### Prerequisites
 
-[Just](https://github.com/casey/just) is a command runner used for project tasks.
+- Elixir ~> 1.17
+- [Just](https://github.com/casey/just) command runner
+- An [Anthropic API key](https://console.anthropic.com/)
 
-```bash
-# macOS
-brew install just
-
-# Arch Linux
-pacman -S just
-
-# Cargo (any platform)
-cargo install just
-
-# npm
-npm install -g just-install
-```
-
-See the [Just installation docs](https://github.com/casey/just#installation) for more options.
-
-## Setup
+### Install & Setup
 
 ```bash
 mix deps.get
+mix goodwizard.setup
+```
+
+`mix goodwizard.setup` creates the workspace directory, `config.toml`, and bootstrap files (`IDENTITY.md`, `SOUL.md`, `USER.md`, etc.).
+
+### Configure
+
+Copy and edit `.env` with your API keys:
+
+```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your API keys:
-
 ```
 ANTHROPIC_API_KEY=your-anthropic-key
-TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token   # optional, for Telegram channel
 ```
 
-## Commands
+Edit `config.toml` to set your preferred model, enabled channels, and other options.
+
+### Run
+
+```bash
+# Interactive CLI REPL
+mix goodwizard.cli
+
+# Full OTP application (Telegram, heartbeat, scheduling)
+mix goodwizard.start
+```
+
+### Commands
 
 | Command | Description |
 |---------|-------------|
 | `just setup` | Run setup |
 | `just up` | Start the agent |
-| `just cli` | Start the CLI channel |
+| `just cli` | Start the CLI REPL |
 | `just status` | Show agent status |
 | `just test` | Run tests |
 | `just check` | Run quality checks (compile, format, credo, doctor, dialyzer, test) |
 | `just build` | Compile the project |
 | `just clean` | Clean build artifacts |
-| `just deploy` | Deploy to production |
 
-## Scheduling
+## How the Agent Works
 
-Goodwizard can run tasks on a schedule using two mechanisms: **scheduled tasks** for recurring execution and **heartbeat monitoring** for periodic agent check-ins.
+### Character & Identity
+
+The agent's personality and knowledge are shaped by editable files in the workspace:
+
+- **`IDENTITY.md`** — who the agent is (name, role, tone)
+- **`SOUL.md`** — values, principles, and behavioral guidelines
+- **`USER.md`** — what the agent knows about you
+- **`TOOLS.md`** — guidance for how the agent uses its tools
+- **`AGENTS.md`** — conventions for sub-agent behavior
+
+At startup, the Preamble module assembles these files plus runtime state (available tools, knowledge base schemas, skills) into a full system prompt via the Hydrator.
+
+### Knowledge Base
+
+A file-backed structured entity store with JSON Schema validation. Entities are stored as markdown with YAML frontmatter in `knowledge_base/<type>/<id>.md`.
+
+**Built-in types:** people, places, events, notes, tasks, companies, tasklists, webpages
+
+At startup, type-specific actions are auto-generated from the schemas — `create_person`, `update_company`, `search_notes`, etc. — so the agent can manage entities through natural conversation. Entities can cross-reference each other via `"type/uuid"` strings in their fields.
+
+### Memory System
+
+Three complementary memory types:
+
+- **Semantic** (`MEMORY.md`) — persistent free-form context the agent maintains about you. Updated as the agent learns your preferences, habits, and ongoing projects.
+- **Episodic** (`memory/episodic/`) — immutable records of past experiences: task completions, errors, decisions, and outcomes. Provides a factual history the agent can reference.
+- **Procedural** (`memory/procedural/`) — learned workflows and patterns with confidence tracking, usage-based promotion/demotion, and time-based decay. The agent builds these by recognizing repeated patterns.
+
+When a conversation grows long, a consolidation pass extracts new episodes and procedures from the session and updates `MEMORY.md`.
+
+### Skills
+
+Prompt-based capability extensions stored in `skills/<name>/SKILL.md`.
+
+Skills use two-tier loading: a summary of each skill is included in every system prompt so the agent knows what's available, but the full skill body is only loaded on demand via `activate_skill`. This keeps the base prompt compact while allowing rich, detailed instructions when a skill is actually used.
+
+**Bundled:** `weather` (wttr.in + Open-Meteo forecasts)
 
 ### Scheduled Tasks
 
-The agent exposes a `schedule_scheduled_task` action that registers recurring tasks with Jido's built-in scheduler. You can ask the agent to schedule tasks in natural language, and it will create the appropriate scheduled task.
-
-**Supported cron formats:**
+**Recurring tasks** use cron expressions (standard 5-field, day names, or aliases like `@daily`, `@hourly`). Each tick spawns an isolated sub-agent so scheduled work can't interfere with your active conversation.
 
 | Format | Example | Meaning |
 |--------|---------|---------|
@@ -69,88 +108,87 @@ The agent exposes a `schedule_scheduled_task` action that registers recurring ta
 | Interval | `*/15 * * * *` | Every 15 minutes |
 | Alias | `@daily` | Once a day (midnight) |
 | Alias | `@hourly` | Once an hour |
-| Alias | `@weekly` | Once a week (Sunday midnight) |
-| Alias | `@monthly` | First of each month |
-| Alias | `@yearly` | January 1st |
 
-**How it works:**
+**One-time tasks** fire after a delay or at an absolute time, then are cleaned up.
 
-1. Tell the agent what you want scheduled and when (e.g. "Remind me to check analytics every Monday at 9am")
-2. The agent calls `schedule_scheduled_task` with the cron expression, task description, and target room
-3. Jido's scheduler picks up the directive and fires the task on each matching tick
-4. The task message is delivered to the specified Messaging room
+Both types persist to disk and reload on restart.
 
-Scheduled tasks persist for the lifetime of the running agent process. High-frequency schedules (every minute) will trigger a warning.
+### Heartbeat
 
-### Heartbeat Monitoring
+A GenServer that polls `HEARTBEAT.md` on a configurable interval. When the file's modification time changes, its contents are dispatched through the agent pipeline.
 
-The heartbeat is a GenServer that wakes the agent at a regular interval to check a `HEARTBEAT.md` file in the workspace. When the file has changed since the last check, its contents are dispatched as a message through the agent pipeline.
-
-**Enable the heartbeat** in `config.toml`:
-
-```toml
-[heartbeat]
-enabled = true
-interval_minutes = 5    # how often to check (default: 5)
-timeout_seconds = 120   # max time for the agent to respond (default: 120)
-channel = "cli"         # which channel to bind the room to ("cli" or "telegram")
-chat_id = "heartbeat"   # external room identifier (see below)
-```
-
-**Setting `chat_id` for Telegram delivery:**
-
-To have heartbeat responses delivered to a Telegram chat, you need your Telegram chat ID:
-
-1. Start your bot by sending it `/start` in Telegram
-2. Check the application logs — the handler logs `chat_id=<your_id>` for each incoming message
-3. Or message [@userinfobot](https://t.me/userinfobot) on Telegram to get your user ID (same as your DM chat ID)
-
-Then configure the heartbeat to target that chat:
-
-```toml
-[heartbeat]
-enabled = true
-channel = "telegram"
-chat_id = "123456789"   # your Telegram chat ID
-```
-
-For CLI, `chat_id` is just an arbitrary label (the default `"heartbeat"` is fine). Messages are persisted but not pushed anywhere since the CLI has no outbound delivery.
-
-**Trigger a heartbeat** by writing to the file:
+Since `HEARTBEAT.md` is just a file, anything that can write to the filesystem can trigger the agent — scripts, CI pipelines, cron jobs, monitoring tools, or other services. Example:
 
 ```bash
-echo "What's the status of my projects?" > priv/workspace/HEARTBEAT.md
+echo "What tasks are due today?" > priv/workspace/HEARTBEAT.md
 ```
 
-On the next tick, the agent reads the file, processes it, and saves both the prompt and response to a Messaging room. The file is only processed when its modification time changes, so the same content won't be processed twice.
+On the next tick, the agent reads the file, processes the prompt, and saves the response. The same content won't be processed twice.
 
-**Use cases:**
+**Use cases:** reminders, deploy hooks, monitoring alerts, automated reporting, cross-system orchestration.
 
-Since `HEARTBEAT.md` is just a file, anything that can write to the filesystem can trigger the agent — scripts, scheduled tasks, CI pipelines, other services, or you. Some examples:
+### Tools
 
-- **Reminders and check-ins** — Write a daily prompt like "What tasks are due today?" and let a system scheduled task update the file each morning.
-- **External event triggers** — A deploy script writes "Production deploy completed for v1.4.2 — summarize what changed" after a release, and the agent generates a changelog.
-- **Monitoring and alerting** — A shell script watches disk usage or error logs and writes "Disk usage on /data is at 92% — what should I do?" when a threshold is crossed.
-- **Automated reporting** — A nightly job writes "Generate a summary of this week's brain activity" to produce periodic digests.
-- **CI/CD integration** — A GitHub Action writes test results or build failures to the file, and the agent triages or summarizes them.
-- **Cross-system orchestration** — Another service or agent writes instructions to `HEARTBEAT.md` to delegate work, turning the file into a simple inter-process message queue.
+The agent has access to these tool categories:
 
-The pattern is always the same: write a prompt to the file, and the agent picks it up on the next heartbeat tick. Pair this with a lower `interval_minutes` value for near-real-time responsiveness, or a higher value for background batch processing.
+| Category | Description |
+|----------|-------------|
+| **Filesystem** | Read, write, edit, list, grep — restricted to the workspace by default |
+| **Shell** | Command execution with safety guards (regex deny-list blocks dangerous commands) |
+| **Browser** | Full automation: navigate, click, type, screenshot, extract content |
+| **Knowledge Base** | Auto-generated CRUD actions for each entity type |
+| **Memory** | Store and recall semantic, episodic, and procedural memories |
+| **Messaging** | Send messages to rooms |
+| **Sub-agent** | Spawn isolated child agents for delegated work |
+| **Scheduling** | Create recurring or one-time scheduled tasks |
 
-## Agent Concurrency
+### Sessions
 
-Goodwizard limits how many concurrent agents can run at once to prevent resource exhaustion. This applies to both scheduled-task-spawned isolated agents and manually spawned subagents.
+Conversation history is persisted as JSONL in `sessions/`.
 
-The default limit is **50** concurrent agents. Scheduled tasks that fire while at capacity are skipped with a warning logged and an error message saved to the target room. Subagent spawns at capacity return an error to the caller.
+- **CLI:** A new session is created per invocation.
+- **Telegram:** One persistent session per chat, survives restarts.
 
-**Configure via `config.toml`:**
+### Channels
 
-```toml
-[scheduled_tasks]
-max_concurrent_agents = 50  # max isolated scheduled-task agents running at once
-```
+**CLI** — Interactive REPL via `mix goodwizard.cli`. Best for local development and quick interactions.
 
-The subagent spawn limit is set to the same default (50) but is not currently configurable via `config.toml`.
+**Telegram** — Long-polling bot with user allowlist, automatic splitting of long messages, and per-channel personality overrides via `character_overrides` in config. See [Telegram Bot Setup](#telegram-bot-setup) below.
+
+## Configuration Reference
+
+| Section | Key | Default | Description |
+|---------|-----|---------|-------------|
+| `[agent]` | `model` | `anthropic:claude-sonnet-4-5` | LLM model identifier |
+| | `max_tokens` | `8192` | Max tokens per response |
+| | `temperature` | `0.7` | Sampling temperature |
+| | `workspace` | `priv/workspace` | Workspace directory path |
+| | `max_tool_iterations` | `20` | Max ReAct loop iterations per turn |
+| | `memory_window` | `50` | Recent messages loaded into context |
+| `[channels.cli]` | `enabled` | `true` | Enable CLI channel |
+| `[channels.telegram]` | `enabled` | `false` | Enable Telegram channel |
+| | `allow_from` | `[]` | User ID allowlist (empty = allow all) |
+| | `character_overrides` | — | Override tone/style for Telegram |
+| `[tools]` | `restrict_to_workspace` | `true` | Restrict filesystem/shell to workspace |
+| `[tools.exec]` | `timeout` | `60` | Shell command timeout in seconds |
+| | `deny_patterns` | *(see config.toml)* | Regex patterns that block shell commands |
+| `[heartbeat]` | `enabled` | `false` | Enable heartbeat polling |
+| | `interval_minutes` | `5` | How often to check the file |
+| | `timeout_seconds` | `120` | Max agent response time |
+| | `channel` | `cli` | Delivery channel (`cli` or `telegram`) |
+| | `chat_id` | `heartbeat` | Room identifier for delivery |
+| `[scheduling]` | `channel` | `cli` | Default channel for scheduled tasks |
+| | `chat_id` | — | Default chat ID for scheduled tasks |
+| `[scheduled_tasks]` | `max_concurrent_agents` | `50` | Max isolated agents running at once |
+| | `ask_timeout` | `120000` | Timeout (ms) per scheduled agent call |
+| | `max_jobs` | `50` | Max total persisted scheduled tasks |
+| `[browser]` | `headless` | `true` | Run browser without GUI |
+| | `adapter` | `vibium` | Browser adapter (`vibium` or `playwright`) |
+| | `timeout` | `30000` | Browser action timeout in ms |
+| `[browser.search]` | `brave_api_key` | — | Brave Search API key |
+| `[session]` | `max_cli_sessions` | `50` | Max retained CLI session files |
+
+**Env var overrides:** `GOODWIZARD_WORKSPACE`, `GOODWIZARD_MODEL`, `BRAVE_API_KEY`, `TELEGRAM_BOT_TOKEN`, `ANTHROPIC_API_KEY`
 
 ## Telegram Bot Setup
 
@@ -199,3 +237,9 @@ Message [@BotFather](https://t.me/BotFather) and use `/mybots` to:
 - `/setabouttext` — bio in the bot's profile
 - `/setname` — change the display name
 - `/setcommands` — set the command menu
+
+## Agent Concurrency
+
+Goodwizard limits concurrent agents to prevent resource exhaustion. This applies to scheduled-task agents and manually spawned sub-agents.
+
+The default limit is **50** concurrent agents (configurable via `scheduled_tasks.max_concurrent_agents`). Scheduled tasks that fire while at capacity are skipped with a warning logged. Sub-agent spawns at capacity return an error to the caller.
