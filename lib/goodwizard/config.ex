@@ -57,6 +57,9 @@ defmodule Goodwizard.Config do
     "session" => %{
       "max_cli_sessions" => 50
     },
+    "knowledge_base" => %{
+      "legacy_brain_aliases_until" => nil
+    },
     "browser" => %{
       "headless" => true,
       "adapter" => "vibium",

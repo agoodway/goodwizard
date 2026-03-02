@@ -135,7 +135,7 @@ defmodule Goodwizard.Brain.ToolGenerator do
   defp build_create_module(mod_name, entity_type, singular, schema_map) do
     action_name = "create_#{singular}"
     schema_title = Map.get(schema_map, "title", singular)
-    description = "Create a new #{schema_title} in the brain knowledge base"
+    description = "Create a new #{schema_title} in the knowledge base"
 
     with {:ok, schema_kw} <- SchemaMapper.for_create(schema_map) do
       body =

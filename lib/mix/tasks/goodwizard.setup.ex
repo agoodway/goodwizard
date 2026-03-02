@@ -11,8 +11,8 @@ defmodule Mix.Tasks.Goodwizard.Setup do
     - priv/workspace/memory/MEMORY.md (agent-authored learned context, if missing)
     - priv/workspace/sessions/
     - priv/workspace/skills/ (copied from source workspace, e.g. weather)
-    - priv/workspace/brain/schemas/ (with default schemas)
-    - priv/workspace/brain/<type>/ for each entity type
+    - priv/workspace/knowledge_base/schemas/ (with default schemas)
+    - priv/workspace/knowledge_base/<type>/ for each entity type
     - priv/workspace/IDENTITY.md (agent identity, if missing)
     - priv/workspace/SOUL.md (personality and values, if missing)
     - priv/workspace/USER.md (user profile, if missing)
@@ -56,6 +56,12 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   # Maximum number of CLI session files to retain. Oldest files are
   # deleted when the limit is exceeded. Only affects cli-direct-* files.
   # max_cli_sessions = 50
+
+  [knowledge_base]
+  # Optional migration cutoff for legacy brain_* aliases.
+  # Before this date (inclusive), legacy aliases work with deprecation warnings.
+  # After this date, legacy aliases return actionable errors.
+  # legacy_brain_aliases_until = "2026-12-31"
 
   [tools]
   restrict_to_workspace = true
@@ -122,7 +128,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   end
 
   defp setup_brain(base) do
-    Mix.shell().info("Initializing brain...")
+    Mix.shell().info("Initializing knowledge base...")
     init_brain(base)
     create_entity_type_dirs(base)
   end
@@ -148,14 +154,14 @@ defmodule Mix.Tasks.Goodwizard.Setup do
   defp init_brain(base) do
     case Brain.ensure_initialized(base) do
       {:ok, []} ->
-        Mix.shell().info("Brain already initialized")
+        Mix.shell().info("Knowledge base already initialized")
 
       {:ok, seeded} ->
         Mix.shell().info("Seeded schemas: #{Enum.join(seeded, ", ")}")
 
       {:error, reason} ->
-        Mix.shell().error("Failed to initialize brain: #{inspect(reason)}")
-        Mix.raise("Setup failed: could not initialize brain")
+        Mix.shell().error("Failed to initialize knowledge base: #{inspect(reason)}")
+        Mix.raise("Setup failed: could not initialize knowledge base")
     end
   end
 
@@ -190,7 +196,7 @@ defmodule Mix.Tasks.Goodwizard.Setup do
 
   Your role is to help the user manage their work, stay organized, and make
   informed decisions. You operate through conversation (CLI or Telegram) and
-  have access to a persistent workspace with memory, a knowledge brain, and
+  have access to a persistent workspace with memory, a knowledge base, and
   scheduled tasks.
   """
 

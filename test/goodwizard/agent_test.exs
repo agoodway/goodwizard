@@ -43,7 +43,7 @@ defmodule Goodwizard.AgentTest do
       refute Goodwizard.Actions.Memory.CrossConsolidate in tools
     end
 
-    test "registers all brain action tools" do
+    test "registers canonical and legacy knowledge base action tools" do
       agent = GoodwizardAgent.new()
       tools = ReAct.list_tools(agent)
 
@@ -54,6 +54,10 @@ defmodule Goodwizard.AgentTest do
       assert Goodwizard.Actions.Brain.GetSchema in tools
       assert Goodwizard.Actions.Brain.SaveSchema in tools
       assert Goodwizard.Actions.Brain.ListEntityTypes in tools
+      assert Goodwizard.Actions.KnowledgeBase.RefreshTools in tools
+      assert Goodwizard.Actions.Brain.Legacy.CreateEntity in tools
+      assert Goodwizard.Actions.Brain.Legacy.ListEntities in tools
+      assert Goodwizard.Actions.Brain.RefreshTools in tools
     end
 
     test "uses correct model" do

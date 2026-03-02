@@ -1,12 +1,12 @@
 defmodule Goodwizard.Actions.Brain.CreateEntity do
   @moduledoc """
-  Creates a new entity in the brain knowledge base.
+  Creates a new entity in the knowledge base.
   """
 
   use Jido.Action,
     name: "create_entity",
     description:
-      "Generic fallback for creating brain entities. Prefer typed tools like create_note, create_person, " <>
+      "Generic fallback for creating knowledge base entities. Prefer typed tools like create_note, create_person, " <>
         "create_company, etc. when available — they have proper field-level parameters. " <>
         "Only use this for entity types that lack a dedicated tool.",
     schema: [

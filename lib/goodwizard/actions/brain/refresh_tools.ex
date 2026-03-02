@@ -1,33 +1,21 @@
 defmodule Goodwizard.Actions.Brain.RefreshTools do
   @moduledoc """
-  Regenerates typed brain tools after schema changes.
-
-  Call this after modifying schemas to make updated create/update tools
-  available on the next conversation turn.
+  Legacy `brain` alias for refreshing typed knowledge base tools.
   """
 
   use Jido.Action,
     name: "refresh_brain_tools",
-    description:
-      "Regenerate typed brain tools when schemas were changed outside the agent " <>
-        "(e.g. manual file edits, git pulls). Not needed after save_schema, which auto-regenerates.",
+    description: "DEPRECATED legacy brain alias. Use refresh_knowledge_base_tools instead.",
     schema: []
 
-  alias Goodwizard.Actions.Brain.Helpers
-  alias Goodwizard.Brain.ToolGenerator
+  alias Goodwizard.Actions.KnowledgeBase.RefreshTools, as: Canonical
+  alias Goodwizard.KnowledgeBase.Legacy
 
   @impl true
   @spec run(map(), map()) :: {:ok, map()}
-  def run(_params, context) do
-    workspace = Helpers.workspace(context)
-    {:ok, modules} = ToolGenerator.generate_all(workspace)
-
-    tool_names =
-      modules
-      |> Enum.filter(&Code.ensure_loaded?/1)
-      |> Enum.filter(&function_exported?(&1, :name, 0))
-      |> Enum.map(& &1.name())
-
-    {:ok, %{message: "Regenerated #{length(modules)} brain tools", tools: tool_names}}
+  def run(params, context) do
+    Legacy.run_legacy(context, "refresh_brain_tools", "refresh_knowledge_base_tools", fn ->
+      Canonical.run(params, context)
+    end)
   end
 end

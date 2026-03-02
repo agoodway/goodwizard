@@ -7,7 +7,7 @@ defmodule Goodwizard.Brain.SeedsTest do
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "brain_seeds_test_#{:rand.uniform(100_000)}")
-    schemas_dir = Path.join([workspace, "brain", "schemas"])
+    schemas_dir = Path.join([workspace, "knowledge_base", "schemas"])
     File.mkdir_p!(schemas_dir)
     on_exit(fn -> File.rm_rf!(workspace) end)
     %{workspace: workspace, schemas_dir: schemas_dir}
@@ -221,14 +221,14 @@ defmodule Goodwizard.BrainTest do
   end
 
   describe "ensure_initialized/1" do
-    test "creates brain directory structure and seeds schemas", %{workspace: workspace} do
-      refute File.exists?(Path.join(workspace, "brain"))
+    test "creates knowledge base directory structure and seeds schemas", %{workspace: workspace} do
+      refute File.exists?(Path.join(workspace, "knowledge_base"))
 
       assert {:ok, seeded} = Brain.ensure_initialized(workspace)
       assert length(seeded) == length(Seeds.entity_types())
 
-      assert File.dir?(Path.join(workspace, "brain"))
-      assert File.dir?(Path.join([workspace, "brain", "schemas"]))
+      assert File.dir?(Path.join(workspace, "knowledge_base"))
+      assert File.dir?(Path.join([workspace, "knowledge_base", "schemas"]))
     end
 
     test "is idempotent — second call returns empty list", %{workspace: workspace} do
@@ -252,11 +252,50 @@ defmodule Goodwizard.BrainTest do
       content = File.read!(path)
       assert {:ok, %{"custom" => true}} = Jason.decode(content)
     end
+
+    test "migrates legacy brain directory and reruns idempotently", %{workspace: workspace} do
+      legacy_root = Path.join(workspace, "brain")
+      legacy_schemas = Path.join(legacy_root, "schemas")
+      legacy_people = Path.join(legacy_root, "people")
+      File.mkdir_p!(legacy_schemas)
+      File.mkdir_p!(legacy_people)
+
+      File.write!(
+        Path.join(legacy_schemas, "people.json"),
+        Jason.encode!(Seeds.schema_for("people"))
+      )
+
+      legacy_entity = """
+      ---
+      id: legacy-person-1
+      name: Legacy Person
+      created_at: 2026-03-01T00:00:00Z
+      updated_at: 2026-03-01T00:00:00Z
+      metadata: {}
+      ---
+      From legacy brain directory.
+      """
+
+      File.write!(Path.join(legacy_people, "legacy-person-1.md"), legacy_entity)
+
+      assert {:ok, _} = Brain.ensure_initialized(workspace)
+      assert File.exists?(Path.join([workspace, "knowledge_base", "schemas", "people.json"]))
+
+      assert File.exists?(
+               Path.join([workspace, "knowledge_base", "people", "legacy-person-1.md"])
+             )
+
+      assert {:ok, []} = Brain.ensure_initialized(workspace)
+
+      assert File.exists?(
+               Path.join([workspace, "knowledge_base", "people", "legacy-person-1.md"])
+             )
+    end
   end
 
   describe "end-to-end workflow" do
     test "initialize -> generate ID -> load schema -> validate", %{workspace: workspace} do
-      # 1. Initialize brain (seeds schemas)
+      # 1. Initialize knowledge base (seeds schemas)
       assert {:ok, seeded} = Brain.ensure_initialized(workspace)
       assert length(seeded) == length(Seeds.entity_types())
 

@@ -1,11 +1,11 @@
 defmodule Goodwizard.Actions.Brain.ListEntities do
   @moduledoc """
-  Lists all entities of a given type from the brain knowledge base.
+  Lists all entities of a given type from the knowledge base.
   """
 
   use Jido.Action,
     name: "list_entities",
-    description: "List all entities of a given type from the brain knowledge base",
+    description: "List all entities of a given type from the knowledge base",
     schema: [
       entity_type: [
         type: :string,

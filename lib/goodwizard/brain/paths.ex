@@ -1,43 +1,51 @@
 defmodule Goodwizard.Brain.Paths do
   @moduledoc """
-  Safe, workspace-relative path helpers for the brain directory structure.
+  Safe, workspace-relative path helpers for the knowledge base directory structure.
 
-  All paths are resolved relative to the workspace's `brain/` directory.
+  All canonical paths are resolved relative to the workspace's `knowledge_base/` directory.
   Rejects path traversal attempts (`..`, leading `/`, null bytes) in
   entity type names and IDs.
   """
 
-  @doc "Returns the root brain directory for a workspace."
+  @doc "Returns the canonical knowledge base directory for a workspace."
+  @spec knowledge_base_dir(String.t()) :: String.t()
+  def knowledge_base_dir(workspace), do: Path.join(workspace, "knowledge_base")
+
+  @doc "Returns the legacy brain directory for a workspace."
+  @spec legacy_brain_dir(String.t()) :: String.t()
+  def legacy_brain_dir(workspace), do: Path.join(workspace, "brain")
+
+  @doc "Returns the canonical knowledge base directory for a workspace."
   @spec brain_dir(String.t()) :: String.t()
-  def brain_dir(workspace), do: Path.join(workspace, "brain")
+  def brain_dir(workspace), do: knowledge_base_dir(workspace)
 
-  @doc "Returns the `brain/schemas/` directory."
+  @doc "Returns the `knowledge_base/schemas/` directory."
   @spec schemas_dir(String.t()) :: String.t()
-  def schemas_dir(workspace), do: Path.join([workspace, "brain", "schemas"])
+  def schemas_dir(workspace), do: Path.join([workspace, "knowledge_base", "schemas"])
 
-  @doc "Returns the `brain/<type>/` directory for an entity type."
+  @doc "Returns the `knowledge_base/<type>/` directory for an entity type."
   @spec entity_type_dir(String.t(), String.t()) :: {:ok, String.t()} | {:error, String.t()}
   def entity_type_dir(workspace, type) do
     with :ok <- validate_segment(type, "entity type") do
-      {:ok, Path.join([workspace, "brain", type])}
+      {:ok, Path.join([workspace, "knowledge_base", type])}
     end
   end
 
-  @doc "Returns the `brain/<type>/<id>.md` file path for an entity."
+  @doc "Returns the `knowledge_base/<type>/<id>.md` file path for an entity."
   @spec entity_path(String.t(), String.t(), String.t()) ::
           {:ok, String.t()} | {:error, String.t()}
   def entity_path(workspace, type, id) do
     with :ok <- validate_segment(type, "entity type"),
          :ok <- validate_segment(id, "entity id") do
-      {:ok, Path.join([workspace, "brain", type, "#{id}.md"])}
+      {:ok, Path.join([workspace, "knowledge_base", type, "#{id}.md"])}
     end
   end
 
-  @doc "Returns the `brain/schemas/<type>.json` file path for a schema."
+  @doc "Returns the `knowledge_base/schemas/<type>.json` file path for a schema."
   @spec schema_path(String.t(), String.t()) :: {:ok, String.t()} | {:error, String.t()}
   def schema_path(workspace, type) do
     with :ok <- validate_segment(type, "schema type") do
-      {:ok, Path.join([workspace, "brain", "schemas", "#{type}.json"])}
+      {:ok, Path.join([workspace, "knowledge_base", "schemas", "#{type}.json"])}
     end
   end
 

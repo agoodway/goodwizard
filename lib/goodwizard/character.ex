@@ -26,7 +26,7 @@ defmodule Goodwizard.Character do
         "Read files before editing them",
         "Respect safety guards — never bypass pre-commit hooks or delete without confirmation",
         "Use workspace tools to interact with the filesystem",
-        "Use brain tools for all knowledge base operations — never use shell commands or HTTP APIs for brain data",
+        "Use knowledge base tools for all knowledge base operations — never use shell commands or HTTP APIs for knowledge base data",
         "When uncertain, ask for clarification rather than guessing"
       ]
     }

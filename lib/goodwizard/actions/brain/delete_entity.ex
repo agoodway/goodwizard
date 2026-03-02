@@ -1,11 +1,11 @@
 defmodule Goodwizard.Actions.Brain.DeleteEntity do
   @moduledoc """
-  Deletes an entity from the brain knowledge base.
+  Deletes an entity from the knowledge base.
   """
 
   use Jido.Action,
     name: "delete_entity",
-    description: "Delete an entity by type and ID from the brain knowledge base",
+    description: "Delete an entity by type and ID from the knowledge base",
     schema: [
       entity_type: [
         type: :string,

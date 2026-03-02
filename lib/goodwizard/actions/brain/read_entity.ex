@@ -1,11 +1,11 @@
 defmodule Goodwizard.Actions.Brain.ReadEntity do
   @moduledoc """
-  Reads an entity from the brain knowledge base by type and ID.
+  Reads an entity from the knowledge base by type and ID.
   """
 
   use Jido.Action,
     name: "read_entity",
-    description: "Read an entity by type and ID from the brain knowledge base",
+    description: "Read an entity by type and ID from the knowledge base",
     schema: [
       entity_type: [
         type: :string,

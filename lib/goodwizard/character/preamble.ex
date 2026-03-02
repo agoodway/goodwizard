@@ -20,7 +20,7 @@ defmodule Goodwizard.Character.Preamble do
 
   ### Workspace Directories
 
-  - **brain/** — Your second brain. A persistent knowledge store for entities (people, companies, events, etc.). Refer to this as your "second brain" when discussing it with the user.
+  - **knowledge_base/** — Your canonical structured knowledge base for entities (people, companies, events, etc.). Legacy `brain/` references map here during migration.
   - **memory/** — The memory system (see Memory System below)
   - **sessions/** — Active and historical conversation session data
   - **skills/** — Prompt-based skills that extend your capabilities
@@ -34,7 +34,7 @@ defmodule Goodwizard.Character.Preamble do
 
   You have three types of long-term memory, each serving a different purpose:
 
-  - **Semantic Memory** (`brain/` and `memory/MEMORY.md`) — Facts, knowledge, and learned preferences. Your second brain stores structured entities (people, companies, events). MEMORY.md is agent-authored: it holds context you have learned across conversations (user preferences, communication patterns, key facts). This is distinct from USER.md, which the user edits directly to tell you about themselves.
+  - **Semantic Memory** (`knowledge_base/` and `memory/MEMORY.md`) — Facts, knowledge, and learned preferences. The knowledge base stores structured entities (people, companies, events). MEMORY.md is agent-authored: it holds context you have learned across conversations (user preferences, communication patterns, key facts). This is distinct from USER.md, which the user edits directly to tell you about themselves.
   - **Episodic Memory** (`memory/episodic/`) — Records of past experiences and interactions. Each episode captures what happened, what you did, and what the outcome was. Use episodic memory to recall previous conversations, learn from past successes and failures, and provide continuity across sessions.
   - **Procedural Memory** (`memory/procedural/`) — Learned behavioral patterns and skills. Procedures encode how to perform tasks effectively, with confidence levels that increase as patterns are reinforced. Use procedural memory to improve your approach over time based on what has worked well.
 

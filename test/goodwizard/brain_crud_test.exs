@@ -41,11 +41,11 @@ defmodule Goodwizard.BrainCrudTest do
     end
 
     test "auto-initializes brain on first create", %{workspace: workspace} do
-      refute File.exists?(Path.join(workspace, "brain"))
+      refute File.exists?(Path.join(workspace, "knowledge_base"))
 
       {:ok, _} = Brain.create(workspace, "people", %{"name" => "Dave"})
 
-      assert File.dir?(Path.join([workspace, "brain", "schemas"]))
+      assert File.dir?(Path.join([workspace, "knowledge_base", "schemas"]))
     end
 
     test "returns schema validation error for invalid data", %{workspace: workspace} do
@@ -158,11 +158,11 @@ defmodule Goodwizard.BrainCrudTest do
     end
 
     test "auto-initializes brain on first list", %{workspace: workspace} do
-      refute File.exists?(Path.join(workspace, "brain"))
+      refute File.exists?(Path.join(workspace, "knowledge_base"))
 
       {:ok, []} = Brain.list(workspace, "people")
 
-      assert File.dir?(Path.join([workspace, "brain", "schemas"]))
+      assert File.dir?(Path.join([workspace, "knowledge_base", "schemas"]))
     end
 
     test "does not include entities from other types", %{workspace: workspace} do

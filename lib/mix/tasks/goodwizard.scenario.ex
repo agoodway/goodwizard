@@ -157,8 +157,8 @@ defmodule Mix.Tasks.Goodwizard.Scenario do
       Path.join(workspace, "memory/procedural"),
       Path.join(workspace, "sessions"),
       Path.join(workspace, "skills"),
-      Path.join(workspace, "brain"),
-      Path.join(workspace, "brain/schemas")
+      Path.join(workspace, "knowledge_base"),
+      Path.join(workspace, "knowledge_base/schemas")
     ]
 
     Enum.reduce_while(dirs, :ok, fn dir, :ok ->
@@ -170,14 +170,24 @@ defmodule Mix.Tasks.Goodwizard.Scenario do
   end
 
   defp copy_workspace_artifacts(source_workspace, temp_workspace) do
-    schema_source = Path.join(source_workspace, "brain/schemas")
-    schema_dest = Path.join(temp_workspace, "brain/schemas")
+    schema_source = resolve_schema_source_dir(source_workspace)
+    schema_dest = Path.join(temp_workspace, "knowledge_base/schemas")
 
     with :ok <- copy_bootstrap_files(source_workspace, temp_workspace),
          :ok <- copy_directory_files(schema_source, schema_dest),
          :ok <- copy_memory_markdown(source_workspace, temp_workspace),
          :ok <- copy_skills(source_workspace, temp_workspace) do
       :ok
+    end
+  end
+
+  defp resolve_schema_source_dir(source_workspace) do
+    canonical = Path.join(source_workspace, "knowledge_base/schemas")
+
+    if File.dir?(canonical) do
+      canonical
+    else
+      Path.join(source_workspace, "brain/schemas")
     end
   end
 

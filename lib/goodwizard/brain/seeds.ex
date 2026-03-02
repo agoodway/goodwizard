@@ -1,6 +1,6 @@
 defmodule Goodwizard.Brain.Seeds do
   @moduledoc """
-  Default schema definitions for the brain knowledge base.
+  Default schema definitions for the knowledge base subsystem.
 
   Ships initial entity type schemas as Elixir maps and writes them
   to disk on first use via `seed/1`.

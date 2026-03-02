@@ -14,7 +14,7 @@ defmodule Goodwizard.Character.PreambleTest do
     test "includes all workspace directory names" do
       result = Preamble.generate()
 
-      assert result =~ "brain/"
+      assert result =~ "knowledge_base/"
       assert result =~ "memory/"
       assert result =~ "sessions/"
       assert result =~ "skills/"

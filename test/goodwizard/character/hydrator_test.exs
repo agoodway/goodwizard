@@ -233,7 +233,7 @@ defmodule Goodwizard.Character.HydratorTest do
 
   describe "inject_brain_awareness/2" do
     setup %{workspace: workspace} do
-      schemas_dir = Path.join([workspace, "brain", "schemas"])
+      schemas_dir = Path.join([workspace, "knowledge_base", "schemas"])
       File.mkdir_p!(schemas_dir)
       %{schemas_dir: schemas_dir}
     end
@@ -292,7 +292,7 @@ defmodule Goodwizard.Character.HydratorTest do
 
   describe "hydrate/2 with brain awareness" do
     test "includes entity types in system prompt when schemas exist", %{workspace: workspace} do
-      schemas_dir = Path.join([workspace, "brain", "schemas"])
+      schemas_dir = Path.join([workspace, "knowledge_base", "schemas"])
       File.mkdir_p!(schemas_dir)
 
       schema = %{

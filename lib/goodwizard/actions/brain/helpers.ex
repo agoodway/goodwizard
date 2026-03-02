@@ -1,6 +1,6 @@
 defmodule Goodwizard.Actions.Brain.Helpers do
   @moduledoc """
-  Shared helpers for brain action modules.
+  Shared helpers for knowledge base action modules.
   """
 
   require Logger
@@ -135,7 +135,7 @@ defmodule Goodwizard.Actions.Brain.Helpers do
   def format_error(errors) when is_list(errors), do: format_validation_errors(errors)
 
   def format_error(reason) do
-    Logger.warning("[Brain] Unhandled error reason: #{inspect(reason)}")
+    Logger.warning("[KnowledgeBase] Unhandled error reason: #{inspect(reason)}")
     "Unexpected error: #{inspect(reason)}"
   end
 
@@ -155,7 +155,7 @@ defmodule Goodwizard.Actions.Brain.Helpers do
       fields = Enum.map_join(system_errors, ", ", &extract_field_name/1)
 
       Logger.warning(
-        "[Brain] Schema validation failed on system-injected fields: #{fields}. " <>
+        "[KnowledgeBase] Schema validation failed on system-injected fields: #{fields}. " <>
           "This indicates the on-disk schema is missing these fields — re-seed or update the schema."
       )
     end

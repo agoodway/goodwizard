@@ -1,6 +1,6 @@
 defmodule Goodwizard.Actions.Brain.UpdateEntity do
   @moduledoc """
-  Updates an existing entity in the brain knowledge base.
+  Updates an existing entity in the knowledge base.
   """
 
   use Jido.Action,

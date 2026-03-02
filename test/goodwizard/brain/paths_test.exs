@@ -5,21 +5,33 @@ defmodule Goodwizard.Brain.PathsTest do
 
   @workspace "/tmp/test_workspace"
 
+  describe "knowledge_base_dir/1" do
+    test "returns knowledge base directory under workspace" do
+      assert Paths.knowledge_base_dir(@workspace) == "/tmp/test_workspace/knowledge_base"
+    end
+  end
+
+  describe "legacy_brain_dir/1" do
+    test "returns legacy brain directory under workspace" do
+      assert Paths.legacy_brain_dir(@workspace) == "/tmp/test_workspace/brain"
+    end
+  end
+
   describe "brain_dir/1" do
-    test "returns brain directory under workspace" do
-      assert Paths.brain_dir(@workspace) == "/tmp/test_workspace/brain"
+    test "returns canonical knowledge base directory under workspace" do
+      assert Paths.brain_dir(@workspace) == "/tmp/test_workspace/knowledge_base"
     end
   end
 
   describe "schemas_dir/1" do
-    test "returns schemas directory under brain" do
-      assert Paths.schemas_dir(@workspace) == "/tmp/test_workspace/brain/schemas"
+    test "returns schemas directory under knowledge base" do
+      assert Paths.schemas_dir(@workspace) == "/tmp/test_workspace/knowledge_base/schemas"
     end
   end
 
   describe "entity_type_dir/2" do
     test "returns entity type directory" do
-      assert {:ok, "/tmp/test_workspace/brain/people"} =
+      assert {:ok, "/tmp/test_workspace/knowledge_base/people"} =
                Paths.entity_type_dir(@workspace, "people")
     end
 
@@ -51,7 +63,8 @@ defmodule Goodwizard.Brain.PathsTest do
 
   describe "entity_path/3" do
     test "returns entity file path with .md extension" do
-      assert {:ok, "/tmp/test_workspace/brain/people/0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a.md"} =
+      assert {:ok,
+              "/tmp/test_workspace/knowledge_base/people/0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a.md"} =
                Paths.entity_path(@workspace, "people", "0193a5e7-8b4c-7f2a-9d1e-3b5c6d7e8f9a")
     end
 
@@ -68,7 +81,7 @@ defmodule Goodwizard.Brain.PathsTest do
 
   describe "schema_path/2" do
     test "returns schema file path with .json extension" do
-      assert {:ok, "/tmp/test_workspace/brain/schemas/people.json"} =
+      assert {:ok, "/tmp/test_workspace/knowledge_base/schemas/people.json"} =
                Paths.schema_path(@workspace, "people")
     end
 

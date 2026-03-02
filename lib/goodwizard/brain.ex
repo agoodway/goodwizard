@@ -287,34 +287,96 @@ defmodule Goodwizard.Brain do
   end
 
   @doc """
-  Ensures the brain directory structure exists and seeds default schemas
+  Ensures the knowledge base directory structure exists and seeds default schemas
   if the schemas directory is empty.
 
-  Safe to call multiple times — only seeds on first use.
+  Safe to call multiple times — only seeds on first use. If a legacy
+  `brain/` directory exists and canonical `knowledge_base/` does not,
+  legacy data is migrated automatically.
   Returns `{:ok, seeded_types}` where `seeded_types` is the list of
   newly created schema types (empty list if already seeded).
   """
   @spec ensure_initialized(String.t()) :: {:ok, [String.t()]} | {:error, term()}
   def ensure_initialized(workspace) do
-    brain_dir = Paths.brain_dir(workspace)
+    knowledge_base_dir = Paths.knowledge_base_dir(workspace)
+    legacy_brain_dir = Paths.legacy_brain_dir(workspace)
     schemas_dir = Paths.schemas_dir(workspace)
 
-    Logger.info("[Brain] ensure_initialized brain_dir=#{Path.relative_to_cwd(brain_dir)}")
+    Logger.info(
+      "[KnowledgeBase] ensure_initialized dir=#{Path.relative_to_cwd(knowledge_base_dir)}"
+    )
 
-    with :ok <- File.mkdir_p(brain_dir),
+    with :ok <- migrate_legacy_workspace(legacy_brain_dir, knowledge_base_dir),
+         :ok <- File.mkdir_p(knowledge_base_dir),
          :ok <- File.mkdir_p(schemas_dir),
          {:ok, existing} <- Schema.list_types(workspace) do
       maybe_seed(workspace, existing)
     end
   end
 
+  defp migrate_legacy_workspace(legacy_brain_dir, knowledge_base_dir) do
+    cond do
+      File.dir?(knowledge_base_dir) and File.dir?(legacy_brain_dir) ->
+        Logger.warning(
+          "[KnowledgeBase] Legacy directory #{Path.relative_to_cwd(legacy_brain_dir)} is still present. " <>
+            "Canonical directory #{Path.relative_to_cwd(knowledge_base_dir)} takes precedence."
+        )
+
+        :ok
+
+      File.dir?(knowledge_base_dir) ->
+        :ok
+
+      File.dir?(legacy_brain_dir) ->
+        migrate_legacy_dir(legacy_brain_dir, knowledge_base_dir)
+
+      true ->
+        :ok
+    end
+  end
+
+  defp migrate_legacy_dir(legacy_brain_dir, knowledge_base_dir) do
+    case File.rename(legacy_brain_dir, knowledge_base_dir) do
+      :ok ->
+        Logger.warning(
+          "[KnowledgeBase] Migrated workspace directory #{Path.relative_to_cwd(legacy_brain_dir)} -> " <>
+            "#{Path.relative_to_cwd(knowledge_base_dir)}"
+        )
+
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(
+          "[KnowledgeBase] Could not rename legacy directory #{Path.relative_to_cwd(legacy_brain_dir)} -> " <>
+            "#{Path.relative_to_cwd(knowledge_base_dir)} (#{inspect(reason)}); copying as fallback"
+        )
+
+        migrate_legacy_dir_with_copy(legacy_brain_dir, knowledge_base_dir)
+    end
+  end
+
+  defp migrate_legacy_dir_with_copy(legacy_brain_dir, knowledge_base_dir) do
+    case File.cp_r(legacy_brain_dir, knowledge_base_dir) do
+      {:ok, _} ->
+        Logger.warning(
+          "[KnowledgeBase] Copied legacy directory #{Path.relative_to_cwd(legacy_brain_dir)} to " <>
+            "#{Path.relative_to_cwd(knowledge_base_dir)}. Legacy directory retained for safety."
+        )
+
+        :ok
+
+      {:error, reason, _path} ->
+        {:error, reason}
+    end
+  end
+
   defp maybe_seed(workspace, []) do
-    Logger.info("[Brain] no schemas found, seeding defaults")
+    Logger.info("[KnowledgeBase] no schemas found, seeding defaults")
     Seeds.seed(workspace)
   end
 
   defp maybe_seed(_workspace, existing) do
-    Logger.info(fn -> "[Brain] already initialized, schemas=#{inspect(existing)}" end)
+    Logger.info(fn -> "[KnowledgeBase] already initialized, schemas=#{inspect(existing)}" end)
     {:ok, []}
   end
 

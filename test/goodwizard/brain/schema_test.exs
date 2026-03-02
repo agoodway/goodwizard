@@ -22,7 +22,7 @@ defmodule Goodwizard.Brain.SchemaTest do
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "brain_schema_test_#{:rand.uniform(100_000)}")
-    schemas_dir = Path.join([workspace, "brain", "schemas"])
+    schemas_dir = Path.join([workspace, "knowledge_base", "schemas"])
     File.mkdir_p!(schemas_dir)
     on_exit(fn -> File.rm_rf!(workspace) end)
     %{workspace: workspace, schemas_dir: schemas_dir}

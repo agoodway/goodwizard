@@ -33,7 +33,7 @@ defmodule Goodwizard.Brain.ToolGeneratorTest do
     Application.ensure_all_started(:goodwizard)
 
     workspace = Path.join(System.tmp_dir!(), "tool_gen_test_#{:rand.uniform(100_000)}")
-    schemas_dir = Path.join([workspace, "brain", "schemas"])
+    schemas_dir = Path.join([workspace, "knowledge_base", "schemas"])
     File.mkdir_p!(schemas_dir)
     on_exit(fn -> File.rm_rf!(workspace) end)
 

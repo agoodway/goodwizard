@@ -1,9 +1,9 @@
 defmodule Goodwizard.Brain.Schema do
   @moduledoc """
-  Schema loading, validation, and management for the brain knowledge base.
+  Schema loading, validation, and management for the knowledge base subsystem.
 
   Uses `ex_json_schema` (draft 7) to resolve and validate entity data
-  against JSON Schema definitions stored in `brain/schemas/`.
+  against JSON Schema definitions stored in `knowledge_base/schemas/`.
   """
 
   alias Goodwizard.Brain.Paths
@@ -45,7 +45,7 @@ defmodule Goodwizard.Brain.Schema do
   end
 
   @doc """
-  Writes a schema map to disk as `brain/schemas/<type>.json`.
+  Writes a schema map to disk as `knowledge_base/schemas/<type>.json`.
 
   Creates the schemas directory if it doesn't exist.
   Returns `:ok` or `{:error, reason}`.

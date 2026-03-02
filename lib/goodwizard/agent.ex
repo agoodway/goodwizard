@@ -79,7 +79,18 @@ defmodule Goodwizard.Agent do
       Goodwizard.Actions.Brain.ListEntities,
       Goodwizard.Actions.Brain.GetSchema,
       Goodwizard.Actions.Brain.SaveSchema,
-      Goodwizard.Actions.Brain.ListEntityTypes
+      Goodwizard.Actions.Brain.ListEntityTypes,
+      Goodwizard.Actions.KnowledgeBase.RefreshTools,
+      # Legacy brain aliases (migration window only)
+      Goodwizard.Actions.Brain.Legacy.CreateEntity,
+      Goodwizard.Actions.Brain.Legacy.ReadEntity,
+      Goodwizard.Actions.Brain.Legacy.UpdateEntity,
+      Goodwizard.Actions.Brain.Legacy.DeleteEntity,
+      Goodwizard.Actions.Brain.Legacy.ListEntities,
+      Goodwizard.Actions.Brain.Legacy.GetSchema,
+      Goodwizard.Actions.Brain.Legacy.SaveSchema,
+      Goodwizard.Actions.Brain.Legacy.ListEntityTypes,
+      Goodwizard.Actions.Brain.RefreshTools
     ],
     model: "anthropic:claude-sonnet-4-5",
     max_iterations: 20,

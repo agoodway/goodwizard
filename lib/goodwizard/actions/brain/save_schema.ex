@@ -1,11 +1,12 @@
 defmodule Goodwizard.Actions.Brain.SaveSchema do
   @moduledoc """
-  Saves a JSON Schema for an entity type to the brain knowledge base.
+  Saves a JSON Schema for an entity type to the knowledge base.
   """
 
   use Jido.Action,
     name: "save_schema",
-    description: "Save or update a JSON Schema definition for an entity type in the brain",
+    description:
+      "Save or update a JSON Schema definition for an entity type in the knowledge base",
     schema: [
       entity_type: [
         type: :string,

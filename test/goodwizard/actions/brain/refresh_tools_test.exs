@@ -1,8 +1,9 @@
 defmodule Goodwizard.Actions.Brain.RefreshToolsTest do
   use ExUnit.Case, async: true
 
+  import ExUnit.CaptureLog
+
   alias Goodwizard.Actions.Brain.RefreshTools
-  alias Goodwizard.Brain.ToolGenerator
 
   @test_schema %{
     "$schema" => "http://json-schema.org/draft-07/schema#",
@@ -19,7 +20,7 @@ defmodule Goodwizard.Actions.Brain.RefreshToolsTest do
 
   setup do
     workspace = Path.join(System.tmp_dir!(), "refresh_tools_test_#{:rand.uniform(100_000)}")
-    schemas_dir = Path.join([workspace, "brain", "schemas"])
+    schemas_dir = Path.join([workspace, "knowledge_base", "schemas"])
     File.mkdir_p!(schemas_dir)
     on_exit(fn -> File.rm_rf!(workspace) end)
 
@@ -28,23 +29,37 @@ defmodule Goodwizard.Actions.Brain.RefreshToolsTest do
   end
 
   describe "run/2" do
-    test "regenerates brain tools and returns tool names", %{
+    test "regenerates knowledge base tools and logs legacy deprecation warning", %{
       schemas_dir: schemas_dir,
       context: context
     } do
       File.write!(Path.join(schemas_dir, "people.json"), Jason.encode!(@test_schema))
 
-      assert {:ok, result} = RefreshTools.run(%{}, context)
-      assert result.message =~ "2 brain tools"
-      assert length(result.tools) == 2
-      assert "create_person" in result.tools
-      assert "update_person" in result.tools
+      log =
+        capture_log(fn ->
+          assert {:ok, result} = RefreshTools.run(%{}, context)
+          assert result.message =~ "2 knowledge base tools"
+          assert length(result.tools) == 2
+          assert "create_person" in result.tools
+          assert "update_person" in result.tools
+        end)
+
+      assert log =~ "DEPRECATION"
+      assert log =~ "refresh_brain_tools"
     end
 
     test "returns zero tools when no schemas exist", %{context: context} do
       assert {:ok, result} = RefreshTools.run(%{}, context)
-      assert result.message =~ "0 brain tools"
+      assert result.message =~ "0 knowledge base tools"
       assert result.tools == []
+    end
+
+    test "returns actionable error after legacy cutoff", %{context: context} do
+      cutoff_context = put_in(context, [:state, :legacy_brain_aliases_until], "2000-01-01")
+
+      assert {:error, message} = RefreshTools.run(%{}, cutoff_context)
+      assert message =~ "no longer supported"
+      assert message =~ "refresh_knowledge_base_tools"
     end
 
     test "works without workspace in context state" do
