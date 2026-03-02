@@ -30,18 +30,18 @@ The `context.state` path may work in the future if Jido adds state propagation, 
 ```elixir
 alias Goodwizard.Cache
 
-Cache.put("brain:people:abc123", entity)           # store
-Cache.get("brain:people:abc123")                    # fetch (nil on miss)
+Cache.put("knowledge_base:people:abc123", entity)           # store
+Cache.get("knowledge_base:people:abc123")                    # fetch (nil on miss)
 Cache.put("skills:list", skills, ttl: :timer.minutes(5))  # store with TTL
-Cache.delete("brain:people:abc123")                 # invalidate
-Cache.has_key?("brain:people:abc123")               # check existence
+Cache.delete("knowledge_base:people:abc123")                 # invalidate
+Cache.has_key?("knowledge_base:people:abc123")               # check existence
 ```
 
-**Key conventions:** Use `"domain:type:id"` style keys (e.g. `"brain:people:abc123"`, `"skills:list"`, `"session:meta:cli"`).
+**Key conventions:** Use `"domain:type:id"` style keys (e.g. `"knowledge_base:people:abc123"`, `"skills:list"`, `"session:meta:cli"`).
 
 **Invalidation:** Always invalidate or update the cache entry when writing/updating the underlying data. A stale cache is worse than no cache.
 
-**TTL guidance:** Use TTLs for data that may change externally (skills, config). Omit TTL for data only modified through Goodwizard actions (brain entities) — invalidate explicitly on write instead.
+**TTL guidance:** Use TTLs for data that may change externally (skills, config). Omit TTL for data only modified through Goodwizard actions (knowledge base entities) — invalidate explicitly on write instead.
 
 ## Upstream Dependency Source Code
 
@@ -72,7 +72,7 @@ If the option has an env var override, also update the `@env_overrides` list in 
 - `lib/goodwizard/character/preamble.ex` — Code-controlled system prompt preamble (see Configuration Changes below)
 - `lib/goodwizard/cache.ex` — Nebulex local ETS cache (see Caching section above)
 - `lib/goodwizard/config.ex` — Config GenServer (TOML + env vars + defaults)
-- `priv/workspace/` — Default workspace (brain data, skills, memory, sessions)
+- `priv/workspace/` — Default workspace (knowledge base data, skills, memory, sessions)
 
 ## Configuration Changes
 
