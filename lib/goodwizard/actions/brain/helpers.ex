@@ -123,9 +123,14 @@ defmodule Goodwizard.Actions.Brain.Helpers do
   def format_error(:path_traversal), do: "Invalid path"
   def format_error(:body_too_large), do: "Body exceeds maximum size"
   def format_error(:update_locked), do: "Entity is locked by another operation"
+  def format_error(:protected_entity_type), do: "Cannot delete protected entity type"
   def format_error(:enoent), do: "File not found"
   def format_error(:eacces), do: "Permission denied"
   def format_error({:duplicate_id, _id}), do: "Duplicate entity ID"
+
+  def format_error({:protected_entity_type, entity_type}),
+    do: "Cannot delete protected entity type: #{entity_type}"
+
   def format_error({:parse_error, _file, _reason}), do: "Failed to parse entity file"
   def format_error({:schema_resolution_error, _msg}), do: "Schema resolution failed"
 

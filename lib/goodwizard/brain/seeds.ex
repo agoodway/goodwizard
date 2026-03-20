@@ -27,6 +27,11 @@ defmodule Goodwizard.Brain.Seeds do
   @spec entity_types() :: [String.t()]
   def entity_types, do: @entity_types
 
+  @doc "Returns true when the given type is one of the seeded entity types."
+  @spec seeded_type?(term()) :: boolean()
+  def seeded_type?(type) when is_binary(type), do: type in entity_types()
+  def seeded_type?(_type), do: false
+
   @doc """
   Seeds all default schemas to disk if they don't already exist.
 
